@@ -25,7 +25,7 @@ For the *why* and the architectural commitments that govern every step, see `CLA
 - **Acceptance:** `uv run uvicorn app.main:app --reload` starts; `GET /health` returns `{"status":"ok"}`; `pytest` runs (one test); `ruff check` clean.
 - **Depends on:** none.
 
-### B2 — Markdown parser + Passage model (in-memory; no DB yet)
+### B2 — Markdown parser + Passage model (in-memory; no DB yet)  - [x]
 - **Goal:** pure parser turning `convictions/*.md` into `list[Passage]` with stable IDs and `Updated` dates (where present).
 - **Scope cap:** in-memory only. No Postgres. No embeddings. No tools yet.
 - **Files:** `app/models.py` (Passage, DocSummary, Heading), `app/parser/markdown.py`, `app/parser/dates.py`, `app/parser/cli.py`, `tests/parser/test_markdown.py`, `tests/parser/test_dates.py`, `tests/parser/test_corpus_snapshot.py`.
