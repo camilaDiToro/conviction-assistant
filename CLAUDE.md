@@ -19,6 +19,7 @@ The architecture is a **constrained tool-using agent + deterministic citation ve
 | File | Purpose |
 |---|---|
 | `AI_CHALLENGE.md` | The challenge brief from Decade. The requirements live here. |
+| `docs/ROADMAP.md` | **Multi-session step-by-step build plan.** Read this at the start of every implementation session. Update between sessions (check off `- [x]`, note deviations). |
 | `docs/ARCHITECTURES.md` | **The chosen architecture.** Tool surface, agent loop, verifier, what's *not* implemented in this version, alternatives that were considered and rejected, eval-driven implementation order. |
 | `docs/INSIGHTS.md` | Research notes on provider-built RAG (Anthropic / OpenAI / Google) and how Claude Code works internally. Explains *why* the tool-based design is the right answer. Has links and videos. |
 | `docs/TESTING.md` | Testing strategy. Layer-by-layer test plan, faithfulness eval suite, CI tiers. Confirms the architecture is testable by construction. |
@@ -98,6 +99,55 @@ Documented so future sessions don't re-litigate them.
 - **`/eval` endpoint** for running the eval suite via HTTP. Replaced by the `pytest -m eval` suite documented in `docs/TESTING.md` — better dev ergonomics, no production endpoint to secure.
 - **Lightweight evidence-selector model inside `search_convictions`.** A second small model that picks the best 4–8 of the fused top-30. Correct technique at thousands+ docs; premature for v1. The RRF fusion of BM25 + embeddings is *already* in v1 — that part is not rejected, it's the baseline. See `docs/RETRIEVAL_SCALE.md`.
 - **Cross-encoder reranker** inside `search_convictions`. Adds a model + latency. Justified at hundreds+ docs; deferred until eval shows hybrid retrieval misses cross-cutting questions. See `docs/RETRIEVAL_SCALE.md`.
+
+## Layering & single-LLM-point (hard rules)
+
+These four rules are non-negotiable. They keep the codebase swappable, testable, and honest. Code review (and CI grep) enforces them.
+
+### Backend layout
+
+```
+app/
+  config.py        # env-var loading; the only place os.getenv lives
+  models.py        # shared Pydantic models (Passage, Citation, ChatRequest, ...)
+  parser/          # pure: markdown -> passages; no I/O beyond file reads
+  store/           # repository pattern; Postgres access; no business logic
+  providers/       # LLMProvider + EmbeddingProvider protocols + adapters
+                   # *** SINGLE POINT OF LLM INTERACTION ***
+  tools/           # agent tools as pure functions over the store
+  agent/           # orchestrator, system prompt file, loop
+  verifier/        # substring verifier
+  api/             # FastAPI routes; thin — delegates to agent
+  main.py
+```
+
+**Hard rules:**
+1. **No code outside `app/providers/` ever imports `openai`, `anthropic`, or any provider SDK.** Including tests. CI greps for this.
+2. **No code outside `app/store/` runs SQL.** Tools and the agent talk to the repository.
+3. **No code outside `app/config.py` calls `os.getenv`.** All settings flow through `config.settings`.
+4. **No business logic in `app/api/`.** Routes parse request → call agent → wrap response.
+
+The `LLMProvider` and `EmbeddingProvider` protocols are the *only* contract above provider adapters. `StubProvider` ships in B4 and is what every CI test uses — the test suite never burns provider tokens.
+
+### Frontend layout
+
+```
+frontend/src/
+  lib/api.ts       # *** SINGLE POINT OF BACKEND INTERACTION ***
+  lib/types.ts     # mirrored from backend Pydantic models
+  components/      # generic UI primitives
+  features/chat/   # message list, composer, citation rendering
+  features/debug/  # debug drawer
+```
+
+- **No `fetch` or `axios` outside `lib/api.ts`.** ESLint rule enforced.
+- **No backend types redefined inline in components.** They live in `lib/types.ts`.
+
+## Commit conventions
+
+- **Subject under 150 characters.** No body. No `Co-Authored-By:` trailer.
+- Imperative voice, no trailing period.
+- One concept per commit; if the subject wants to say "and", split.
 
 ## Conventions for working in this repo
 
