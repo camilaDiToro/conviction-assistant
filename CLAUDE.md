@@ -34,7 +34,7 @@ This project ships **two tiers of code**, deliberately. A reviewer should be abl
 **Production-grade (built right; will survive a deep-dive):**
 - Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
 - Citation verifier (deterministic, exhaustively tested, retry-with-feedback)
-- Agent loop bounds (max 5 tool calls, ≥ 1 search before answer, `temperature=0`)
+- Agent loop bounds (max 5 tool calls, ≥ 1 search before answer, `reasoning_effort="low"` on gpt-5 — see `docs/MODEL_CONFIG.md`; determinism enforced by the verifier, not by `temperature`)
 - Audit log + cost tracking (3 granularities)
 - Response contract (deterministic disclaimer, language mirroring, schema-validated)
 - Tool surface (read-only, JSON-schema-defined, pure-function tests)
@@ -63,6 +63,8 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 | `docs/RETRIEVAL_SCALE.md` | Why each corpus size implies a different retrieval stack. |
 | `docs/SCALING.md` | What changes in the architecture as concurrent-user count grows. |
 | `docs/DEPLOYMENT.md` | Concrete deploy plan: tech stack, hosting choice, architecture diagram, key decisions, scale path. |
+| `docs/PRICING.md` | How we keep up-to-date model prices without a runtime pricing library: vendored JSON from LiteLLM upstream + `scripts/refresh_prices.py`. Covers why we rejected LiteLLM-the-package and `tokencost`. |
+| `docs/MODEL_CONFIG.md` | Why each gpt-5 tuning knob (`reasoning_effort`, `verbosity`, `max_output_tokens`, timeout) has the value it does for this use case. |
 
 ## CRITICAL RULES (these must be obvious in every response)
 
@@ -97,7 +99,7 @@ This requires the parser to extract `Updated:` dates from document headers and s
 2. **No provider-native grounding feature is the architecture.** They live behind adapters as optimizations only. The contract above the adapter is identical across Anthropic, OpenAI, Gemini.
 3. **BM25-only is the v1 retrieval baseline.** The corpus is 30 docs; plain BM25 (with unicode-fold + accent-strip + lowercase normalization) may be sufficient. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under ROADMAP B6, gated on eval failure *and* a conversation with the project owner — never auto-promoted. See `docs/RETRIEVAL_SCALE.md` for the per-corpus-size reasoning.
 4. **No prior assistant answers in the source-of-truth context.** Each turn runs fresh tool calls. Prior conversation is used only to rewrite the current question.
-5. **The agent loop is bounded.** Max 5 tool calls, `temperature=0`, no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
+5. **The agent loop is bounded.** Max 5 tool calls, `reasoning_effort="low"` on gpt-5, no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
 6. **Tests run without an LLM by default.** LLM-in-the-loop is isolated to the eval pipeline. Unit + integration CI never burns provider tokens.
 7. **Cost tracking is mandatory at three granularities** — per step, per question, per conversation. Every LLM call returns a `usage` block; the orchestrator stamps every step with IDs; the HTTP response includes per-step usage in `debug` and a `usage_summary` at the top. See `docs/ASSUMPTIONS.md` § "Cost tracking — REQUIRED" for the schema.
 

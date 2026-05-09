@@ -1,0 +1,25 @@
+# Sample fixture format for `load_stub_responses`. Used by tests in
+# `tests/providers/test_stub.py` to confirm the YAML loader produces a
+# correct `LLMResponse` sequence. Real agent-loop fixtures land in B8.
+- tool_calls:
+    - id: call_1
+      name: search_convictions
+      arguments:
+        query: "CDB tributação"
+        k: 5
+  usage:
+    model: stub-llm
+    prompt_tokens: 120
+    completion_tokens: 18
+    cached_tokens: 0
+- content: '{"kind": "answer", "answer": "CDBs follow the regressive IR table.", "citations": []}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations: []
+  usage:
+    model: stub-llm
+    prompt_tokens: 240
+    completion_tokens: 35
+    cached_tokens: 60
+  finish_reason: stop
