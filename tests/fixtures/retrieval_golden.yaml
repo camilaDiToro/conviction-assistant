@@ -1,0 +1,280 @@
+# Hand-authored retrieval fixture for ROADMAP step B6 (BM25-only retrieval).
+#
+# Each entry is one query and the passage IDs that *should* appear in the
+# top-k results from search_convictions(query, k=5). The FIRST id is the
+# primary expected hit; additional ids are nice-to-have secondary signal
+# (i.e. another passage that genuinely answers part of the same question).
+#
+# Every passage_id below was verified against the parser output — none are
+# invented. Every query was written after reading the cited passage(s) end
+# to end, so the answer is actually present in the citation.
+#
+# Buckets:
+#   literal    — query mentions the exact term that appears in the heading
+#                or body (e.g. "tributação dos CDBs")
+#   topic      — query asks about the concept by paraphrase / synonym /
+#                related term (no shared content words with the heading)
+#   cross_lang — query language differs from the passage language; this is
+#                the canary for the hybrid-retrieval level-up
+#
+# Languages: pt, en, es. Spanish queries are included because users may ask
+# in Spanish even though the corpus is PT/EN.
+#
+# Notes I flagged with "BM25 risk:" are cases I expect to fail under plain
+# BM25 — these are what we watch when the B6 eval runs.
+
+cases:
+  # ---------------- PT — literal ----------------
+
+  - id: cdb-tributacao-pt-literal
+    query: "Como funciona a tributação dos CDBs e a tabela regressiva de IR?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - cdbs_quick_guide#tributacao-tabela-regressiva
+    notes: "Direct PT term query against PT doc; baseline easy case for BM25."
+
+  - id: fgc-cdb-pt-literal
+    query: "Qual o limite de cobertura do FGC para CDBs por CPF?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - cdbs_quick_guide#garantia-do-fgc
+      - lci_lca_investimentos#garantia-do-fgc
+    notes: "FGC is repeated literal; primary is CDB doc, LCI/LCA also valid."
+
+  - id: lci-lca-isencao-pt-literal
+    query: "LCI e LCA são isentas de Imposto de Renda?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - lci_lca_investimentos#prazo-minimo-carencia-e-tributacao
+    notes: "Strong literal overlap (LCI/LCA, IR, isenção)."
+
+  - id: come-cotas-fundos-renda-fixa-pt-literal
+    query: "O que é o come-cotas em fundos de renda fixa?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - fundos_renda_fixa#tributacao-e-come-cotas
+      - guia_completo_tributacao_investimentos#4-fundos-de-investimento-tributacao-e-come-cotas
+    notes: "Literal 'come-cotas' is a unique term; should be very strong for BM25."
+
+  - id: ntnb-marcacao-mercado-pt-literal
+    query: "O que é marcação a mercado em NTN-B e qual o risco de duration?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - ntnb_titulos_guia#marcacao-a-mercado-e-risco-de-duration
+    notes: "Direct heading match; baseline."
+
+  - id: pgbl-vgbl-diferenca-pt-literal
+    query: "Qual a diferença entre PGBL e VGBL na mecânica fiscal?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - pgbl_vgbl_comparacao#diferenca-fundamental-a-mecanica-fiscal
+    notes: "Strong literal terms PGBL/VGBL; should rank top-1 easily."
+
+  - id: etfs-tributacao-isencao-20k-pt-literal
+    query: "ETFs têm a isenção de R$20.000 por mês como ações?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - etfs_brasileiros_guia#tributacao-de-etfs-no-brasil
+      - guia_completo_tributacao_investimentos#12-tributacao-de-etfs
+    notes: "Literal 'ETF' + tributação; the answer is no — both passages cover this."
+
+  - id: fundos-cambiais-quando-usar-pt-literal
+    query: "Quando usar fundos cambiais para hedge cambial?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - fundos_cambiais#quando-usar-fundos-cambiais
+    notes: "Direct heading match."
+
+  - id: tesouro-direto-comparativo-pt-literal
+    query: "Comparativo do Tesouro Direto com LCI, LCA, CDB e debêntures"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - tesouro_direto_estrategias_avancadas#6-comparativo-com-produtos-privados-lci-lca-cdb-e-debentures
+    notes: "Heading is almost the query verbatim — easiest case in the file."
+
+  # ---------------- PT — topic / paraphrase ----------------
+
+  - id: cdb-laddering-pt-topic
+    query: "Como distribuir aplicações em CDBs com prazos diferentes para combinar liquidez e taxa?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - cdbs_quick_guide#estrategia-de-escalonamento-de-vencimentos-laddering
+    notes: "Paraphrase of 'escalonamento/laddering' — query never says either word."
+
+  - id: jcp-mecanismo-pt-topic
+    query: "O que é juros sobre capital próprio e por que empresas brasileiras usam essa forma de pagar acionistas?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - dividend_aristocrats_brazil#jcp-juros-sobre-capital-proprio-the-uniquely-brazilian-dividend-mechanism
+    notes: "Topic query — heading is in EN+PT mixed but the body is dense with JCP/IRPJ/CSLL."
+
+  - id: fii-tijolo-vs-papel-pt-topic
+    query: "Qual a diferença entre fundos imobiliários que detêm imóveis físicos e os que detêm CRIs?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - fundos_imobiliarios_completo#3-tipos-de-fiis-e-estrategias-de-investimento
+    notes: "Paraphrase: 'imóveis físicos' = tijolo, 'CRIs' = papel. Mid-difficulty."
+
+  - id: dividendo-obrigatorio-pt-topic
+    query: "Qual o percentual mínimo de lucro líquido que companhias brasileiras devem distribuir como dividendo?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - dividend_aristocrats_brazil#legal-framework-mandatory-minimum-dividend
+    notes: "PT query against an EN passage. BM25 risk: 'dividendo obrigatório' appears only inline; heading is in English."
+    bucket_alt: cross_lang
+
+  # ---------------- EN — literal ----------------
+
+  - id: bdr-pricing-en-literal
+    query: "How does BDR pricing work and what is the BDR fair value formula?"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - bdrs_investing_guide#how-bdr-pricing-works-the-exchange-rate-dimension
+    notes: "Direct match; baseline."
+
+  - id: novo-mercado-en-literal
+    query: "What are the requirements for listing on Novo Mercado on B3?"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - corporate_governance_levels_b3#the-four-listing-levels
+    notes: "EN literal; 'Novo Mercado' is a proper noun preserved in EN doc."
+
+  - id: insider-blackout-en-literal
+    query: "What is the blackout period before earnings disclosure under CVM rules?"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - insider_trading_regulations#blackout-periods
+    notes: "Direct heading + body match."
+
+  - id: incentivized-debentures-tax-en-literal
+    query: "How are incentivized debentures (Law 12.431) taxed for individual investors?"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - debentures_incentivadas_analysis#the-tax-exemption-calculating-the-after-tax-advantage
+      - debentures_incentivadas_analysis#legal-basis-and-regulatory-framework-law-12-431-2011
+    notes: "Two valid hits; primary is the tax section."
+
+  - id: qfi-cmn-4373-en-literal
+    query: "What is the minimum investment for a Qualified Foreign Investor under CMN Resolution 4,373?"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - qualified_foreign_investor_guide#registration-requirements-with-cvm
+      - qualified_foreign_investor_guide#the-cmn-resolution-4-373-framework
+    notes: "Specific number (R$5 million) is in the registration section, not the framework section."
+
+  - id: bm25-etf-mention-on-pt-doc-en-literal
+    query: "ETF creation and redemption mechanics on B3"
+    language: en
+    bucket: literal
+    expected_passage_ids:
+      - b3_trading_mechanics#etf-creation-and-redemption-mechanics
+    notes: "EN-on-EN heading match; trivial baseline."
+
+  # ---------------- EN — topic / paraphrase ----------------
+
+  - id: dividend-trap-warning-en-topic
+    query: "How to spot an unsustainable dividend that may be cut?"
+    language: en
+    bucket: topic
+    expected_passage_ids:
+      - dividend_aristocrats_brazil#dividend-trap-warning-signs
+    notes: "Paraphrase of 'dividend trap warning signs'."
+
+  - id: venture-debt-vs-equity-en-topic
+    query: "Why would a startup take on debt instead of raising another equity round?"
+    language: en
+    bucket: topic
+    expected_passage_ids:
+      - venture_debt_brazil#when-startups-use-venture-debt
+      - venture_debt_brazil#how-venture-debt-differs-from-equity
+    notes: "Topic query; the 'between equity rounds' use case is the canonical answer."
+
+  # ---------------- ES — Spanish queries against PT/EN content ----------------
+
+  - id: cdb-impuestos-es-cross-lang
+    query: "¿Cómo se calculan los impuestos sobre los CDB en Brasil?"
+    language: es
+    bucket: cross_lang
+    expected_passage_ids:
+      - cdbs_quick_guide#tributacao-tabela-regressiva
+    notes: "ES query against PT doc. 'CDB' is a proper noun shared across all three languages — that's the only term BM25 can latch onto. BM25 risk: 'impuestos' won't match 'tributação' / 'IR'."
+
+  - id: dolarizacion-es-cross-lang
+    query: "Estrategias de dolarización para inversores brasileños"
+    language: es
+    bucket: cross_lang
+    expected_passage_ids:
+      - currency_exposure_strategies#dollarization-strategies-available-in-brazil
+    notes: "ES query against EN doc. 'Dolarización' / 'dollarization' share the root but BM25 sees them as different tokens. BM25 risk: high — the only literal overlap is 'Brasil/Brazilian'."
+
+  - id: fondos-inmobiliarios-es-cross-lang
+    query: "¿Qué son los fondos inmobiliarios brasileños (FII) y cómo se gravan?"
+    language: es
+    bucket: cross_lang
+    expected_passage_ids:
+      - fundos_imobiliarios_completo#7-tributacao-e-aspectos-fiscais
+      - fundos_imobiliarios_completo#1-introducao-e-estrutura-do-mercado
+    notes: "ES against PT. 'FII' is the proper-noun anchor; 'fondos' vs 'fundos' is one-letter off but BM25 won't merge them. Likely BM25 fail mode."
+
+  - id: pequenas-empresas-es-cross-lang
+    query: "Tesis de inversión en acciones de empresas de pequeña capitalización en Brasil"
+    language: es
+    bucket: cross_lang
+    expected_passage_ids:
+      - small_caps_investment_thesis#executive-summary
+      - small_caps_investment_thesis#defining-small-caps-on-b3
+    notes: "ES query against EN doc. 'Small caps' as a term doesn't appear in the query — pure paraphrase. BM25 risk: very high."
+
+  # ---------------- Cross-cutting / harder cases ----------------
+
+  - id: cripto-tributacao-cross-doc
+    query: "Como declaro criptomoedas no imposto de renda anual?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - crypto_taxation_brazil#dirpf-declaration-annual-income-tax-return
+      - guia_completo_tributacao_investimentos#7-criptoativos-tributacao-e-obrigacoes-acessorias
+    notes: "Answer is split across two docs — one EN-headed (DIRPF declaration) and one PT (general tax guide). Both are legitimate primary candidates depending on tokenization."
+
+  - id: family-office-sucessao-cross-lang
+    query: "Como o family office estrutura o planejamento sucessório no Brasil?"
+    language: pt
+    bucket: cross_lang
+    expected_passage_ids:
+      - family_office_structures_brazil#brazilian-succession-law-considerations
+      - family_office_structures_brazil#holding-structures-onshore-vs-offshore
+    notes: "PT query against an EN-only doc. 'Family office' is the only literal anchor. BM25 risk: high — 'sucessório/sucessão' won't match 'succession'."
+
+  - id: ipca-plus-vs-prefixado-pt-topic
+    query: "Quando faz mais sentido escolher um título IPCA+ em vez de um prefixado?"
+    language: pt
+    bucket: topic
+    expected_passage_ids:
+      - ntnb_titulos_guia#prefixado-vs-ipca-quando-escolher-cada-um
+    notes: "Heading near-paraphrase; should be findable but the body uses a lot of generic words."
+
+  - id: fundos-exclusivos-alta-renda-pt-literal
+    query: "O que são fundos exclusivos para alta renda?"
+    language: pt
+    bucket: literal
+    expected_passage_ids:
+      - fundos_renda_fixa#fundos-exclusivos-para-alta-renda
+    notes: "Heading is a verbatim match — sanity-check baseline."
