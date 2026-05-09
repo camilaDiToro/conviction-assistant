@@ -10,9 +10,27 @@ A conversational AI assistant strictly grounded on Decade's investment convictio
 
 The architecture is a **constrained tool-using agent + deterministic citation verifier**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user.
 
-## Project framing
+## Project framing — production-grade vs deliberately simplified
 
-**This is an interview challenge, not a production system.** Nobody will maintain this after delivery. Optimize for **code quality, clarity, and defensibility under interview questions** — not for ops resilience, CI/CD pipelines, multi-region deploys, or hypothetical future maintainers. The README's "production-readiness" section is an *audit* of what would change for production; it documents thinking, not code. See `docs/ASSUMPTIONS.md` § "Operational" for the full framing.
+This project ships **two tiers of code**, deliberately. A reviewer should be able to tell at a glance which tier any file belongs to. Optimize for code quality, clarity, and defensibility under interview questions — and pick the right tier for each piece.
+
+**Production-grade (built right; will survive a deep-dive):**
+- Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
+- Citation verifier (deterministic, exhaustively tested, retry-with-feedback)
+- Agent loop bounds (max 5 tool calls, ≥ 1 search before answer, `temperature=0`)
+- Audit log + cost tracking (3 granularities)
+- Response contract (deterministic disclaimer, language mirroring, schema-validated)
+- Tool surface (read-only, JSON-schema-defined, pure-function tests)
+- Layering rules (CI-greppable; see § "Layering & single-LLM-point" below)
+
+**Deliberately simplified (well-known production paths exist; documented as level-up, not built):**
+- SQLite + Python BM25 (vs Postgres + pgvector + FTS — see ROADMAP B3 / B6 level-ups)
+- In-process FastAPI (vs Docker / k8s / multi-replica — see `docs/DEPLOYMENT.md`)
+- No auth, no rate limit, no SSE streaming (single sync `/chat` — see ROADMAP B9)
+- File-based settings (vs secrets manager)
+- ~30 hand-written eval questions (vs auto-generated bank + LLM-judge dashboard — see ROADMAP B10)
+
+Each level-up is documented in the step where it would land, so a reviewer can see we knew what we were skipping and why. **Promotion from "simplified" to "production-grade" is a conversation, not auto-triggered by the implementer.** See `docs/ASSUMPTIONS.md` § "Operational" for the longer framing.
 
 ## Where to read what
 
@@ -60,7 +78,7 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 1. **The agent finds evidence; the verifier enforces grounding.** These are separate responsibilities. Don't move grounding logic into the prompt or rely on the model to self-verify.
 2. **No provider-native grounding feature is the architecture.** They live behind adapters as optimizations only. The contract above the adapter is identical across Anthropic, OpenAI, Gemini.
-3. **Hybrid BM25 + multilingual embeddings is the v1 baseline.** Multilingual retrieval is required from day 1 — the corpus is PT/EN and queries are PT/EN/ES, so BM25 alone has a cross-language failure mode. Promotion to a *reranker* (or larger retrieval pipeline) is what's gated on eval failures. See `docs/RETRIEVAL_SCALE.md`.
+3. **BM25-only is the v1 retrieval baseline.** The corpus is 30 docs; plain BM25 (with unicode-fold + accent-strip + lowercase normalization) may be sufficient. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under ROADMAP B6, gated on eval failure *and* a conversation with the project owner — never auto-promoted. See `docs/RETRIEVAL_SCALE.md` for the per-corpus-size reasoning.
 4. **No prior assistant answers in the source-of-truth context.** Each turn runs fresh tool calls. Prior conversation is used only to rewrite the current question.
 5. **The agent loop is bounded.** Max 5 tool calls, `temperature=0`, no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
 6. **Tests run without an LLM by default.** LLM-in-the-loop is isolated to the eval pipeline. Unit + integration CI never burns provider tokens.
@@ -68,12 +86,12 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 ## In scope for v1
 
-- Markdown ingestion → passage store with stable IDs (incl. `Updated:` date extraction)
-- `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5` + `text-embedding-3-large`), Anthropic adapter second (portability proof)
-- Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (hybrid BM25 + multilingual embeddings, RRF), `read_passage`
+- Markdown ingestion → SQLite passage store with stable IDs (incl. `Updated:` date extraction)
+- `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5`; `text-embedding-3-large` ships in the adapter even though B6 doesn't use embeddings — keeps the adapter complete), Anthropic adapter second (portability proof)
+- Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output
-- Deterministic citation verifier with retry-once-with-feedback
-- Disclaimer + audit log + cost tracking on every response
+- Deterministic citation verifier with retry-once-with-feedback (built **before** the agent loop so every later step measures verifier pass rate)
+- Disclaimer + audit log + cost tracking on every response (PT / EN / **ES** disclaimers — Spanish users may ask in Spanish even though the corpus is PT/EN)
 - `POST /chat` endpoint
 - Lightweight React frontend (Vite + React + TypeScript + Tailwind; built to static files and mounted under FastAPI)
 - Eval suite (~30 hand-written Q/A) with verifier pass rate as headline metric
@@ -81,10 +99,12 @@ This requires the parser to extract `Updated:` dates from document headers and s
 ## Out of scope for v1 (designed, not built)
 
 - PDF / Excel uploads (the challenge bonus)
-- Cross-encoder reranker inside `search_convictions`
+- **Postgres + pgvector** — SQLite ships v1; Postgres is the documented level-up under ROADMAP B3
+- **Hybrid retrieval (BM25 + dense + RRF)** — BM25 ships v1; hybrid is the documented level-up under ROADMAP B6
+- Cross-encoder reranker inside `search_convictions` (further level-up beyond hybrid)
 - Anthropic Citations API optimization inside the Anthropic adapter
 
-See `docs/ARCHITECTURES.md` § "Not implemented in this version" for the design.
+See `docs/ARCHITECTURES.md` § "Not implemented in this version" and `docs/ROADMAP.md` per-step "Level-up path" subsections for the design.
 
 ## Implementation order
 
@@ -97,8 +117,10 @@ Documented so future sessions don't re-litigate them.
 - **`confidence: high|medium|low` field on the response.** Adds an unverifiable signal — the model self-reports confidence, which is exactly the kind of thing we don't want to trust. The verifier pass/fail is a stronger and more honest signal. Rejected.
 - **`/retrieve` endpoint alongside `/chat`** (returns retrieved evidence without generation). Genuinely useful for the demo; not required for v1. May be added if time allows.
 - **`/eval` endpoint** for running the eval suite via HTTP. Replaced by the `pytest -m eval` suite documented in `docs/TESTING.md` — better dev ergonomics, no production endpoint to secure.
-- **Lightweight evidence-selector model inside `search_convictions`.** A second small model that picks the best 4–8 of the fused top-30. Correct technique at thousands+ docs; premature for v1. The RRF fusion of BM25 + embeddings is *already* in v1 — that part is not rejected, it's the baseline. See `docs/RETRIEVAL_SCALE.md`.
-- **Cross-encoder reranker** inside `search_convictions`. Adds a model + latency. Justified at hundreds+ docs; deferred until eval shows hybrid retrieval misses cross-cutting questions. See `docs/RETRIEVAL_SCALE.md`.
+- **Lightweight evidence-selector model inside `search_convictions`.** A second small model that picks the best 4–8 of the fused top-30. Correct technique at thousands+ docs; premature for v1. See `docs/RETRIEVAL_SCALE.md`.
+- **Cross-encoder reranker** inside `search_convictions`. Adds a model + latency. Justified at hundreds+ docs; gated on a hybrid-retrieval failure that we don't yet have evidence for. See `docs/RETRIEVAL_SCALE.md`.
+- **Hybrid retrieval (BM25 + dense + RRF) as the v1 baseline.** Reconsidered after design pushback: at 30 docs, BM25 alone may suffice; building two retrieval paths + fusion before knowing whether one path works is premature. Hybrid is now the *documented level-up* under ROADMAP B6, gated on a cross-language eval failure plus a conversation. The RRF + multilingual-embedding design from earlier still applies if/when promoted.
+- **Postgres + pgvector as the v1 store.** Reconsidered after design pushback: at 30 docs and a single-process FastAPI demo, SQLite + the BM25 library covers everything. The repository contract in `app/store/` is the swap point; level-up to Postgres is documented under ROADMAP B3.
 
 ## Layering & single-LLM-point (hard rules)
 
@@ -111,7 +133,8 @@ app/
   config.py        # env-var loading; the only place os.getenv lives
   models.py        # shared Pydantic models (Passage, Citation, ChatRequest, ...)
   parser/          # pure: markdown -> passages; no I/O beyond file reads
-  store/           # repository pattern; Postgres access; no business logic
+  store/           # repository pattern; SQLite access; no business logic
+                   # (Postgres is the documented level-up — see ROADMAP B3)
   providers/       # LLMProvider + EmbeddingProvider protocols + adapters
                    # *** SINGLE POINT OF LLM INTERACTION ***
   tools/           # agent tools as pure functions over the store

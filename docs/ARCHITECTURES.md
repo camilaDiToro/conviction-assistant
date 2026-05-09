@@ -155,10 +155,11 @@ read_document_outline(doc_id: str) -> list[Heading]
 # section without reading the whole thing.
 
 search_convictions(query: str, k: int = 8) -> list[PassageHit]
-# v1: hybrid BM25 + multilingual dense embeddings fused with RRF.
-# Multilingual is required because the corpus is PT/EN and queries
-# are PT/EN/ES (BM25 alone fails on cross-language). Promotable
-# to add a reranker / Contextual Retrieval at larger corpus sizes.
+# v1: BM25-only over SQLite-indexed passages with unicode-fold +
+# accent-strip + lowercase normalization. The corpus is 30 docs
+# and BM25 may be sufficient; the contract supports hybrid as a
+# deferred level-up gated on cross-language eval failure plus a
+# conversation with the project owner. See ROADMAP B6.
 # Returns id, doc_title, heading_path, snippet, score.
 
 read_passage(passage_id: str) -> Passage
@@ -244,7 +245,7 @@ Every step of every request is persisted. One log, two consumers (audit and cost
 }
 ```
 
-The log lives in Postgres (table `audit_log`, with `cost_log` as a filtered view of `llm_call` rows) — same database that holds the passages, embeddings, and conversations. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. Cost is computed inside the provider adapter using a small per-model price table — price changes are config, not code.
+The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. Cost is computed inside the provider adapter using a small per-model price table — price changes are config, not code.
 
 See `ASSUMPTIONS.md` § "Cost tracking — REQUIRED" and § "Audit log".
 
@@ -285,7 +286,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 - Pre-built index drifts as the corpus is edited — same problem Anthropic cited when removing RAG from Claude Code.
 - Multilingual embedding selection adds risk on a corpus with both PT and EN.
 
-**Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. v1 already runs **hybrid BM25 + multilingual embeddings (Postgres FTS + pgvector, fused with RRF)** — multilingual is required from day 1 because the corpus is PT/EN and queries are PT/EN/ES. The promotions that *are* gated on eval failures are: a cross-encoder reranker, then Anthropic-style Contextual Retrieval. See `RETRIEVAL_SCALE.md`.
+**Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. **v1 ships BM25-only over SQLite** (with unicode-fold + accent-strip + lowercase normalization) — at 30 docs, BM25 alone may suffice, and the eval-driven promotion rule applies one level up: hybrid retrieval is itself the documented level-up, gated on a cross-language eval failure plus a conversation with the project owner. The full promotion ladder is: BM25 → hybrid (BM25 + multilingual embeddings + RRF) → cross-encoder reranker → Anthropic-style Contextual Retrieval. See `ROADMAP.md` § B6 and `RETRIEVAL_SCALE.md`.
 
 ### Hierarchical "table of contents, then zoom"
 
@@ -337,7 +338,9 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 The following are designed but **out of scope for this submission**:
 
 - **PDF / Excel uploads.** The bonus item from the challenge brief. Design: server-side parsing (`pypdf` / `pdfplumber` for PDF, `openpyxl` → markdown tables for Excel), parsed content becomes user-scoped passages with stable IDs in a per-conversation namespace, exposed via `search_uploaded_files(query, k)` and `read_uploaded_passage(passage_id)` — same shape as the conviction tools, same retrieval and verifier pipeline. Uploaded passages are explicitly *user context* (lower trust than convictions) and tagged accordingly in the system prompt.
-- **Cross-encoder reranker** inside `search_convictions`. Hybrid BM25 + multilingual embeddings is the v1 baseline; reranker promotion is gated on eval failures. See `RETRIEVAL_SCALE.md`.
+- **Hybrid retrieval (BM25 + multilingual embeddings + RRF).** v1 ships BM25-only; hybrid is the documented level-up under `ROADMAP.md` § B6, gated on a cross-language eval failure plus a conversation with the project owner.
+- **Cross-encoder reranker** inside `search_convictions`. Further level-up beyond hybrid; gated on its own eval failure. See `RETRIEVAL_SCALE.md`.
+- **Postgres + pgvector.** v1 ships SQLite + a Python BM25 library; Postgres is the documented level-up under `ROADMAP.md` § B3, justified by concurrency or index-size pressure neither of which exists at 30 docs.
 - **Anthropic Citations API** inside the Anthropic adapter (per-provider optimization for free `cited_text` and deterministic indices). Adapter slot exists; the optimization is not wired in.
 
 ## Implementation order (eval-driven)
@@ -345,13 +348,13 @@ The following are designed but **out of scope for this submission**:
 1. **Passage parser + store.** Markdown → passages with stable IDs (incl. `Updated:` date extraction).
 2. **Provider abstractions.** `LLMProvider` and `EmbeddingProvider` protocols. **OpenAI adapter first** for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`).
 3. **`list_documents` + `read_passage` + `read_document_outline`** tools wired up.
-4. **`search_convictions` — hybrid BM25 + multilingual embeddings + RRF.** Multilingual is required from v1; not promotable. See `RETRIEVAL_SCALE.md`.
-5. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring).
-6. **Citation verifier** with retry-once-with-feedback.
-7. **Disclaimer + audit log + cost tracking** wired into the orchestrator.
-8. **Eval suite.** See `TESTING.md`.
+4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under `ROADMAP.md` § B6, gated on cross-language eval failure plus a conversation. See `RETRIEVAL_SCALE.md`.
+5. **Citation verifier** with retry-once-with-feedback. **Built before the agent loop** so every later step measures verifier pass rate from day one.
+6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
+7. **Disclaimer + audit log + cost tracking** wired into the orchestrator. SQLite is the storage; cost tracking is at three granularities (step, question, conversation).
+8. **Eval suite.** See `TESTING.md`. Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
 9. **Anthropic adapter (second provider)** — proves portability; demonstrates the architecture is provider-agnostic. May add Citations API as a per-adapter optimization.
-10. **Optional promotion to reranker** if eval shows hybrid retrieval misses cross-cutting questions.
+10. **Optional promotion to hybrid retrieval** if eval shows BM25 misses cross-cutting / cross-language questions. Beyond hybrid: cross-encoder reranker, then Anthropic-style Contextual Retrieval. Each promotion is a conversation, not auto-triggered.
 11. **Bonus (out of scope for v1): upload pipeline** — see `ASSUMPTIONS.md` § "Source formats" for the parser-interface design.
 
 Each step should pass the eval before moving to the next. Promotion beyond step 4 (reranker, Contextual Retrieval, real vector store) is gated on documented eval failures, not speculation.
