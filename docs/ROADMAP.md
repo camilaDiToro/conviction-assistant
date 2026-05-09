@@ -44,14 +44,14 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 
 ## Backend track (B1–B10)
 
-### B1 — Project skeleton + config + health endpoint
+### B1 — Project skeleton + config + health endpoint  - [x]
 - **Goal:** runnable empty FastAPI app with the layered `app/` skeleton, Pydantic settings, ruff + pytest configured.
 - **Scope cap:** no parser, no DB, no providers. Just plumbing. Resist writing classes "you'll need anyway."
 - **Files:** `pyproject.toml`, `app/config.py`, `app/main.py`, `app/api/health.py`, `tests/test_health.py`, `.env.example`, `README.md` skeleton, `.gitignore`.
 - **Acceptance:** `uv run uvicorn app.main:app --reload` starts; `GET /health` returns `{"status":"ok"}`; `pytest` runs (one test); `ruff check` clean.
 - **Depends on:** none.
 
-### B2 — Markdown parser + Passage model (in-memory; no DB yet)
+### B2 — Markdown parser + Passage model (in-memory; no DB yet)  - [x]
 - **Goal:** pure parser turning `convictions/*.md` into `list[Passage]` with stable IDs and `Updated` dates (where present).
 - **Scope cap:** in-memory only. No SQLite. No embeddings. No tools yet.
 - **Files:** `app/models.py` (Passage, DocSummary, Heading), `app/parser/markdown.py`, `app/parser/dates.py`, `app/parser/cli.py`, `tests/parser/test_markdown.py`, `tests/parser/test_dates.py`, `tests/parser/test_corpus_snapshot.py`.
@@ -63,13 +63,18 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - Per-passage language detection (heuristic: accents + common stopwords). Tested against fixtures.
 - **Depends on:** B1.
 
-### B3 — SQLite store + ingestion command
-- **Goal:** schema + repository layer; ingestion command writes parser output to SQLite. **Production-grade contract** (typed repository, transactional writes, idempotent re-ingest); **simplified implementation** (file-backed SQLite, no migrations tool, no Docker).
+### B3 — SQLite store + ingestion command  - [x]
+- **Goal:** schema + repository layer; ingestion command writes parser output to SQLite. **Production-grade contract** (typed async repository, transactional writes, idempotent re-ingest); **simplified implementation** (file-backed SQLite, single-process).
 - **Scope cap:** no embeddings, no FTS index yet (B6 adds the BM25 index). The repository contract is what survives if we ever swap to Postgres.
-- **Files:** `app/store/db.py` (connection + CREATE TABLE IF NOT EXISTS on first connect), `app/store/passages.py` (`get`, `list_documents`, `read_outline`, `upsert_many`), `app/store/audit.py` (the `audit_log` table is created here; writes land in B9), `app/ingest.py`, `tests/store/test_repo.py`.
-- **Acceptance:** `python -m app.ingest convictions/` populates `data/conviction_assistant.sqlite` (path from `settings.SQLITE_PATH`); repo methods return expected shapes; integration test runs against a tmp-path SQLite file; idempotent re-ingest (run twice, identical row count); a heading rename across re-ingest is documented as a known-destructive operation (passage IDs are slug-based; renamed headings get new IDs and old citations become orphans — flagged with a one-line warning, not silently absorbed).
+- **Files:** `app/repositories/{db,passages}.py`, `app/services/ingest.py`, `app/api/admin.py`, `app/models/passage.py` (ORM), `app/schemas/{passage,ingest}.py` (Pydantic), `app/errors.py`, `alembic/` (migration `0001_initial_schema.py`), `tests/repositories/test_repo.py`, `tests/services/test_ingest.py`, `tests/api/test_admin.py`.
+- **Acceptance:** `POST /admin/ingest` ingests `settings.convictions_dir` and returns `IngestResponse` with documents, passages, orphans_deleted; alembic-driven migration is idempotent; integration tests run against tmp-path SQLite files via async fixtures; a heading rename across re-ingest is destructive (passage IDs are slug-based; renamed headings get new IDs and old citations become orphans — surfaced in `orphans_deleted`).
 - **Depends on:** B2.
-- **Level-up path (deferred, gated on conversation):** Postgres + pgvector if/when we need (a) concurrent writes from multiple replicas, (b) full-text indexes that outgrow SQLite FTS5, (c) a vector search path that benefits from server-side ANN. The repository interface in `app/store/passages.py` is the swap point — no caller needs to change.
+- **Deviations from the original step description (intentional):**
+  - **Stack pivot:** raw `sqlite3` + sync repo → **SQLAlchemy 2.x async** + AsyncSession + `select()` + aiosqlite, to match project stack-conventions (Router→Service→Repository, async-first FastAPI). See CLAUDE.md § Architecture.
+  - **Migrations:** Alembic (not "no migrations tool"). `alembic/versions/0001_initial_schema.py` owns the schema; `db.migrate()` applies it; FastAPI lifespan calls migrate on startup.
+  - **Surface:** `python -m app.ingest` CLI replaced with `POST /admin/ingest`. The parser dev CLI at `app/services/parser/cli.py` remains for parser-output inspection.
+  - **Folders:** `app/store/` → `app/repositories/`; `app/parser/` → `app/services/parser/`; `app/models.py` (Pydantic) → `app/schemas/passage.py`; new `app/models/passage.py` for the ORM.
+- **Level-up path (deferred, gated on conversation):** Postgres + pgvector if/when we need (a) concurrent writes from multiple replicas, (b) full-text indexes that outgrow SQLite FTS5, (c) a vector search path that benefits from server-side ANN. The repository interface in `app/repositories/passages.py` is the swap point — no caller needs to change.
 
 ### B4 — Provider abstractions + OpenAI adapter + StubProvider
 - **Goal:** `LLMProvider` and `EmbeddingProvider` protocols, OpenAI adapter, **and** a `StubProvider` for tests. Cost tracking in the adapter. Structured-output strategy lives here, in the adapter — OpenAI uses `response_format: json_schema (strict)`, the Anthropic adapter (B10) uses tool-call-as-output. Above the adapter, the contract is identical.

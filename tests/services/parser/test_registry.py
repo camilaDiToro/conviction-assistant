@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.parser import parse_corpus, parse_file, supported_extensions
+from app.services.parser import parse_corpus, parse_file, supported_extensions
 
 
 def test_md_is_registered() -> None:

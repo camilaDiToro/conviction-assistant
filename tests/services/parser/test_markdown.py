@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from app.parser import parse_file
-from app.parser.text import slugify
+from app.services.parser import parse_file
+from app.services.parser.text import slugify
 
 
 @pytest.mark.parametrize(

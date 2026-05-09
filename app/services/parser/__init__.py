@@ -1,23 +1,24 @@
 """Parser package.
 
 Generic file-extension dispatcher. Each format-specific parser lives in its
-own module and registers itself with @register(\"<ext>\").
+own module and registers itself with @register("<ext>").
 
 Adding a new format:
-  1. Create app/parser/<format>.py with a function that takes a Path and
-     returns list[Passage].
-  2. Decorate it with @register(\"<ext>\", ...). One parser can claim
+  1. Create app/services/parser/<format>.py with a function that takes a
+     Path and returns list[Passage].
+  2. Decorate it with @register("<ext>", ...). One parser can claim
      multiple extensions.
   3. Import the module at the bottom of this file so registration runs
      at import time.
 
-Adding a new language for detection: edit STOPWORDS in app/parser/text.py.
+Adding a new language for detection: edit STOPWORDS in
+app/services/parser/text.py.
 """
 
 from collections.abc import Callable
 from pathlib import Path
 
-from app.models import Passage
+from app.schemas import Passage
 
 _FormatParser = Callable[[Path], list[Passage]]
 _PARSERS: dict[str, _FormatParser] = {}
@@ -60,7 +61,7 @@ def parse_corpus(directory: str | Path) -> list[Passage]:
 
 
 # Format parsers self-register on import. New ones go here.
-from app.parser import markdown  # noqa: E402, F401
+from app.services.parser import markdown  # noqa: E402, F401
 
 __all__ = [
     "parse_corpus",

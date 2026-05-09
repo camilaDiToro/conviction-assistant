@@ -10,10 +10,10 @@ the same document, the second occurrence becomes "<base>-2", third "-3", etc.
 import re
 from pathlib import Path
 
-from app.models import Passage
-from app.parser import register
-from app.parser.dates import extract_updated
-from app.parser.text import slugify
+from app.schemas import Passage
+from app.services.parser import register
+from app.services.parser.dates import extract_updated
+from app.services.parser.text import slugify
 
 _H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 _H2_LINE_RE = re.compile(r"^##(?!#)\s+(.+?)\s*$")

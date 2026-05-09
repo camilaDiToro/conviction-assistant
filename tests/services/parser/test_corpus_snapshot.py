@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from app.parser import parse_corpus
+from app.services.parser import parse_corpus
 
-CONVICTIONS = Path(__file__).resolve().parents[2] / "convictions"
+CONVICTIONS = Path(__file__).resolve().parents[3] / "convictions"
 
 EXPECTED_DOC_COUNT = 30
-MIN_PASSAGES_PER_DOC = 3  # sanity floor — catches a broken parser without pinning the exact total
+MIN_PASSAGES_PER_DOC = 3
 EXPECTED_UNDATED_DOCS = {
     "b3_trading_mechanics",
     "bdrs_investing_guide",

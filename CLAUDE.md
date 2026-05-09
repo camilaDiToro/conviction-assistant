@@ -10,6 +10,23 @@ A conversational AI assistant strictly grounded on Decade's investment convictio
 
 The architecture is a **constrained tool-using agent + deterministic citation verifier**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user.
 
+## Stack
+
+- **Python 3.12**, FastAPI, **SQLAlchemy 2.x async** with **aiosqlite**, **Pydantic v2**
+- **Alembic** for migrations, **uv** for package management, **pytest** (+ `pytest-asyncio` in `auto` mode) for testing, **ruff** + **mypy** for lint/type-check
+
+## Common commands
+
+| Action | Command |
+|---|---|
+| Dev server | `uv run uvicorn app.main:app --reload` |
+| Tests | `uv run pytest -xvs` |
+| Tests + coverage | `uv run pytest --cov=app --cov-report=term-missing` |
+| Lint + format + type-check | `uv run ruff check . && uv run ruff format . && uv run mypy .` |
+| New migration | `uv run alembic revision --autogenerate -m "description"` then `uv run alembic upgrade head` |
+| Apply pending migrations | `uv run alembic upgrade head` (lifespan applies on app start automatically) |
+| Trigger ingest | `curl -X POST http://localhost:8000/admin/ingest` |
+
 ## Project framing — production-grade vs deliberately simplified
 
 This project ships **two tiers of code**, deliberately. A reviewer should be able to tell at a glance which tier any file belongs to. Optimize for code quality, clarity, and defensibility under interview questions — and pick the right tier for each piece.
@@ -86,7 +103,7 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 ## In scope for v1
 
-- Markdown ingestion → SQLite passage store with stable IDs (incl. `Updated:` date extraction)
+- Markdown ingestion → SQLite passage store with stable IDs (incl. `Updated:` date extraction). **Triggered via `POST /admin/ingest`**, not a CLI.
 - `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5`; `text-embedding-3-large` ships in the adapter even though B6 doesn't use embeddings — keeps the adapter complete), Anthropic adapter second (portability proof)
 - Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output
@@ -120,35 +137,99 @@ Documented so future sessions don't re-litigate them.
 - **Lightweight evidence-selector model inside `search_convictions`.** A second small model that picks the best 4–8 of the fused top-30. Correct technique at thousands+ docs; premature for v1. See `docs/RETRIEVAL_SCALE.md`.
 - **Cross-encoder reranker** inside `search_convictions`. Adds a model + latency. Justified at hundreds+ docs; gated on a hybrid-retrieval failure that we don't yet have evidence for. See `docs/RETRIEVAL_SCALE.md`.
 - **Hybrid retrieval (BM25 + dense + RRF) as the v1 baseline.** Reconsidered after design pushback: at 30 docs, BM25 alone may suffice; building two retrieval paths + fusion before knowing whether one path works is premature. Hybrid is now the *documented level-up* under ROADMAP B6, gated on a cross-language eval failure plus a conversation. The RRF + multilingual-embedding design from earlier still applies if/when promoted.
-- **Postgres + pgvector as the v1 store.** Reconsidered after design pushback: at 30 docs and a single-process FastAPI demo, SQLite + the BM25 library covers everything. The repository contract in `app/store/` is the swap point; level-up to Postgres is documented under ROADMAP B3.
+- **Postgres + pgvector as the v1 store.** Reconsidered after design pushback: at 30 docs and a single-process FastAPI demo, SQLite + the BM25 library covers everything. The repository contract in `app/repositories/` is the swap point; level-up to Postgres is documented under ROADMAP B3.
+- **Sync sqlite3 + module-level repository functions taking `sqlite3.Connection`.** First B3 implementation. Reconsidered before B4: migrating to **SQLAlchemy 2.x async** (AsyncSession + `select()` + aiosqlite) to align with the project stack-conventions (Router→Service→Repository, async-first FastAPI ecosystem) and to give the repository a typed, stack-standard swap surface. The original sync version was correct but inconsistent with the chosen stack; refactored before later steps build on the wrong base.
+- **`python -m app.ingest` CLI.** First B3 surface. Reconsidered: replaced with `POST /admin/ingest` so the admin surface is consistent (HTTP-only) and the lifespan-managed engine is reused. The parser dev CLI at `app/services/parser/cli.py` stays — it's a developer-ergonomics tool, not a user-facing surface.
 
-## Layering & single-LLM-point (hard rules)
+## Architecture — Strict Layer Separation
 
-These four rules are non-negotiable. They keep the codebase swappable, testable, and honest. Code review (and CI grep) enforces them.
+```
+Router → Service → Repository (never skip layers)
+```
+
+- **`app/api/`** — Route handlers. Thin controllers; no business logic. Maps domain exceptions to HTTP responses via handlers registered in `app/main.py`. Routers are the only layer that knows about HTTP.
+- **`app/services/`** — Business logic. Services raise domain exceptions (defined in `app/errors.py`); they NEVER raise `HTTPException` or reference HTTP status codes.
+- **`app/services/parser/`** — Pure markdown → `Passage` transformation. Sync; called from `app/services/ingest.py`.
+- **`app/repositories/`** — Data access. **All SQLAlchemy queries live here.** Module-level async functions take an `AsyncSession`; transaction control belongs to the caller (services wrap writes in `async with session.begin(): …`).
+- **`app/models/`** — SQLAlchemy ORM models. `Base` (DeclarativeBase) + per-table modules.
+- **`app/schemas/`** — Pydantic request/response schemas. `ConfigDict(from_attributes=True)` on schemas that mirror ORM rows.
+- **`app/errors.py`** — Domain exceptions (`DomainError`, `IngestError`, …); mapped to HTTP at the API boundary by handlers in `app/main.py`.
+- **`alembic/`** — Schema-of-record. Imperative migrations (op.create_table / op.execute); autogenerate is intentionally disabled until every table has an ORM model (audit_log lands in B9).
 
 ### Backend layout
 
 ```
 app/
-  config.py        # env-var loading; the only place os.getenv lives
-  models.py        # shared Pydantic models (Passage, Citation, ChatRequest, ...)
-  parser/          # pure: markdown -> passages; no I/O beyond file reads
-  store/           # repository pattern; SQLite access; no business logic
-                   # (Postgres is the documented level-up — see ROADMAP B3)
-  providers/       # LLMProvider + EmbeddingProvider protocols + adapters
-                   # *** SINGLE POINT OF LLM INTERACTION ***
-  tools/           # agent tools as pure functions over the store
-  agent/           # orchestrator, system prompt file, loop
-  verifier/        # substring verifier
-  api/             # FastAPI routes; thin — delegates to agent
-  main.py
+  config/
+    __init__.py       # Settings class + settings instance — only place env-var loading happens
+    db.py             # async engine + session factory + sync alembic migrate (no SQL — engine plumbing only)
+  errors.py           # domain exceptions; mapped to HTTP at the API boundary
+  main.py             # lifespan (engine setup), router include, exception handlers
+  api/
+    health.py         # GET /health
+    admin.py          # POST /admin/ingest (and future admin endpoints)
+    # later: chat.py (B9), …
+  services/
+    ingest.py         # parser → repo orchestration
+    parser/           # pure: markdown -> passages; no I/O beyond file reads
+    # later: agent/, verifier/, retrieval/, …
+  repositories/
+    passages.py       # SQLAlchemy 2.x async repo for passages
+    introspection.py  # list_tables / list_views — schema diagnostics (uses raw text() SQL)
+    # later: audit.py (when B9 lands)
+  models/
+    base.py           # DeclarativeBase
+    passage.py        # PassageORM
+  schemas/
+    passage.py        # Pydantic Passage / DocSummary / Heading
+    ingest.py         # Pydantic IngestResponse
+  providers/          # B4: LLMProvider + EmbeddingProvider protocols + adapters
+                      # *** SINGLE POINT OF LLM INTERACTION ***
+alembic/
+  env.py
+  script.py.mako
+  versions/
+    0001_initial_schema.py    # passages, audit_log, cost_log view
 ```
 
-**Hard rules:**
-1. **No code outside `app/providers/` ever imports `openai`, `anthropic`, or any provider SDK.** Including tests. CI greps for this.
-2. **No code outside `app/store/` runs SQL.** Tools and the agent talk to the repository.
-3. **No code outside `app/config.py` calls `os.getenv`.** All settings flow through `config.settings`.
-4. **No business logic in `app/api/`.** Routes parse request → call agent → wrap response.
+### Hard rules (CI-greppable)
+
+These rules are non-negotiable. Code review (and CI grep) enforces them.
+
+1. **No code outside `app/repositories/` runs SQL.** Services, the agent, tools, tests — everyone goes through repository functions.
+2. **No code outside `app/providers/` ever imports `openai`, `anthropic`, or any provider SDK.** Including tests. (`app/providers/` lands in B4.)
+3. **No code outside `app/config/` calls `os.getenv`.** All settings flow through `config.settings` (defined in `app/config/__init__.py`).
+4. **No business logic in `app/api/`.** Routers parse request → call service → wrap response.
+5. **Services and repositories NEVER raise `HTTPException`** or reference HTTP status codes. They raise domain exceptions; the API layer maps them.
+
+### CRITICAL — SQLAlchemy 2.x async rules
+
+- ALWAYS use `AsyncSession` (never sync `Session`)
+- ALWAYS use `select()` style: `select(PassageORM).where(PassageORM.id == id)`
+- ALWAYS use the `aiosqlite` driver: `sqlite+aiosqlite:///path`
+- ALWAYS use `selectinload()` or `joinedload()` for relationships (rule applies as soon as one lands)
+- NEVER use legacy `query()` style: `session.query(...)`
+- NEVER call sync methods on an `AsyncSession`
+
+### CRITICAL — Pydantic v2 rules
+
+- ALWAYS use `ConfigDict(from_attributes=True)` on schemas that mirror ORM rows
+- ALWAYS use `@field_validator` (never `@validator`)
+- ALWAYS use `@model_validator` (never `@root_validator`)
+- ALWAYS use `.model_dump()` (never `.dict()`)
+- ALWAYS use `.model_dump_json()` (never `.json()`)
+- NEVER import from `pydantic.v1`
+
+### CRITICAL — Error handling & HTTP rules
+
+- Services and repositories NEVER raise `HTTPException`
+- Services raise domain exceptions defined in `app/errors.py` (subclasses of `DomainError`)
+- The API layer maps domain exceptions to HTTP responses via handlers registered in `app/main.py`
+- Routers are the only layer that knows about HTTP — status codes, headers, response formatting stay in `app/api/`
+- ALWAYS use `async def` for endpoints
+- ALWAYS use `Depends()` for dependency injection (DB sessions, future auth)
+- ALWAYS return Pydantic schemas, never raw ORM objects or dicts
+- NEVER use `@app.on_event()` — use `lifespan` context managers (already in `app/main.py`)
 
 The `LLMProvider` and `EmbeddingProvider` protocols are the *only* contract above provider adapters. `StubProvider` ships in B4 and is what every CI test uses — the test suite never burns provider tokens.
 

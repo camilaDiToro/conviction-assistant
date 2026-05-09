@@ -8,13 +8,19 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
+    "sqlalchemy>=2.0",
+    "aiosqlite>=0.20",
+    "alembic>=1.13",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
     "httpx>=0.27",
     "ruff>=0.6",
+    "mypy>=1.10",
 ]
 
 [tool.ruff]
@@ -24,6 +30,11 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's Depends() and Body() are intentional in argument defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Body"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+asyncio_mode = "auto"

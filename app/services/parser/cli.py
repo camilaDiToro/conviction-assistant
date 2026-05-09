@@ -1,18 +1,20 @@
 """CLI: print parser stats for a convictions directory.
 
 Usage:
-    python -m app.parser.cli convictions/
+    uv run python -m app.services.parser.cli convictions/
+
+Dev convenience for inspecting parser output without spinning up the API.
 """
 
 import sys
 from pathlib import Path
 
-from app.parser import parse_corpus
+from app.services.parser import parse_corpus
 
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print("usage: python -m app.parser.cli <convictions_dir>", file=sys.stderr)
+        print("usage: python -m app.services.parser.cli <convictions_dir>", file=sys.stderr)
         return 1
 
     directory = Path(argv[1])

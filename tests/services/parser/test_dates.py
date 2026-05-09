@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from app.parser.dates import extract_updated
+from app.services.parser.dates import extract_updated
 
 
 @pytest.mark.parametrize(
