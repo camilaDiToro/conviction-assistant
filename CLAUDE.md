@@ -6,6 +6,8 @@ Index for future Claude sessions working on this project. Read this first; follo
 
 A conversational AI assistant strictly grounded on Decade's investment conviction documents. The challenge brief is in `AI_CHALLENGE.md`. The corpus is in `convictions/` (30 markdown files, mixed Portuguese/English, expected to grow).
 
+**One-line framing for the interview:** *a constrained agentic harness over the conviction corpus — inspired by Claude Code's "tools, not embeddings-as-the-retriever" philosophy — with a deterministic substring verifier as the grounding guarantee that no provider's Citations API matches.*
+
 The architecture is a **constrained tool-using agent + deterministic citation verifier**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user.
 
 ## Project framing
@@ -24,6 +26,7 @@ The architecture is a **constrained tool-using agent + deterministic citation ve
 | `docs/ASSUMPTIONS.md` | Confirmed assumptions from the project owner. Read before making decisions. |
 | `docs/RETRIEVAL_SCALE.md` | Why each corpus size implies a different retrieval stack. |
 | `docs/SCALING.md` | What changes in the architecture as concurrent-user count grows. |
+| `docs/DEPLOYMENT.md` | Concrete deploy plan: tech stack, hosting choice, architecture diagram, key decisions, scale path. |
 
 ## CRITICAL RULES (these must be obvious in every response)
 
@@ -56,7 +59,7 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 1. **The agent finds evidence; the verifier enforces grounding.** These are separate responsibilities. Don't move grounding logic into the prompt or rely on the model to self-verify.
 2. **No provider-native grounding feature is the architecture.** They live behind adapters as optimizations only. The contract above the adapter is identical across Anthropic, OpenAI, Gemini.
-3. **No dense embeddings until the eval demands them.** `search_convictions` is BM25 first. Promotion to hybrid retrieval is gated on documented eval failures, not speculation.
+3. **Hybrid BM25 + multilingual embeddings is the v1 baseline.** Multilingual retrieval is required from day 1 — the corpus is PT/EN and queries are PT/EN/ES, so BM25 alone has a cross-language failure mode. Promotion to a *reranker* (or larger retrieval pipeline) is what's gated on eval failures. See `docs/RETRIEVAL_SCALE.md`.
 4. **No prior assistant answers in the source-of-truth context.** Each turn runs fresh tool calls. Prior conversation is used only to rewrite the current question.
 5. **The agent loop is bounded.** Max 5 tool calls, `temperature=0`, no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
 6. **Tests run without an LLM by default.** LLM-in-the-loop is isolated to the eval pipeline. Unit + integration CI never burns provider tokens.
@@ -64,19 +67,21 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 ## In scope for v1
 
-- Markdown ingestion → passage store with stable IDs
-- Provider abstraction with one concrete adapter (Anthropic first)
-- Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25), `read_passage`
+- Markdown ingestion → passage store with stable IDs (incl. `Updated:` date extraction)
+- `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5` + `text-embedding-3-large`), Anthropic adapter second (portability proof)
+- Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (hybrid BM25 + multilingual embeddings, RRF), `read_passage`
 - Bounded agent loop with structured-JSON output
 - Deterministic citation verifier with retry-once-with-feedback
+- Disclaimer + audit log + cost tracking on every response
 - `POST /chat` endpoint
+- Lightweight React frontend (Vite + React + TypeScript + Tailwind; built to static files and mounted under FastAPI)
 - Eval suite (~30 hand-written Q/A) with verifier pass rate as headline metric
 
 ## Out of scope for v1 (designed, not built)
 
 - PDF / Excel uploads (the challenge bonus)
-- Anthropic Citations API integration in the Anthropic adapter
-- Dense embeddings inside `search_convictions`
+- Cross-encoder reranker inside `search_convictions`
+- Anthropic Citations API optimization inside the Anthropic adapter
 
 See `docs/ARCHITECTURES.md` § "Not implemented in this version" for the design.
 
@@ -91,7 +96,8 @@ Documented so future sessions don't re-litigate them.
 - **`confidence: high|medium|low` field on the response.** Adds an unverifiable signal — the model self-reports confidence, which is exactly the kind of thing we don't want to trust. The verifier pass/fail is a stronger and more honest signal. Rejected.
 - **`/retrieve` endpoint alongside `/chat`** (returns retrieved evidence without generation). Genuinely useful for the demo; not required for v1. May be added if time allows.
 - **`/eval` endpoint** for running the eval suite via HTTP. Replaced by the `pytest -m eval` suite documented in `docs/TESTING.md` — better dev ergonomics, no production endpoint to secure.
-- **Reciprocal Rank Fusion + lightweight evidence selector inside `search_convictions`.** Correct technique *when* we promote to hybrid retrieval. Premature for v1 (BM25-only) and gated on eval failures.
+- **Lightweight evidence-selector model inside `search_convictions`.** A second small model that picks the best 4–8 of the fused top-30. Correct technique at thousands+ docs; premature for v1. The RRF fusion of BM25 + embeddings is *already* in v1 — that part is not rejected, it's the baseline. See `docs/RETRIEVAL_SCALE.md`.
+- **Cross-encoder reranker** inside `search_convictions`. Adds a model + latency. Justified at hundreds+ docs; deferred until eval shows hybrid retrieval misses cross-cutting questions. See `docs/RETRIEVAL_SCALE.md`.
 
 ## Conventions for working in this repo
 

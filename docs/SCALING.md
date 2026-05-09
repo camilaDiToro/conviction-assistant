@@ -4,35 +4,35 @@ What changes in the architecture if concurrent users grow beyond v1's "small int
 
 ## v1 — <10 concurrent users (current)
 
-- Single FastAPI instance, in-process BM25, in-memory or SQLite session store.
-- No load balancer, no auth beyond a simple API key, no rate limiting.
+- Single FastAPI instance.
+- One Postgres (with `pgvector` and `unaccent`) holding passages, FTS index, embeddings, conversations, audit log, cost log.
+- No load balancer, no Redis, no auth beyond a simple API key, no rate limiting.
 - Cost tracking already in place (see `ASSUMPTIONS.md` § "Cost tracking — REQUIRED").
 
 ## ~10–100 concurrent users
 
 What needs to change:
 
-- **Stateless API instances** behind a load balancer (multiple workers, Gunicorn or similar).
-- **External session / conversation store** (Redis or Postgres). In-process state stops working with multiple workers.
+- **Stateless API instances** behind a load balancer (multiple workers, Gunicorn or similar). Already trivial because all state lives in Postgres.
+- **Postgres connection pooling** — pgbouncer or the SQLAlchemy pool with sane sizing.
+- **Redis** for hot-query cache + rate-limit token buckets (Postgres can do both, but Redis is faster and idiomatic).
 - **Provider rate-limit handling** in the adapter — exponential backoff with jitter, configurable retry budget, circuit breaker per provider.
 - **Per-user / per-tenant rate limiting** at the API layer (Redis-backed token bucket).
-- **Connection pooling** for the DB and any external HTTP client.
-- **Background re-index task** when convictions change (still on cold start as the default, but a `/admin/reindex` endpoint becomes useful).
-- **Hot-query cache** for repeated questions at the orchestrator level (not the LLM provider's cache — that's a different layer).
-- **Real observability**: per-request tracing (OpenTelemetry), structured logs, cost dashboards aggregated from the per-step usage records.
+- **Background re-index task** for when convictions change between deploys (a `/admin/reindex` endpoint or a cron job that diffs file hashes against `passages.source_hash` and upserts changed rows).
+- **Real observability**: per-request tracing (OpenTelemetry), structured logs, cost dashboards aggregated from the audit log.
 - **Auth & audit**: real JWT / OAuth instead of the v1 API key.
 
 What does **not** change:
 
 - The agent loop, citation contract, verifier, and provider abstraction stay identical.
-- BM25 is probably still fine; only the corpus growth (see `RETRIEVAL_SCALE.md`) drives upgrades to hybrid.
+- Same Postgres, same schema. Hybrid Postgres FTS + pgvector is still fine at this tier; corpus size (see `RETRIEVAL_SCALE.md`) is the trigger to add a reranker, not user count.
 
 ## 100+ concurrent users
 
 Everything from the previous tier, plus:
 
-- **External search index** (Elasticsearch / OpenSearch / Tantivy server). In-process BM25 stops scaling once index rebuilds become noticeable per worker.
-- **Real vector store** if dense retrieval is in use (pgvector, Qdrant, Weaviate). Aligns with the corpus-scale guidance in `RETRIEVAL_SCALE.md`.
+- **Dedicated search engine** (Elasticsearch / OpenSearch or ParadeDB `pg_search` for true BM25 inside Postgres). Postgres FTS holds up well, but ranking quality and faceting matter more at this scale.
+- **Dedicated vector store** (Qdrant / Weaviate) if pgvector hits index-build or query latency limits. Otherwise stay on pgvector with HNSW indexes.
 - **Queue-based async processing** for long-running questions or batch evals — Celery / Arq / temporal; the API enqueues, the worker runs the loop.
 - **Provider failover** — multi-provider adapter with health checks; degrade gracefully when the primary provider is down or rate-limited.
 - **Per-user cost budgets** with enforcement (the cost tracker already exists; now it gates new requests).

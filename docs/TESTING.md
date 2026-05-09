@@ -11,7 +11,7 @@ This doc covers what we test, how we test it, and the design decisions in `ARCHI
 | Layer | Why it tests cleanly |
 |---|---|
 | Passage parser | Pure function `markdown → list[Passage]`; deterministic; no I/O once the file is loaded. |
-| Passage store | Just a dict / SQLite table; trivially fixturable. |
+| Passage store | A Postgres table; tests use a throwaway test schema or an in-memory dict fixture for unit tests, real Postgres for integration. |
 | Tools (`list_documents`, `read_passage`, `search_convictions`, ...) | Pure functions over the passage store with JSON-schema-validated inputs and outputs. Run without an LLM. |
 | Provider abstraction (`LLMProvider`) | Single interface; mockable with a fake provider that replays canned responses. The agent loop never knows whether it's talking to Anthropic, OpenAI, or a mock. |
 | Citation verifier | Pure function `(answer, passage_store) → VerifierResult`. Deterministic. The most important test target in the system. |
