@@ -25,6 +25,7 @@ async def client(tmp_path, monkeypatch):
     async def _override():
         async with factory() as s:
             yield s
+
     app.dependency_overrides[get_session] = _override
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

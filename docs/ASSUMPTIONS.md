@@ -140,19 +140,19 @@ See `SCALING.md` for what changes if the user count grows to ~10–100 or 100+.
 
 Cost tracking is a first-class architectural concern, even though no hard ceiling is enforced for v1. Every LLM call must be tracked at **three levels of granularity**:
 
-1. **Per step** — every LLM call and every tool call records its own input tokens, output tokens, and computed cost.
+1. **Per step** — every LLM call records its own input tokens, output tokens, cached tokens, and derived cost.
 2. **Per question** — the cost of a single user-message round-trip (sum of all steps from request to verified response).
 3. **Per chat / conversation** — aggregate across all turns in a conversation.
 
 *Architectural impact:*
 
-- The `LLMProvider` interface returns a `usage` block on every call: `{prompt_tokens, completion_tokens, cached_tokens, model, cost_usd}`.
+- The `LLMProvider` interface returns a raw `usage` block on every call: `{model, prompt_tokens, completion_tokens, cached_tokens}`.
 - The orchestrator stamps every step with a `step_id`, `question_id`, and `conversation_id`.
 - The `debug` payload in the HTTP response (already documented in `ARCHITECTURES.md` § "Citation contract") includes per-step usage; a `usage_summary` block at the top of the response carries the per-question and per-conversation totals.
-- Cost is computed in the provider adapter using a small price table per model (input/output/cached prices). Price changes are config-driven, not code changes.
-- A persistent log in Postgres (`audit_log`, the same table that records every step) carries `usage` so per-conversation totals can be recomputed and audited later.
+- USD cost is derived outside the provider adapter by `app/services/cost.py`, using the vendored model-price table at `app/providers/_model_prices.json`.
+- A persistent log in Postgres (`audit_log`, the same table that records every step) carries raw `usage` so per-conversation totals can be recomputed and audited later.
 
-This must work identically across providers — the reason cost tracking lives in the adapter and not the orchestrator.
+This must work identically across providers — adapters expose token counts, and the shared cost service owns price lookup and USD math.
 
 **Streaming:** not required. Wait-for-full-answer is acceptable. The verifier runs cleanly post-hoc this way; no UX complications around mid-stream verification.
 

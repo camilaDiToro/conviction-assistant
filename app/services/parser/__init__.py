@@ -44,9 +44,7 @@ def parse_file(path: str | Path) -> list[Passage]:
     ext = p.suffix.lower().lstrip(".")
     parser = _PARSERS.get(ext)
     if parser is None:
-        raise ValueError(
-            f"no parser registered for .{ext} (supported: {supported_extensions()})"
-        )
+        raise ValueError(f"no parser registered for .{ext} (supported: {supported_extensions()})")
     return parser(p)
 
 

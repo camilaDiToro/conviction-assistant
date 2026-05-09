@@ -1,22 +1,12 @@
-"""Passage repository — async SQLAlchemy 2.x.
-
-All queries use the modern `select()` style on an explicit `AsyncSession`.
-Transaction control belongs to the caller (services wrap writes in
-`async with session.begin(): …`).
-
-Conversion between the ORM (PassageORM, raw text columns) and the Pydantic
-Passage schema is handled here so callers always receive Pydantic objects
-(per project conventions: never return raw ORM).
-
-`heading_path` is JSON-encoded (SQLite has no native array type);
-`document_updated` is an ISO date string (SQLite has no native date type).
+"""Passage repository
 """
 
 import json
 from collections.abc import Iterable
 from datetime import date
+from typing import Any, cast
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,9 +14,7 @@ from app.models.passage import PassageORM
 from app.schemas.passage import DocSummary, Heading, Passage
 
 
-async def upsert_many(
-    session: AsyncSession, items: Iterable[Passage]
-) -> int:
+async def upsert_many(session: AsyncSession, items: Iterable[Passage]) -> int:
     """Insert or replace passages. Idempotent.
 
     Ordinal is assigned by order of arrival per document_id within this call.
@@ -105,19 +93,14 @@ async def list_documents(session: AsyncSession) -> list[DocSummary]:
     ]
 
 
-async def read_outline(
-    session: AsyncSession, document_id: str
-) -> list[Heading]:
+async def read_outline(session: AsyncSession, document_id: str) -> list[Heading]:
     stmt = (
         select(PassageORM.id, PassageORM.heading, PassageORM.ordinal)
         .where(PassageORM.document_id == document_id)
         .order_by(PassageORM.ordinal)
     )
     result = await session.execute(stmt)
-    return [
-        Heading(passage_id=r.id, heading=r.heading, ordinal=r.ordinal)
-        for r in result.all()
-    ]
+    return [Heading(passage_id=r.id, heading=r.heading, ordinal=r.ordinal) for r in result.all()]
 
 
 async def all_ids(session: AsyncSession) -> set[str]:
@@ -130,7 +113,9 @@ async def delete_ids(session: AsyncSession, ids: Iterable[str]) -> int:
     if not ids_list:
         return 0
     stmt = delete(PassageORM).where(PassageORM.id.in_(ids_list))
-    result = await session.execute(stmt)
+    # AsyncSession.execute is typed as Result[Any]; for DML we always get a
+    # CursorResult at runtime — cast so .rowcount is accessible.
+    result = cast(CursorResult[Any], await session.execute(stmt))
     return result.rowcount or 0
 
 
@@ -142,7 +127,5 @@ def _orm_to_schema(p: PassageORM) -> Passage:
         heading=p.heading,
         heading_path=json.loads(p.heading_path),
         text=p.text,
-        document_updated=(
-            date.fromisoformat(p.document_updated) if p.document_updated else None
-        ),
+        document_updated=(date.fromisoformat(p.document_updated) if p.document_updated else None),
     )

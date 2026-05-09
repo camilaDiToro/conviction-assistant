@@ -41,6 +41,7 @@ def _passage(slug, doc, head, text="...", updated=None, title=None):
 
 # ---- repo functions ----
 
+
 async def test_upsert_then_get_round_trip(session: AsyncSession):
     p = _passage("intro", "cdb_guide", "Intro", "what is a CDB", date(2026, 1, 1))
     async with session.begin():
@@ -134,10 +135,12 @@ async def test_heading_path_round_trips_unicode(session: AsyncSession):
     async with session.begin():
         await passages_repo.upsert_many(session, [p])
     got = await passages_repo.get(session, p.id)
+    assert got is not None
     assert got.heading_path == ["Doc", "Tributação", "Tabela Regressiva — IR"]
 
 
 # ---- migration / bootstrap ----
+
 
 async def test_migrate_creates_schema(session: AsyncSession):
     """Migrate-then-use must work end-to-end."""
@@ -161,6 +164,7 @@ async def test_migrate_is_idempotent(tmp_path):
 
 
 # ---- end-to-end with the real corpus ----
+
 
 @pytest.mark.skipif(not CONVICTIONS.is_dir(), reason="corpus not found")
 async def test_end_to_end_real_corpus(tmp_path):

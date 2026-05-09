@@ -1,3 +1,4 @@
+
 # Architecture — Decade AI Challenge
 
 > **Constrained Agentic RAG with Deterministic Citation Verification.**
@@ -134,7 +135,7 @@ The structured response is one of two shapes — a regular **answer** (with cita
     ],
     "verification_passed": true,
     "steps": [
-      { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cost_usd": 0.003 } }
+      { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0 }, "cost_usd": 0.003 }
     ]
   }
 }
@@ -241,11 +242,12 @@ Every step of every request is persisted. One log, two consumers (audit and cost
   step_id, question_id, conversation_id, timestamp,
   kind: "llm_call" | "tool_call" | "verifier" | "response",
   payload,        // request/response or tool args/result
-  usage           // { prompt_tokens, completion_tokens, cached_tokens, model, cost_usd } for llm_call
+  usage           // { model, prompt_tokens, completion_tokens, cached_tokens } for llm_call
+                  // (cost_usd is NOT stored — derived on render via app/services/cost.py)
 }
 ```
 
-The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. Cost is computed inside the provider adapter using a small per-model price table — price changes are config, not code.
+The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `docs/PRICING.md`.
 
 See `ASSUMPTIONS.md` § "Cost tracking — REQUIRED" and § "Audit log".
 

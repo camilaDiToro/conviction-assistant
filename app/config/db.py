@@ -1,22 +1,4 @@
-"""Async SQLAlchemy engine + session factory; sync Alembic migration.
-
-Lives in `app/config/` because engine setup is configuration-adjacent —
-the URL, lifecycle, and alembic location are all driven by settings.
-This module only constructs the engine and exposes the FastAPI Depends;
-**SQL execution still belongs to `app/repositories/`** (per layering
-rule #1). Schema introspection helpers live in
-`app/repositories/introspection.py`.
-
-The engine and session factory are created at app startup (lifespan in
-`app/main.py`) and disposed at shutdown. Tests build their own per-test
-engine via fixtures and override `get_session` via FastAPI's
-dependency_overrides.
-
-Schema is owned by Alembic — `alembic/versions/` is the source of truth
-on disk. `migrate()` applies all pending migrations to the SQLite file at
-the configured path; it uses Alembic's sync API because Alembic doesn't
-support async drivers (which is fine — migrations are a startup concern,
-not a request path).
+"""Async engine + session factory; sync Alembic migration.
 """
 
 from collections.abc import AsyncIterator
@@ -45,11 +27,7 @@ def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
 
 
 def set_session_factory(factory: async_sessionmaker[AsyncSession] | None) -> None:
-    """Install (or clear, with None) the process-wide session factory.
-
-    Lifespan calls this on startup; tests override `get_session` via FastAPI's
-    dependency_overrides instead.
-    """
+    """Install (or clear with None) the process-wide session factory."""
     global _session_factory
     _session_factory = factory
 
@@ -66,10 +44,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 
 def migrate(sqlite_path: str | Path) -> None:
-    """Apply all pending Alembic migrations to the SQLite file at `sqlite_path`.
-
-    Creates the file (and parent directory) if needed. Idempotent.
-    """
+    """Apply pending Alembic migrations to `sqlite_path`. Idempotent."""
     from alembic.config import Config
 
     from alembic import command
@@ -77,7 +52,5 @@ def migrate(sqlite_path: str | Path) -> None:
     Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
     cfg = Config()
     cfg.set_main_option("script_location", str(_ALEMBIC_DIR))
-    cfg.set_main_option(
-        "sqlalchemy.url", f"sqlite:///{Path(sqlite_path).as_posix()}"
-    )
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{Path(sqlite_path).as_posix()}")
     command.upgrade(cfg, "head")

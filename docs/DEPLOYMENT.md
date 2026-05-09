@@ -254,8 +254,9 @@ decade-ai-challenge/
 │   │   ├── search.py                  # hybrid Postgres FTS + pgvector + RRF
 │   │   ├── embeddings.py              # OpenAI embedding calls + upsert
 │   │   ├── conversations.py           # Postgres conversation state
-│   │   ├── audit.py                   # Postgres per-step audit + cost log
-│   │   └── pricing.py                 # per-model cost table
+│   │   └── audit.py                   # Postgres per-step audit log (token counts only)
+│   ├── services/
+│   │   └── cost.py                    # USD via vendored model prices (read-time)
 │   ├── tools/
 │   │   ├── definitions.py             # JSON schemas for the four tools
 │   │   └── runtime.py                 # dispatch tool calls to store
