@@ -76,6 +76,25 @@ async def test_list_documents_groups_per_document(session: AsyncSession):
     assert docs["doc2"].document_updated == date(2026, 4, 1)
 
 
+async def test_get_document_summary_returns_one_doc(session: AsyncSession):
+    items = [
+        _passage("a", "doc1", "A"),
+        _passage("b", "doc1", "B"),
+        _passage("c", "doc2", "C", updated=date(2026, 4, 1)),
+    ]
+    async with session.begin():
+        await passages_repo.upsert_many(session, items)
+    summary = await passages_repo.get_document_summary(session, "doc2")
+    assert summary is not None
+    assert summary.id == "doc2"
+    assert summary.passage_count == 1
+    assert summary.document_updated == date(2026, 4, 1)
+
+
+async def test_get_document_summary_returns_none_for_unknown(session: AsyncSession):
+    assert await passages_repo.get_document_summary(session, "ghost") is None
+
+
 async def test_read_outline_preserves_insertion_order(session: AsyncSession):
     items = [
         _passage("first", "doc1", "First"),

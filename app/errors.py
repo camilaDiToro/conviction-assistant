@@ -13,3 +13,19 @@ class DomainError(Exception):
 
 class IngestError(DomainError):
     """Ingestion failed (bad directory, no parseable files, etc.)."""
+
+
+class PassageNotFoundError(DomainError):
+    """Raised when a tool is asked to read a passage ID that does not exist."""
+
+    def __init__(self, passage_id: str) -> None:
+        super().__init__(f"passage not found: {passage_id!r}")
+        self.passage_id = passage_id
+
+
+class DocumentNotFoundError(DomainError):
+    """Raised when a tool is asked for a document ID that does not exist."""
+
+    def __init__(self, document_id: str) -> None:
+        super().__init__(f"document not found: {document_id!r}")
+        self.document_id = document_id

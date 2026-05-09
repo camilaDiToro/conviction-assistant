@@ -155,7 +155,8 @@ Router → Service → Repository (never skip layers)
 - **`app/repositories/`** — Data access. **All SQLAlchemy queries live here.** Module-level async functions take an `AsyncSession`; transaction control belongs to the caller (services wrap writes in `async with session.begin(): …`).
 - **`app/models/`** — SQLAlchemy ORM models. `Base` (DeclarativeBase) + per-table modules.
 - **`app/schemas/`** — Pydantic request/response schemas. `ConfigDict(from_attributes=True)` on schemas that mirror ORM rows.
-- **`app/errors.py`** — Domain exceptions (`DomainError`, `IngestError`, …); mapped to HTTP at the API boundary by handlers in `app/main.py`.
+- **`app/errors.py`** — Domain exceptions (`DomainError`, `IngestError`, `PassageNotFoundError`, `DocumentNotFoundError`, …); mapped to HTTP at the API boundary by handlers in `app/main.py`.
+- **`app/tools/`** — Read-only tools the agent can call. Pure functions over the repository contract; storage-agnostic by rule. DI via `ToolContext`. Hand-written JSON-schema dicts. Single `TOOLS` registry. See `docs/ARCHITECTURES.md` § "Tools layer" and `docs/b5-decisions.md`.
 - **`alembic/`** — Schema-of-record. Imperative migrations (op.create_table / op.execute); autogenerate is intentionally disabled until every table has an ORM model (audit_log lands in B9).
 
 ### Backend layout
@@ -183,10 +184,12 @@ app/
     base.py           # DeclarativeBase
     passage.py        # PassageORM
   schemas/
-    passage.py        # Pydantic Passage / DocSummary / Heading
+    passage.py        # Pydantic Passage / DocSummary / Heading / DocumentOutline
     ingest.py         # Pydantic IngestResponse
   providers/          # B4: LLMProvider + EmbeddingProvider protocols + adapters
                       # *** SINGLE POINT OF LLM INTERACTION ***
+  tools/              # B5: read-only tools the agent calls (storage-agnostic, ToolContext DI)
+                      # list_documents, read_document_outline, read_passage; +search_convictions in B6
 alembic/
   env.py
   script.py.mako

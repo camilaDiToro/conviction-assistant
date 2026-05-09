@@ -36,3 +36,15 @@ class Heading(BaseModel):
     passage_id: str
     heading: str
     ordinal: int
+
+
+class DocumentOutline(BaseModel):
+    """One document's outline, returned by the read_document_outline tool.ok"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: str
+    document_title: str
+    document_updated: date | None
+    passage_count: int
+    headings: list[Heading]

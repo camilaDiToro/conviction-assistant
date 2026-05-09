@@ -1,5 +1,4 @@
-"""Passage repository
-"""
+"""Passage repository"""
 
 import json
 from collections.abc import Iterable
@@ -91,6 +90,40 @@ async def list_documents(session: AsyncSession) -> list[DocSummary]:
         )
         for r in result.all()
     ]
+
+
+async def get_document_summary(session: AsyncSession, document_id: str) -> DocSummary | None:
+    """Return one document's summary, or None if it has no passages.
+
+    Direct single-doc lookup; lets callers (e.g. the read_document_outline
+    tool) check existence without scanning the whole corpus.
+    """
+    stmt = (
+        select(
+            PassageORM.document_id,
+            PassageORM.document_title,
+            PassageORM.document_updated,
+            func.count().label("n"),
+        )
+        .where(PassageORM.document_id == document_id)
+        .group_by(
+            PassageORM.document_id,
+            PassageORM.document_title,
+            PassageORM.document_updated,
+        )
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+    if row is None:
+        return None
+    return DocSummary(
+        id=row.document_id,
+        title=row.document_title,
+        document_updated=(
+            date.fromisoformat(row.document_updated) if row.document_updated else None
+        ),
+        passage_count=row.n,
+    )
 
 
 async def read_outline(session: AsyncSession, document_id: str) -> list[Heading]:

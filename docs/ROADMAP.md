@@ -89,12 +89,17 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - **Settings keys added:** `llm_provider`, `openai_api_key`, `openai_model`, `openai_embedding_model` (in `app/config/__init__.py`); mirrored in `.env.example`.
   - **LiteLLM evaluated and rejected.** Briefly adopted as the underlying call layer; reverted because the heavy transitive-dep tree and frequent breaking releases weren't worth the abstraction at our scope (2 providers, single process). The pricing dict (the only piece we actually wanted) is now vendored as a JSON file. See `docs/PRICING.md` § "Why not LiteLLM-the-package".
 
-### B5 — Three simple tools: list_documents, read_document_outline, read_passage
+### B5 — Three simple tools: list_documents, read_document_outline, read_passage  - [x]
 - **Goal:** the read-only tools the agent will eventually call. Pure functions over the repository. JSON schemas for tool-call advertisement.
 - **Scope cap:** **not** `search_convictions` (B6). No agent. Tools unit-tested directly.
-- **Files:** `app/tools/__init__.py` (registry), `app/tools/list_documents.py`, `app/tools/read_document_outline.py`, `app/tools/read_passage.py`, `app/tools/schemas.py`, `tests/tools/test_simple_tools.py`.
-- **Acceptance:** each tool callable as a plain Python function and returns the documented shape; schemas validated against the return types.
+- **Files:** `app/tools/__init__.py` (re-exports), `app/tools/context.py` (ToolContext, ToolEntry), `app/tools/list_documents.py`, `app/tools/read_document_outline.py`, `app/tools/read_passage.py`, `app/tools/registry.py` (ToolDefinitions + TOOLS registry), `tests/tools/test_simple_tools.py`.
+- **Acceptance:** each tool callable as a plain Python function and returns the documented shape; schemas validated against the return types; OpenAI strict-mode invariants asserted in test; `TOOLS` registry keys equal each `definition.name`.
 - **Depends on:** B3.
+- **Deviations from the original step description (intentional):**
+  - **`DocumentOutline` schema added** to `app/schemas/passage.py` (the original step listed `read_document_outline` returning a bare `list[Heading]`). Carrying `document_id`, `document_title`, `document_updated`, `passage_count` next to the headings supports CLAUDE.md Rule B (conflicting-conviction surfacing by date) without forcing the agent to call `list_documents` first every time.
+  - **`ToolContext` / `ToolEntry` formalized** in `app/tools/context.py`. Original step said "registry" without pinning a contract; the dataclass-based context is the DI seam every later step (B6's BM25 index, B8's agent loop) reuses. Architectural rules pinned in `docs/ARCHITECTURES.md` § "Tools layer".
+  - **`PassageNotFoundError` and `DocumentNotFoundError`** added to `app/errors.py`. Tools raise typed `DomainError` subclasses on bad inputs so the B8 agent loop can feed them back to the LLM as tool-error messages.
+  - **`docs/b5-decisions.md`** added — per-tool decisions (return shapes, sort orders, descriptions, error semantics) that don't rise to architecture but should be visible to a reviewer.
 
 ### B6 — search_convictions: BM25-only retrieval
 - **Goal:** working retrieval tool. **v1 ships BM25 only** because the corpus is 30 docs and BM25 may be sufficient; the contract supports hybrid as a deferred level-up. Tests are part of this step, not a follow-up.

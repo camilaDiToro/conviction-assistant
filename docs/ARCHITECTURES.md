@@ -169,6 +169,19 @@ read_passage(passage_id: str) -> Passage
 
 All four tools are defined once with JSON schemas and reused across every provider adapter — tool use is the most provider-portable surface area in modern LLM APIs.
 
+### Tools layer (rules a reviewer should be able to grep for)
+
+The four tools live under `app/tools/`. The rules below are non-negotiable; they survive every later step.
+
+1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector under ROADMAP B3 level-up) changes only `app/repositories/` and migrations.
+2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/tools/context.py`). At v1 it carries `session: AsyncSession`; B6 adds `bm25_index`. The agent loop's call shape `execute_tool(name, args, ctx)` is therefore stable from B5 onward — adding a new dependency never changes tool signatures.
+3. **`ToolContext` is the DI seam, not a SQLite holder.** If a future repo backend exposes something other than an `AsyncSession`, `ToolContext` carries that instead. The tools see only what they need.
+4. **Tool input schemas are hand-written JSON-schema dicts** in `app/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema in B8 may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
+5. **Single tool registry.** `app/tools/__init__.py` exports `TOOLS: dict[str, ToolEntry]` where `ToolEntry = (definition: ToolDefinition, func: Callable)`. The agent loop in B8 reads `TOOLS` once to advertise definitions to the LLM and to dispatch tool calls by name. `TOOLS[name].definition.name == name` is enforced by test.
+6. **Tools raise typed `DomainError` subclasses on bad inputs** (`PassageNotFoundError`, `DocumentNotFoundError`). The agent loop catches these and feeds the error back to the LLM as a tool-error message; it never returns `None` from a tool that promised a value.
+
+Per-tool decisions (return shapes, sort orders, descriptions) live in `docs/b5-decisions.md`.
+
 ### Loop bounds (operational discipline)
 
 The agent loop is bounded to keep behavior predictable and debuggable:
