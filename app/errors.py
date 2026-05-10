@@ -36,3 +36,12 @@ class EmptyQueryError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("query must be a non-empty string")
+
+
+class AgentError(DomainError):
+    """Raised by the agent orchestrator when the loop cannot proceed.
+
+    Examples: model returned neither tool_calls nor parsed output, or the
+    safety iteration cap was exceeded. Bug-class errors, not user-facing
+    domain conditions.
+    """

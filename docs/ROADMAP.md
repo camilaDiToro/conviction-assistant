@@ -132,8 +132,39 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - **Bulk-load function `iter_all` added to `app/repositories/passages.py`.** B5's repository didn't expose a "load all passages with full text" function; B6 needs one for index build/rebuild.
   - **Lifespan + admin re-ingest hook.** Index built once at startup on `app.state.search_index`; rebuilt synchronously at the end of `POST /admin/ingest` so the next call sees freshly-ingested passages.
 
-### B7 — Citation verifier + retry-once-with-feedback (built before the agent loop)
-- **Goal:** deterministic substring verification of every citation; retry path on failure. **Built before the agent loop** so every later step can measure verifier pass rate from day one.
+### B7 — Agent orchestrator: bounded loop + system prompt + structured output  - [x]
+- **Goal:** the agent that gathers evidence and produces structured output. **First real end-to-end run** with `StubProvider` for CI; with the OpenAI adapter for manual smoke. Built before the verifier (deviation from the original ordering — see B8 deviations) so the verifier+retry path can land against a real loop instead of speculation.
+- **Scope cap:** no HTTP endpoint yet (B9). No verifier yet (B8 retrofits it). Just `agent.run(user_message, history) -> AgentResult` callable from a CLI.
+- **Files:**
+  - `app/agent/__init__.py` — re-exports.
+  - `app/agent/loop.py` — the loop itself (max 5 tool calls; ≥ 1 search before any AnswerOutput; schema attached every turn; tools dropped on the forced-final turn).
+  - `app/agent/rewrite.py` — multi-turn question rewrite. Skipped on empty history; uses prior turns to contextualize the current question; **never injects prior assistant answers into the agent loop's tool-call context** (per the conversation-memory rule in `ARCHITECTURES.md` § Conversation memory).
+  - `app/agent/prompts/system.md` — git-tracked markdown (not a Python f-string). Encodes Rules A & B, language mirroring, clarifying-question guidance, and the dated-vs-undated conflict guidance below.
+  - `app/agent/prompts/rewrite.md` — git-tracked markdown.
+  - `app/agent/schemas.py` — Pydantic models (`AnswerOutput | ClarifyingQuestionOutput` discriminated union, `Citation`, `StepRecord`, `ConversationTurn`, `AgentResult`) + hand-written JSON schemas for the LLM (flat-with-nullables, strict-mode compatible).
+  - `scripts/demo_agent.py` — CLI entry.
+  - `tests/agent/test_loop_with_stub.py`, `tests/agent/test_rewrite.py`.
+  - `tests/fixtures/agent_scenarios/*.yaml`.
+- **Rule B in the prompt must explicitly handle undated convictions:** *"If `document_updated` is missing for one or both conflicting passages, say so — e.g. 'A (Abril 2026) and B (undated) disagree on …' — never silently pick the dated one as 'newer'."* Direct consequence of B2's finding that ~13 of 30 docs are dateless.
+- **Acceptance:**
+  - With `StubProvider`, `python scripts/demo_agent.py --provider stub --fixture basic_search "What is a CDB?"` runs deterministically.
+  - **Loop bound (upper):** test that a 6th tool call is rejected (never executed) and the loop forces a final structured answer.
+  - **Loop bound (lower):** test that an `AnswerOutput` emitted before any `search_convictions` call is rejected; the loop appends a system reminder and continues. `ClarifyingQuestionOutput` is exempt.
+  - System prompt is a tracked markdown file, not a Python f-string.
+  - Fixture-driven test exercises the dated-vs-undated conflict path.
+  - Multi-turn rewrite: assert that prior assistant text is **not** in the messages passed to `llm.generate()` inside the agent loop.
+  - Empty-history rewrite skip: assert `rewrite_question()` is **not** invoked when `history == []`.
+- **Depends on:** B5, B6.
+- **Deviations from the original step description (intentional):**
+  - **Order swap with what was originally B7 (verifier).** Agent loop ships before verifier; verifier+retry retrofits this module in B8. Trade-off and rationale documented in `docs/b7-decisions.md` § "Why the swap".
+  - **Multi-turn pattern: selective query rewriting.** Compared three options (Claude Code's compaction, OpenAI Agents SDK's full-history sessions, 2026 RAG community's selective rewriting) and chose selective rewriting — Claude Code/Agents SDK both treat prior assistant text as authoritative context, which is the wrong trust model for a grounded-citation system. Skipped on empty history; one cheap LLM call (`reasoning_effort="minimal"`, 200 max output tokens) on turn 2+. Full comparison + sources in `docs/b7-decisions.md` § "Multi-turn handling".
+  - **Loop pattern A (schema attached every turn).** Each `llm.generate()` call sees both `tools` and `schema=AGENT_OUTPUT_SCHEMA`. The model returns either `tool_calls` or `parsed` per turn. The forced-final turn drops tools (`tools=None`) but keeps the schema. Simpler than two-phase gather-then-final.
+  - **Hand-written agent output JSON schema, flat-with-nullables.** OpenAI strict mode does not support `oneOf`; Pydantic v2's discriminated union emits `oneOf`. We ship a hand-written flat schema (all 8 fields, every nullable, every in `required`, `additionalProperties: false`) for the LLM, and a Pydantic discriminated union with `extra="ignore"` for in-process validation. Matches the project's tool-schema convention from B5.
+  - **All loop tuning is `.env`-driven.** Six knobs on `Settings` (`agent_max_tool_calls`, `agent_max_iterations`, `agent_max_output_tokens`, `agent_reasoning_effort`, `rewrite_max_output_tokens`, `rewrite_reasoning_effort`) read from `.env` via `pydantic-settings`. `app/agent/loop.py` and `app/agent/rewrite.py` read `settings.X` at call time so per-environment tuning takes effect without code edits. Defaults preserved.
+  - **`AgentError` added** to `app/errors.py` and mapped to HTTP 500 in `app/main.py` for the future B9 wiring.
+
+### B8 — Citation verifier + retry-once-with-feedback (retrofit into the agent loop)
+- **Goal:** deterministic substring verification of every citation; retry-once-with-feedback path inside the agent loop. **Built after B7** so the retry path is wired into a real agent loop instead of speculated against a stub.
 - **Scope cap:** no LLM-as-judge. Just substring + a *pinned* normalization policy.
 - **Normalization policy (pinned in this step, not "decide later"):**
   - NFC unicode normalization on both quote and passage.
@@ -144,33 +175,16 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - Diacritics **preserved** (PT/ES need them to round-trip).
   - Leading / trailing whitespace ignored.
 - **Second-failure behavior (pinned):** strip the offending claim from the answer, never refuse the whole answer. If stripping leaves zero grounded claims, fall through to a safe refusal in the user's language (`kind: "answer"`, `out_of_scope: false`, `answer: <localized refusal>`).
-- **Files:** `app/verifier/substring.py`, `app/verifier/normalize.py`, `tests/verifier/test_substring.py`, `tests/verifier/test_normalize.py`.
+- **Files:** `app/verifier/__init__.py`, `app/verifier/normalize.py`, `app/verifier/substring.py`, `app/agent/loop.py` (modified — adds verify-then-retry-once after `AnswerOutput`), `tests/verifier/test_substring.py`, `tests/verifier/test_normalize.py`, `tests/agent/test_loop_with_verifier.py`.
 - **Acceptance:**
   - Golden fixtures cover: matching quote → pass; paraphrase → fail; cross-passage quote → fail (passage_id mismatch); empty quote → fail; smart-quote-mismatched quote → pass after normalization; NBSP-vs-space mismatch → pass; PT-with-diacritics → pass round-trip.
   - Property test: any random `passage.text[a:b]` slice (with `a < b` valid) verifies true against `passage.id`.
+  - Integration test: stub scenario where turn 1 emits a paraphrased quote; the loop re-prompts with feedback; turn 2 emits a verbatim quote; verifier passes.
+  - Integration test: second failure → the offending claim is stripped, not the whole answer.
   - Normalization policy lives in `normalize.py` module docstring (the pinned list above), so changes go through code review.
-- **Depends on:** B3.
-
-### B8 — Agent orchestrator: bounded loop + system prompt + structured output
-- **Goal:** the agent that gathers evidence and produces an answer. **First real end-to-end run** (or with `StubProvider` for CI). Built against the verifier from B7, so its first integration test *is* a verifier-pass-rate measurement.
-- **Scope cap:** no HTTP endpoint yet. Just `agent.run(user_message, history) -> AgentResult` callable from a CLI.
-- **Files:**
-  - `app/agent/loop.py` — the loop itself (max 5 tool calls, `temperature=0`, ≥ 1 search before answer is allowed).
-  - `app/agent/rewrite.py` — multi-turn question-rewrite. Uses prior turns to contextualize the current question; **never injects prior assistant answers as ground truth** (per the conversation-memory rule in `ARCHITECTURES.md` § Conversation memory).
-  - `app/agent/prompts/system.md` — git-tracked markdown (not a Python string). Encodes Rules A & B, language mirroring, clarifying-question guidance, and the dated-vs-undated conflict guidance below.
-  - `app/agent/schemas.py` — internal generator schema (`kind: "answer" | "clarifying_question"`, citations, `general_knowledge_used`, `general_knowledge_section`, `out_of_scope`).
-  - `scripts/demo_agent.py` — CLI entry.
-  - `tests/agent/test_loop_with_stub.py`.
-- **Rule B in the prompt must explicitly handle undated convictions:** *"If `document_updated` is missing for one or both conflicting passages, say so — e.g. 'A (Abril 2026) and B (undated) disagree on …' — never silently pick the dated one as 'newer'."* Direct consequence of B2's finding that ~13 of 30 docs are dateless.
-- **Acceptance:**
-  - With `StubProvider`, `python scripts/demo_agent.py "What is a CDB?"` runs deterministically.
-  - **Loop bound (upper):** test that a 6th tool call is rejected.
-  - **Loop bound (lower):** test that a final answer emitted before any `search_convictions` call is rejected.
-  - System prompt is a tracked markdown file, not a Python f-string.
-  - Fixture-driven test exercises the dated-vs-undated conflict path.
-  - Multi-turn rewrite test asserts that prior assistant text is **not** in the agent's tool-call context.
-  - Verifier (from B7) runs on every test and pass rate is reported.
-- **Depends on:** B5, B6, B7.
+- **Depends on:** B3, B7.
+- **Deviations from the original step description (intentional):**
+  - **Order swap with what was originally B8.** Original sequencing built the verifier first so every later step measured verifier pass rate from day one. After conversation with the project owner, the order was swapped: agent orchestrator first (B7), then verifier+retry (B8). Trade-off accepted: B7's tests don't measure verifier pass rate. Trade-off bought: the retry-once-with-feedback path is wired into a real loop, not a speculative stub. See `docs/b7-decisions.md` § "Why the swap".
 
 ### B9 — POST /chat endpoint + audit log + response wrapping
 - **Goal:** HTTP-callable chat. Wraps the agent's structured output with enriched citations (document title, heading path, `Updated` date), deterministic disclaimer, `usage_summary`, optional `debug` block. Persists every step to `audit_log` (SQLite); `cost_log` is a SQL view filtering to `kind = 'llm_call'` rows.

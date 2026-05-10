@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from app.api.admin import router as admin_router
 from app.api.health import router as health_router
 from app.config import db, settings
-from app.errors import DomainError, EmptyQueryError, IngestError
+from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
 from app.services.search import BM25Index
 
 
@@ -45,6 +45,11 @@ async def _ingest_error_handler(request: Request, exc: IngestError) -> JSONRespo
 @app.exception_handler(EmptyQueryError)
 async def _empty_query_error_handler(request: Request, exc: EmptyQueryError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(AgentError)
+async def _agent_error_handler(request: Request, exc: AgentError) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 @app.exception_handler(DomainError)

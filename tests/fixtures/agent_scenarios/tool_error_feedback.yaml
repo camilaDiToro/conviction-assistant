@@ -1,0 +1,30 @@
+# Bad passage_id surfaces as a tool-error message. The model corrects
+# on the next turn by calling search_convictions and produces a valid
+# answer.
+- tool_calls:
+    - id: call_read_bad
+      name: read_passage
+      arguments:
+        passage_id: does_not_exist#nope
+  usage: { model: stub-llm, prompt_tokens: 100, completion_tokens: 12 }
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 12 }
+- content: '{"kind":"answer","answer":"Recovered.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Recovered."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 320, completion_tokens: 50 }
+  finish_reason: stop

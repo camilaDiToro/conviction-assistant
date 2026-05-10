@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-large"
     openai_timeout_seconds: float = 60.0
 
+    # Agent loop tuning (B7). Read by app/agent/loop.py and app/agent/rewrite.py.
+    # Override from .env without code changes — ALL CAPS variable names.
+    agent_max_tool_calls: int = 5
+    agent_max_iterations: int = 12
+    agent_max_output_tokens: int = 4096
+    agent_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "low"
+    rewrite_max_output_tokens: int = 200
+    rewrite_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
+
     @property
     def async_database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"

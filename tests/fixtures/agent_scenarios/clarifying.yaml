@@ -1,0 +1,15 @@
+# Clarifying question is exempt from the lower bound: the model can
+# emit it before any search. The orchestrator accepts it as a final
+# output.
+- content: '{"kind":"clarifying_question","answer":null,"citations":null,"general_knowledge_used":null,"general_knowledge_section":null,"out_of_scope":null,"question":"Did you mean LCI or LCA?","options":["LCI","LCA"]}'
+  parsed:
+    kind: clarifying_question
+    answer: null
+    citations: null
+    general_knowledge_used: null
+    general_knowledge_section: null
+    out_of_scope: null
+    question: "Did you mean LCI or LCA?"
+    options: ["LCI", "LCA"]
+  usage: { model: stub-llm, prompt_tokens: 80, completion_tokens: 30 }
+  finish_reason: stop

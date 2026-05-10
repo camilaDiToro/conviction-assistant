@@ -1,0 +1,40 @@
+# Happy path: search → read_passage → AnswerOutput.
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB tributação"
+        k: 5
+  usage:
+    model: stub-llm
+    prompt_tokens: 200
+    completion_tokens: 30
+    cached_tokens: 0
+- tool_calls:
+    - id: call_read
+      name: read_passage
+      arguments:
+        passage_id: cdbs_quick_guide#tributacao
+  usage:
+    model: stub-llm
+    prompt_tokens: 320
+    completion_tokens: 22
+    cached_tokens: 80
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage:
+    model: stub-llm
+    prompt_tokens: 540
+    completion_tokens: 78
+    cached_tokens: 200
+  finish_reason: stop

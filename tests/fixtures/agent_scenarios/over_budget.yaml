@@ -1,0 +1,42 @@
+# Upper-bound test: a parallel batch of 4 tool calls (count → 4),
+# followed by a batch of 2 tool calls that would push count to 6 →
+# REJECTED before execution; the loop sets budget_exhausted=True,
+# drops tools next turn, and the model emits a forced final answer.
+- tool_calls:
+    - id: call_1
+      name: search_convictions
+      arguments: { query: "q1", k: 5 }
+    - id: call_2
+      name: search_convictions
+      arguments: { query: "q2", k: 5 }
+    - id: call_3
+      name: search_convictions
+      arguments: { query: "q3", k: 5 }
+    - id: call_4
+      name: search_convictions
+      arguments: { query: "q4", k: 5 }
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 40 }
+# 4 + 2 = 6 > 5 → both call_5 and call_6 are rejected before execution.
+- tool_calls:
+    - id: call_5
+      name: search_convictions
+      arguments: { query: "q5", k: 5 }
+    - id: call_6
+      name: search_convictions
+      arguments: { query: "q6", k: 5 }
+  usage: { model: stub-llm, prompt_tokens: 250, completion_tokens: 22 }
+# Forced final: tools=None, schema attached.
+- content: '{"kind":"answer","answer":"Forced final after budget exhaustion.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Forced final after budget exhaustion."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 300, completion_tokens: 80 }
+  finish_reason: stop

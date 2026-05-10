@@ -1,0 +1,36 @@
+# Lower-bound test: model emits AnswerOutput before any search → loop
+# rejects, appends a system reminder, and continues. Then the model
+# searches and emits a valid answer.
+- content: '{"kind":"answer","answer":"Premature answer.","citations":[],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Premature answer."
+    citations: []
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 100, completion_tokens: 25 }
+  finish_reason: stop
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 150, completion_tokens: 12 }
+- content: '{"kind":"answer","answer":"Now grounded.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Now grounded."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 320, completion_tokens: 60 }
+  finish_reason: stop
