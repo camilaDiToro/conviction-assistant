@@ -44,6 +44,30 @@ The proposals are ordered by expected ROI for this 30-doc corpus, *not* by how i
 
 **Cost of *not* doing it:** the 0% cross_lang result effectively means Spanish users can't find PT/EN content via search. PT-only / EN-only users are mostly fine — but the verifier (B7) will protect them from any hallucinated citation regardless.
 
+### Supporting research — why the multilingual hybrid shape is the right one
+
+The hybrid + multilingual + reranker design above isn't an off-the-shelf textbook recipe; each component is grounded in a specific paper or production result. The seven references below are the ones a reviewer would expect us to have read before promoting B6.5.
+
+| Idea | Why it matters for our PT + EN (+ ES queries) corpus | Reference |
+|---|---|---|
+| **Multilingual retrieval is not automatically solved by embeddings — BM25 can still be very strong.** | Validates the v1 BM25-only baseline. For exact terms, entity names, ticker codes, table labels, and metric names, lexical search remains competitive; you don't *start* with embeddings, you *add* them. | **Mr. TyDi** — multilingual dense retrieval benchmark; dense was weaker than BM25 alone on most languages, and shone only when combined as sparse+dense. [arXiv 2108.08787](https://arxiv.org/abs/2108.08787) |
+| **Use hybrid retrieval: BM25 + multilingual dense.** | The safest base architecture for mixed-language corpora. BM25 catches exact matches; dense catches cross-lingual paraphrase. This is exactly Proposal 1 above. | **Mr. TyDi** — same paper, supports sparse+dense hybrid as the consistently better baseline. [arXiv 2108.08787](https://arxiv.org/abs/2108.08787) |
+| **Document translation can outperform query translation.** | If hybrid alone doesn't close the cross_lang gap, the next move is to index translated chunks (e.g. EN translations of PT passages) rather than translating queries on the fly. Document-side translation has the empirical edge. | **CLIRudit (Cross-Lingual IR of Scientific Documents)** — compares query translation vs document translation vs dense vs sparse; document translation generally wins. [ACL 2025.mrl-main.16](https://aclanthology.org/2025.mrl-main.16.pdf) |
+| **Evaluate cross-lingual RAG separately from multilingual retrieval.** | Retrieval can succeed while generation still fails — the model may struggle to answer in the user's language given evidence in another. Our eval suite (B10) needs explicit PT-query→EN-doc and ES-query→PT-doc cases scored end-to-end, not just at retrieval. | **XRAG** — benchmark for cross-lingual RAG where user language ≠ retrieved-doc language. [arXiv 2505.10089](https://arxiv.org/abs/2505.10089) |
+| **A multilingual retrieval benchmark mindset is valuable, but don't copy results blindly.** | MIRACL is the standard bar but is mostly *monolingual* (query and corpus same language). It doesn't directly test our cross_lang failure mode; XRAG and CLIRudit are the better proxies. | **MIRACL** — 18-language retrieval benchmark, 78k queries, 726k judgments. [TACL 2023.tacl-1.63](https://aclanthology.org/2023.tacl-1.63/) |
+| **BGE-M3 is a strong open-source candidate for the embedding side.** | If we want to drop the OpenAI dependency on the dense path (or want one model that handles dense + sparse + multi-vector), BGE-M3 supports 100+ languages in a single checkpoint. Listed as the alternative to `text-embedding-3-large` in Proposal 1 above. | **BGE-M3** — multi-lingual, multi-functionality, multi-granularity embeddings via self-knowledge distillation. [arXiv 2402.03216](https://arxiv.org/abs/2402.03216) |
+| **A multilingual reranker is the precision lift on top of hybrid (Proposal 5).** | Once hybrid puts the right passage in the top-N, a cross-encoder reranker promotes it to top-1. Must be multilingual to handle EN + PT (+ ES) without language-specific routing. | **Cohere Rerank 4.0** — single multilingual reranker trained on 100+ languages. [Cohere docs](https://docs.cohere.com/docs/rerank-overview) |
+
+**One additional empirical anchor — BM25 vs dense on financial-domain text.** A 2025 benchmark on financial documents found that **BM25 outperforms `text-embedding-3-large` on every metric except Recall@20**, attributed to the precision of domain terminology (ticker codes, fund names, regulatory references, fiscal mechanics). This is exactly our domain. It explains why BM25 hits 93.8% on the literal bucket here — and also why the hybrid lift on Proposal 1 is *primarily* about cross_lang and topic recall, not about replacing BM25 wholesale on literal queries. The hybrid argument is "keep BM25's wins, add dense for the failure modes," not "embeddings are better."
+
+- **From BM25 to Corrective RAG: Benchmarking Retrieval Strategies (arXiv 2025).** [arXiv 2604.01733](https://arxiv.org/abs/2604.01733). Single most relevant paper for justifying *both* the v1 BM25-only ship AND the planned hybrid promotion — same paper covers the whole arc.
+
+**What this research changes about the implementation outline above:**
+
+1. Pin **`bge-m3`** as the dense embedder for B6.5 (not `text-embedding-3-large`) — the multilingual-distilled training is a better fit for PT/EN/ES paraphrase than OpenAI's general embedder, and it removes a provider dependency from the retrieval path. Keep `text-embedding-3-large` as the documented alternative.
+2. Add an **explicit XRAG-style cross-lingual eval slice** to B10 (PT-query→EN-doc, ES-query→PT-doc, EN-query→PT-doc) so we can detect the case where retrieval works but generation regresses.
+3. **Defer Cohere Rerank to Proposal 5** as currently scoped — rerankers earn their keep only after hybrid puts good candidates in the top-30. The Cohere reference is here to pre-commit the multilingual choice if/when we promote.
+
 ## Proposal 2 — Tune BM25: k1 / b parameters and BM25L variant
 
 **Expected gain:** small. Maybe recover `pgbl-vgbl-diferenca-pt-literal` and 1 topic case. Cross_lang stays at 0.
