@@ -1,4 +1,4 @@
-"""Unit tests for app/services/search.py — normalization, snippet, BM25Index lifecycle."""
+"""Unit tests for app/services/search.py — normalization, snippet, BM25Retriever lifecycle."""
 
 from datetime import date
 
@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import db
 from app.repositories import passages as passages_repo
+from app.retrieval.bm25 import BM25Retriever, _make_snippet, _normalize
 from app.schemas import Passage
-from app.services.search import BM25Index, _make_snippet, _normalize
 
 
 @pytest.fixture
@@ -79,11 +79,11 @@ def test_make_snippet_collapses_internal_whitespace():
     assert _make_snippet("foo\n\n   bar", max_chars=200) == "foo bar"
 
 
-# ---- BM25Index lifecycle ----
+# ---- BM25Retriever lifecycle ----
 
 
 async def test_index_search_on_empty_returns_empty(session: AsyncSession):
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
     assert idx.search("anything", k=5) == []
 
@@ -97,7 +97,7 @@ async def test_index_finds_literal_match(session: AsyncSession):
     async with session.begin():
         await passages_repo.upsert_many(session, items)
 
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
 
     hits = idx.search("FGC garantia CDB", k=2)
@@ -120,7 +120,7 @@ async def test_index_accent_strip_recall(session: AsyncSession):
     async with session.begin():
         await passages_repo.upsert_many(session, items)
 
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
 
     hits = idx.search("tributacao tabela regressiva", k=1)
@@ -129,7 +129,7 @@ async def test_index_accent_strip_recall(session: AsyncSession):
 
 
 async def test_index_rebuild_picks_up_new_passages(session: AsyncSession):
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
     assert idx.search("anything", k=5) == []
     # build() leaves the session in an autobegun read transaction; close it
@@ -151,7 +151,7 @@ async def test_index_idempotent_double_build(session: AsyncSession):
         await passages_repo.upsert_many(
             session, [_passage("x", "doc", "H", text="content alpha beta")]
         )
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
     await session.commit()  # close autobegun read txn from build()
     await idx.build(session)  # second build must not corrupt state
@@ -167,7 +167,7 @@ async def test_index_search_k_capped_at_corpus_size(session: AsyncSession):
                 _passage("b", "doc", "B", text="beta"),
             ],
         )
-    idx = BM25Index()
+    idx = BM25Retriever()
     await idx.build(session)
 
     hits = idx.search("alpha beta", k=50)

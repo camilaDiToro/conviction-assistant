@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.providers import ToolDefinition
-from app.services.search import BM25Index
+from app.retrieval.bm25 import BM25Retriever
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class ToolContext:
     """Runtime collaborators handed to every tool function."""
 
     session: AsyncSession
-    search_index: BM25Index
+    search_index: BM25Retriever
 
 
 @dataclass(frozen=True)

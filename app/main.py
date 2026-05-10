@@ -14,7 +14,7 @@ from app.api.admin import router as admin_router
 from app.api.health import router as health_router
 from app.config import db, settings
 from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
-from app.services.search import BM25Index
+from app.retrieval.bm25 import BM25Retriever
 
 
 @asynccontextmanager
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = db.make_engine(settings.async_database_url)
     factory = db.make_session_factory(engine)
     db.set_session_factory(factory)
-    index = BM25Index()
+    index = BM25Retriever()
     async with factory() as session:
         await index.build(session)
     app.state.search_index = index

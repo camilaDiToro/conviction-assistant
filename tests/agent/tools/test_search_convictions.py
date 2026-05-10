@@ -7,7 +7,7 @@ literal / topic / cross_lang buckets in PT/EN/ES), ingests the real
 - literal    >= 90%   (BM25 is decisive on literal queries)
 - topic      >= 50%   (loose floor; paraphrase recall is what hybrid lifts)
 - cross_lang  reported-only (canary — fixture-flagged BM25-hostile)
-- p95 latency < 50 ms — measured around the **BM25Index.search** call only,
+- p95 latency < 50 ms — measured around the **BM25Retriever.search** call only,
   not the full `await search_convictions(...)` wrapper. The wrapper adds
   PassageHit construction + snippet generation that we don't want masking
   a retrieval regression. Tool-level p95 is reported alongside but doesn't
@@ -31,8 +31,8 @@ import yaml
 from app.agent.tools import ToolContext, search_convictions
 from app.config import db
 from app.errors import EmptyQueryError
+from app.retrieval.bm25 import BM25Retriever
 from app.services.ingest import ingest_corpus
-from app.services.search import BM25Index
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONVICTIONS_DIR = REPO_ROOT / "convictions"
@@ -60,7 +60,7 @@ async def ctx_for_real_corpus(tmp_path_factory):
 
     async with factory() as session:
         await ingest_corpus(session, CONVICTIONS_DIR)
-        index = BM25Index()
+        index = BM25Retriever()
         await index.build(session)
         yield ToolContext(session=session, search_index=index)
 

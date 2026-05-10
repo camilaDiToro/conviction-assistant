@@ -23,11 +23,11 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.agent import ConversationTurn, run  # noqa: E402
+from app.agent.tools import ToolContext  # noqa: E402
 from app.config import db, settings  # noqa: E402
 from app.providers import LLMProvider, get_llm_provider  # noqa: E402
 from app.providers.stub import StubLLM, load_stub_responses  # noqa: E402
-from app.services.search import BM25Index  # noqa: E402
-from app.agent.tools import ToolContext  # noqa: E402
+from app.retrieval.bm25 import BM25Retriever  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "agent_scenarios"
 
@@ -48,7 +48,7 @@ async def _amain(args: argparse.Namespace) -> int:
     engine = db.make_engine(settings.async_database_url)
     factory = db.make_session_factory(engine)
 
-    index = BM25Index()
+    index = BM25Retriever()
     async with factory() as session:
         await index.build(session)
         ctx = ToolContext(session=session, search_index=index)

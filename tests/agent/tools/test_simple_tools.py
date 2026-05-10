@@ -15,8 +15,8 @@ from app.agent.tools import (
 from app.config import db
 from app.errors import DocumentNotFoundError, PassageNotFoundError
 from app.repositories import passages as passages_repo
+from app.retrieval.bm25 import BM25Retriever
 from app.schemas import DocSummary, DocumentOutline, Passage
-from app.services.search import BM25Index
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ async def test_list_documents_returns_doc_summaries(session: AsyncSession):
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
 
     result = await list_documents(ctx)
 
@@ -69,7 +69,7 @@ async def test_list_documents_returns_doc_summaries(session: AsyncSession):
 
 
 async def test_list_documents_on_empty_corpus_returns_empty(session: AsyncSession):
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
     result = await list_documents(ctx)
     assert result == []
 
@@ -85,7 +85,7 @@ async def test_read_document_outline_returns_full_outline(session: AsyncSession)
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
 
     outline = await read_document_outline(ctx, document_id="cdb_guide")
 
@@ -104,7 +104,7 @@ async def test_read_document_outline_returns_full_outline(session: AsyncSession)
 
 
 async def test_read_document_outline_unknown_id_raises(session: AsyncSession):
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
     with pytest.raises(DocumentNotFoundError) as excinfo:
         await read_document_outline(ctx, document_id="ghost")
     assert excinfo.value.document_id == "ghost"
@@ -115,7 +115,7 @@ async def test_read_document_outline_undated_doc(session: AsyncSession):
         await passages_repo.upsert_many(
             session, [_passage("a", "undated", "A"), _passage("b", "undated", "B")]
         )
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
 
     outline = await read_document_outline(ctx, document_id="undated")
 
@@ -136,7 +136,7 @@ async def test_read_passage_returns_full_passage(session: AsyncSession):
     )
     async with session.begin():
         await passages_repo.upsert_many(session, [p])
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
 
     got = await read_passage(ctx, passage_id="cdb_guide#tax")
 
@@ -148,7 +148,7 @@ async def test_read_passage_returns_full_passage(session: AsyncSession):
 
 
 async def test_read_passage_unknown_id_raises(session: AsyncSession):
-    ctx = ToolContext(session=session, search_index=BM25Index())
+    ctx = ToolContext(session=session, search_index=BM25Retriever())
     with pytest.raises(PassageNotFoundError) as excinfo:
         await read_passage(ctx, passage_id="ghost#missing")
     assert excinfo.value.passage_id == "ghost#missing"

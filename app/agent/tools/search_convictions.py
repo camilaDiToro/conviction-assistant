@@ -2,8 +2,8 @@
 
 from app.agent.tools.context import ToolContext
 from app.errors import EmptyQueryError
+from app.retrieval.bm25 import _make_snippet
 from app.schemas import PassageHit
-from app.services.search import _make_snippet
 
 
 async def search_convictions(

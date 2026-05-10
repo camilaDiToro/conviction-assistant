@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from app.config import db, settings
 from app.config.db import get_session
 from app.main import app
-from app.services.search import BM25Index
+from app.retrieval.bm25 import BM25Retriever
 
 CONVICTIONS = Path(__file__).resolve().parents[2] / "convictions"
 
@@ -30,7 +30,7 @@ async def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_session] = _override
     # Lifespan doesn't run under ASGITransport; attach the search index manually
     # so the admin ingest handler's rebuild() call has somewhere to land.
-    app.state.search_index = BM25Index()
+    app.state.search_index = BM25Retriever()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac

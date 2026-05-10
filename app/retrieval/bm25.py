@@ -50,7 +50,7 @@ def _make_snippet(text: str, max_chars: int = 200) -> str:
     return cut.rstrip() + "…"
 
 
-class BM25Index:
+class BM25Retriever:
     """In-memory BM25 retriever over conviction passages.
 
     A single instance lives on `app.state.search_index`. Lifespan calls
