@@ -26,6 +26,7 @@ in :mod:`app.agent.retry_policy`, language detection in :mod:`app.agent.language
 import asyncio
 import json
 from pathlib import Path
+from time import perf_counter
 from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
@@ -152,6 +153,7 @@ async def _agent_loop(
     for _ in range(max_iterations):
         force_final = budget_exhausted or tool_call_count >= max_tool_calls
 
+        t0 = perf_counter()
         response = await llm.generate(
             messages,
             tools=None if force_final else tool_definitions,
@@ -159,7 +161,8 @@ async def _agent_loop(
             reasoning_effort=settings.agent_reasoning_effort,
             max_output_tokens=settings.agent_max_output_tokens,
         )
-        steps.append(record_llm_call(response, stage="agent_loop"))
+        llm_dur = int((perf_counter() - t0) * 1000)
+        steps.append(record_llm_call(response, stage="agent_loop", duration_ms=llm_dur))
 
         # ---- Branch 1: model wants to call tools -----------------
         if response.tool_calls and not force_final:
@@ -178,12 +181,16 @@ async def _agent_loop(
                 continue
 
             messages.append(_assistant_message(response))
-            results = await asyncio.gather(
-                *[execute_tool(tc, tool_ctx) for tc in response.tool_calls]
-            )
-            for tc, result_text in zip(response.tool_calls, results, strict=True):
+
+            async def _timed_exec(tc):  # type: ignore[no-untyped-def]
+                ts = perf_counter()
+                text = await execute_tool(tc, tool_ctx)
+                return text, int((perf_counter() - ts) * 1000)
+
+            timed_results = await asyncio.gather(*[_timed_exec(tc) for tc in response.tool_calls])
+            for tc, (result_text, tc_dur) in zip(response.tool_calls, timed_results, strict=True):
                 messages.append(Message(role="tool", tool_call_id=tc.id, content=result_text))
-                steps.append(record_tool_call(tc, result_text))
+                steps.append(record_tool_call(tc, result_text, duration_ms=tc_dur))
 
             tool_call_count += len(response.tool_calls)
             search_count += sum(1 for tc in response.tool_calls if tc.name == "search_convictions")
@@ -216,8 +223,10 @@ async def _agent_loop(
             # Skipped for ClarifyingQuestionOutput (no citations) and
             # when the operator disables it via settings.
             if isinstance(output, AnswerOutput) and verifier_enabled:
+                tv = perf_counter()
                 verify = await verify_output(output, ctx=tool_ctx)
-                steps.append(record_verifier(verify, attempt=verify_attempts))
+                v_dur = int((perf_counter() - tv) * 1000)
+                steps.append(record_verifier(verify, attempt=verify_attempts, duration_ms=v_dur))
 
                 if not verify.all_passed:
                     if verify_attempts < verifier_retry_budget:

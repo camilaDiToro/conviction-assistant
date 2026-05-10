@@ -27,6 +27,7 @@ fit for grounded RAG).
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import cast
 
 from app.agent.schemas import (
@@ -63,12 +64,14 @@ async def rewrite_question(
         Message(role="user", content=user_block),
     ]
 
+    t0 = perf_counter()
     response = await llm.generate(
         messages,
         schema=REWRITE_OUTPUT_SCHEMA,
         reasoning_effort=settings.rewrite_reasoning_effort,
         max_output_tokens=settings.rewrite_max_output_tokens,
     )
+    rewrite_dur = int((perf_counter() - t0) * 1000)
 
     if response.parsed is None:
         raise AgentError("rewrite stage: model returned no parsed output")
@@ -87,6 +90,7 @@ async def rewrite_question(
             "rewritten_question": rewritten,
         },
         usage=response.usage,
+        duration_ms=rewrite_dur,
     )
     return cast(str, rewritten), step
 

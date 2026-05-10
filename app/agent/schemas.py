@@ -97,6 +97,7 @@ class StepRecord(BaseModel):
     payload: dict[str, Any]
     usage: TokenUsage | None = None
     tool_name: str | None = None
+    duration_ms: int = 0
 
 
 class AgentResult(BaseModel):

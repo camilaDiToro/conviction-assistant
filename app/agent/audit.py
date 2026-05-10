@@ -24,7 +24,7 @@ from app.repositories import passages as passages_repo
 from app.schemas.passage import Passage
 
 
-def record_llm_call(response: LLMResponse, *, stage: str) -> StepRecord:
+def record_llm_call(response: LLMResponse, *, stage: str, duration_ms: int = 0) -> StepRecord:
     payload: dict[str, Any] = {
         "stage": stage,
         "finish_reason": response.finish_reason,
@@ -40,10 +40,11 @@ def record_llm_call(response: LLMResponse, *, stage: str) -> StepRecord:
         timestamp=datetime.now(UTC),
         payload=payload,
         usage=response.usage,
+        duration_ms=duration_ms,
     )
 
 
-def record_tool_call(call: ToolCall, result_text: str) -> StepRecord:
+def record_tool_call(call: ToolCall, result_text: str, *, duration_ms: int = 0) -> StepRecord:
     return StepRecord(
         step_id=str(uuid.uuid4()),
         kind="tool_call",
@@ -54,10 +55,13 @@ def record_tool_call(call: ToolCall, result_text: str) -> StepRecord:
             "result": _maybe_parse_json(result_text),
         },
         tool_name=call.name,
+        duration_ms=duration_ms,
     )
 
 
-def record_verifier(result: VerificationResult, *, attempt: int) -> StepRecord:
+def record_verifier(
+    result: VerificationResult, *, attempt: int, duration_ms: int = 0
+) -> StepRecord:
     return StepRecord(
         step_id=str(uuid.uuid4()),
         kind="verifier",
@@ -68,6 +72,7 @@ def record_verifier(result: VerificationResult, *, attempt: int) -> StepRecord:
             "verified": [vc.model_dump(mode="json") for vc in result.verified],
             "failures": [f.model_dump(mode="json") for f in result.failures],
         },
+        duration_ms=duration_ms,
     )
 
 

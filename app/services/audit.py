@@ -52,6 +52,8 @@ def _step_payload(step: StepRecord) -> dict[str, Any]:
     payload = dict(step.payload)
     if step.tool_name is not None and "tool_name" not in payload:
         payload["tool_name"] = step.tool_name
+    if step.duration_ms and "duration_ms" not in payload:
+        payload["duration_ms"] = step.duration_ms
     return payload
 
 

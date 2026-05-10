@@ -141,7 +141,7 @@ def _step_to_debug(step: StepRecord, retriever_name: str, verifier_name: str) ->
         kind=step.kind,
         name=name,
         detail=detail,
-        duration_ms=0,
+        duration_ms=step.duration_ms,
         usage=step.usage,
         cost_usd=cost_usd,
         result=_step_result_summary(step),
@@ -339,6 +339,11 @@ def reconstruct_steps_from_audit(
         if not isinstance(payload, dict):
             payload = {}
         tool_name = payload.pop("tool_name", None) if isinstance(payload, dict) else None
+        duration_ms_raw = payload.pop("duration_ms", 0) if isinstance(payload, dict) else 0
+        try:
+            duration_ms = int(duration_ms_raw)
+        except (TypeError, ValueError):
+            duration_ms = 0
         usage: TokenUsage | None = None
         if row["usage"]:
             try:
@@ -357,6 +362,7 @@ def reconstruct_steps_from_audit(
                 payload=payload,
                 usage=usage,
                 tool_name=tool_name if isinstance(tool_name, str) else None,
+                duration_ms=duration_ms,
             )
         )
     debug_steps = [_step_to_debug(s, retriever_name, verifier_name) for s in transient]
@@ -376,6 +382,4 @@ def build_response_debug_step(
     steps endpoint can append the same synthetic response step the live
     path emits.
     """
-    return _response_debug_step(
-        output_dump, verified_citations=verified_citations, step_id=step_id
-    )
+    return _response_debug_step(output_dump, verified_citations=verified_citations, step_id=step_id)
