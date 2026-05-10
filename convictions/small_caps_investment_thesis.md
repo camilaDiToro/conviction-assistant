@@ -159,3 +159,7 @@ The small cap thesis is strongest when:
 - **Global risk appetite is improving**: Reduced risk aversion supports higher beta assets.
 
 Conversely, in environments of rising interest rates, fiscal uncertainty, or credit contraction, small caps typically underperform and should represent a reduced allocation.
+
+---
+
+*This document is produced by Decade's research team and is intended for advisors and sophisticated investors. It does not constitute an offer or investment recommendation. Past performance is not indicative of future results.*
