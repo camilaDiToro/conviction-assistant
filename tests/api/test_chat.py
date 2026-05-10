@@ -132,7 +132,7 @@ async def test_chat_happy_path(client, monkeypatch: pytest.MonkeyPatch) -> None:
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "What is a CDB?", "history": []},
     )
@@ -156,14 +156,14 @@ async def test_chat_happy_path(client, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_chat_missing_token_returns_401(client) -> None:
-    response = await client.post("/chat", json={"question": "x", "history": []})
+    response = await client.post("/api/chat", json={"question": "x", "history": []})
     assert response.status_code == 401
     assert "chat token" in response.json()["detail"]
 
 
 async def test_chat_wrong_token_returns_401(client) -> None:
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "wrong"},
         json={"question": "x", "history": []},
     )
@@ -174,7 +174,7 @@ async def test_chat_unconfigured_token_returns_503(client, monkeypatch) -> None:
     """Empty token in settings = misconfigured server. Fail closed."""
     monkeypatch.setattr(settings, "chat_access_token", None)
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "any"},
         json={"question": "x", "history": []},
     )
@@ -189,7 +189,7 @@ async def test_chat_es_question_gets_es_disclaimer(client, monkeypatch: pytest.M
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "¿Cómo funciona la tributación?", "history": []},
     )
@@ -203,7 +203,7 @@ async def test_chat_pt_question_gets_pt_disclaimer(client, monkeypatch: pytest.M
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "Você sabe o que é um CDB e como é tributado?", "history": []},
     )
@@ -220,7 +220,7 @@ async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch, t
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "What is a CDB?", "history": []},
     )
@@ -229,7 +229,7 @@ async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch, t
 
     # Read the trace via the admin endpoint — token-gated, so include the header.
     trace_response = await client.get(
-        f"/admin/conversations/{conv_id}",
+        f"/api/admin/conversations/{conv_id}",
         headers={"X-Admin-Token": "test-admin-token"},
     )
     assert trace_response.status_code == 200
@@ -256,7 +256,7 @@ async def test_chat_uses_supplied_conversation_id(client, monkeypatch: pytest.Mo
 
     supplied = "client-supplied-conv-id-1234"
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={
             "question": "What is a CDB?",
@@ -277,7 +277,7 @@ async def test_chat_clarifying_branch(client, monkeypatch: pytest.MonkeyPatch) -
     _patch_passage_repo(monkeypatch)
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "LCI?", "history": []},
     )

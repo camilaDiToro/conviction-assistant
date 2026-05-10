@@ -62,8 +62,8 @@ async def _domain_error_handler(request: Request, exc: DomainError) -> JSONRespo
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
-app.include_router(health_router)
-app.include_router(admin_router)
-app.include_router(chat_router)
-app.include_router(chat_history_router)
-app.include_router(conversations_router)
+app.include_router(health_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
+app.include_router(chat_history_router, prefix="/api")
+app.include_router(conversations_router, prefix="/api")

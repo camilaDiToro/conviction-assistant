@@ -46,7 +46,7 @@ async def client(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(not CONVICTIONS.is_dir(), reason="corpus not found")
 async def test_admin_ingest_returns_summary(client):
-    response = await client.post("/admin/ingest")
+    response = await client.post("/api/admin/ingest")
     assert response.status_code == 200
     payload = response.json()
     assert payload["documents"] == 30
@@ -57,6 +57,6 @@ async def test_admin_ingest_returns_summary(client):
 
 async def test_admin_ingest_returns_400_for_missing_directory(client, monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "convictions_dir", tmp_path / "does-not-exist")
-    response = await client.post("/admin/ingest")
+    response = await client.post("/api/admin/ingest")
     assert response.status_code == 400
     assert "not a directory" in response.json()["detail"]

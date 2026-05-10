@@ -14,9 +14,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/admin': 'http://localhost:8002',
-      '/health': 'http://localhost:8002',
-      '/chat': 'http://localhost:8002',
+      '/api': 'http://localhost:8002',
     },
   },
 })

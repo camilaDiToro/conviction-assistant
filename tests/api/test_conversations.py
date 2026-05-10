@@ -105,7 +105,7 @@ async def _seed_one_chat(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -
     app.dependency_overrides[get_llm_provider_dep] = lambda: stub
 
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json={"question": "What is a CDB?", "history": []},
     )
@@ -121,7 +121,7 @@ async def test_get_conversation_trace_returns_summary(
 ) -> None:
     conv_id = await _seed_one_chat(client, monkeypatch)
     response = await client.get(
-        f"/admin/conversations/{conv_id}",
+        f"/api/admin/conversations/{conv_id}",
         headers={"X-Admin-Token": "test-admin-token"},
     )
     assert response.status_code == 200
@@ -138,20 +138,20 @@ async def test_get_conversation_trace_returns_summary(
 
 async def test_get_conversation_trace_unknown_id_returns_404(client) -> None:
     response = await client.get(
-        "/admin/conversations/does-not-exist",
+        "/api/admin/conversations/does-not-exist",
         headers={"X-Admin-Token": "test-admin-token"},
     )
     assert response.status_code == 404
 
 
 async def test_get_conversation_trace_requires_admin_token(client) -> None:
-    response = await client.get("/admin/conversations/anything")
+    response = await client.get("/api/admin/conversations/anything")
     assert response.status_code == 401
 
 
 async def test_get_conversation_trace_wrong_token_returns_401(client) -> None:
     response = await client.get(
-        "/admin/conversations/anything",
+        "/api/admin/conversations/anything",
         headers={"X-Admin-Token": "wrong"},
     )
     assert response.status_code == 401
@@ -165,7 +165,7 @@ async def test_get_conversation_cost_rolls_up_llm_calls(
 ) -> None:
     conv_id = await _seed_one_chat(client, monkeypatch)
     response = await client.get(
-        f"/admin/conversations/{conv_id}/cost",
+        f"/api/admin/conversations/{conv_id}/cost",
         headers={"X-Admin-Token": "test-admin-token"},
     )
     assert response.status_code == 200
@@ -185,12 +185,12 @@ async def test_get_conversation_cost_rolls_up_llm_calls(
 
 async def test_get_conversation_cost_unknown_id_returns_404(client) -> None:
     response = await client.get(
-        "/admin/conversations/does-not-exist/cost",
+        "/api/admin/conversations/does-not-exist/cost",
         headers={"X-Admin-Token": "test-admin-token"},
     )
     assert response.status_code == 404
 
 
 async def test_get_conversation_cost_requires_admin_token(client) -> None:
-    response = await client.get("/admin/conversations/x/cost")
+    response = await client.get("/api/admin/conversations/x/cost")
     assert response.status_code == 401
