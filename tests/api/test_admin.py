@@ -22,6 +22,7 @@ async def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(settings, "sqlite_path", db_path)
     monkeypatch.setattr(settings, "convictions_dir", CONVICTIONS)
+    monkeypatch.setattr(settings, "admin_token", "test-admin-token")
 
     async def _override():
         async with factory() as s:
@@ -32,7 +33,11 @@ async def client(tmp_path, monkeypatch):
     # so the admin ingest handler's rebuild() call has somewhere to land.
     app.state.retriever = BM25Retriever()
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-Admin-Token": "test-admin-token"},
+    ) as ac:
         yield ac
 
     app.dependency_overrides.clear()

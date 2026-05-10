@@ -1,0 +1,233 @@
+"""Tests for GET /chat/conversations and /chat/conversations/{id}."""
+
+from collections.abc import Awaitable, Callable
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.agent.tools import TOOLS, ToolContext, ToolEntry
+from app.agent.verifier import SubstringVerifier
+from app.api.deps import get_llm_provider_dep
+from app.config import db, settings
+from app.config.db import get_session
+from app.main import app
+from app.providers.stub import StubLLM, load_stub_responses
+from app.retrieval.bm25 import BM25Retriever
+from app.schemas import Passage, PassageHit
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "agent_scenarios"
+
+
+def _passage() -> Passage:
+    return Passage(
+        id="cdbs_quick_guide#tributacao",
+        document_id="cdbs_quick_guide",
+        document_title="CDBs Quick Guide",
+        heading="tributacao",
+        heading_path=["CDBs Quick Guide", "Tributação"],
+        text="example passage text covering tabela regressiva and position A and position B",
+        document_updated=date(2026, 4, 1),
+    )
+
+
+def _hit() -> PassageHit:
+    p = _passage()
+    return PassageHit(
+        passage_id=p.id,
+        score=1.0,
+        document_id=p.document_id,
+        document_title=p.document_title,
+        heading_path=p.heading_path,
+        snippet=p.text[:80],
+        document_updated=p.document_updated,
+    )
+
+
+def _patch_tools(
+    monkeypatch: pytest.MonkeyPatch,
+    overrides: dict[str, Callable[..., Awaitable[Any]]],
+) -> None:
+    for name, func in overrides.items():
+        original = TOOLS[name]
+        monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
+
+
+def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _passage()
+
+    async def fake_get(_session: Any, passage_id: str) -> Passage | None:
+        return fake if passage_id == fake.id else None
+
+    monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.retry_policy.passages_repo.get", fake_get)
+
+
+@pytest.fixture
+async def client(tmp_path, monkeypatch):
+    db_path = tmp_path / "history.sqlite"
+    db.migrate(db_path)
+    engine = db.make_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}")
+    factory = db.make_session_factory(engine)
+
+    monkeypatch.setattr(settings, "sqlite_path", db_path)
+    monkeypatch.setattr(settings, "chat_access_token", "test-chat-token")
+    monkeypatch.setattr(settings, "admin_token", "test-admin-token")
+
+    async def _override_session():
+        async with factory() as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _override_session
+    app.state.retriever = BM25Retriever()
+    app.state.verifier = SubstringVerifier()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+async def _send_chat(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    question: str,
+    conversation_id: str | None = None,
+) -> dict[str, Any]:
+    stub = StubLLM(load_stub_responses(FIXTURES / "basic_search.yaml"))
+
+    async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
+        return [_hit()]
+
+    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
+        return _passage()
+
+    _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
+    _patch_passage_repo(monkeypatch)
+    app.dependency_overrides[get_llm_provider_dep] = lambda: stub
+
+    body = {"question": question, "history": []}
+    if conversation_id:
+        body["conversation_id"] = conversation_id
+    response = await client.post(
+        "/chat",
+        headers={"X-Chat-Token": "test-chat-token"},
+        json=body,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+# ---- list ----------------------------------------------------------
+
+
+async def test_list_conversations_empty_returns_empty(client) -> None:
+    response = await client.get(
+        "/chat/conversations",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"conversations": []}
+
+
+async def test_list_conversations_returns_one_after_chat(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    res = await _send_chat(client, monkeypatch, question="What is a CDB?")
+    response = await client.get(
+        "/chat/conversations",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["conversations"]) == 1
+    item = body["conversations"][0]
+    assert item["conversation_id"] == res["conversation_id"]
+    assert item["title"] == "What is a CDB?"
+    assert item["question_count"] == 1
+
+
+async def test_list_conversations_orders_by_recency(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Most recently active conversation should appear first."""
+    res_a = await _send_chat(client, monkeypatch, question="Older question")
+    res_b = await _send_chat(client, monkeypatch, question="Newer question")
+    response = await client.get(
+        "/chat/conversations",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    body = response.json()
+    ids = [c["conversation_id"] for c in body["conversations"]]
+    assert ids[0] == res_b["conversation_id"]
+    assert ids[1] == res_a["conversation_id"]
+
+
+async def test_list_conversations_requires_token(client) -> None:
+    response = await client.get("/chat/conversations")
+    assert response.status_code == 401
+
+
+# ---- load ----------------------------------------------------------
+
+
+async def test_load_conversation_returns_messages(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = await _send_chat(client, monkeypatch, question="What is a CDB?")
+    conv_id = sent["conversation_id"]
+
+    response = await client.get(
+        f"/chat/conversations/{conv_id}",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["conversation_id"] == conv_id
+    assert len(body["messages"]) == 1
+    msg = body["messages"][0]
+    assert msg["kind"] == "answer"
+    assert msg["user_question"] == "What is a CDB?"
+    assert msg["answer"].startswith("CDBs follow")
+    assert msg["citations"][0]["document"] == "cdbs_quick_guide.md"
+    assert msg["citations"][0]["quote"] == "tabela regressiva"
+    assert msg["language"] == "en"
+    assert msg["verifier_passed"] is True
+
+
+async def test_load_conversation_unknown_id_returns_404(client) -> None:
+    response = await client.get(
+        "/chat/conversations/does-not-exist",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 404
+
+
+async def test_load_conversation_requires_token(client) -> None:
+    response = await client.get("/chat/conversations/anything")
+    assert response.status_code == 401
+
+
+async def test_load_conversation_preserves_order_across_turns(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two turns in the same conversation_id round-trip in order."""
+    first = await _send_chat(client, monkeypatch, question="Turn one?")
+    conv_id = first["conversation_id"]
+    await _send_chat(
+        client,
+        monkeypatch,
+        question="Turn two?",
+        conversation_id=conv_id,
+    )
+
+    response = await client.get(
+        f"/chat/conversations/{conv_id}",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    body = response.json()
+    assert len(body["messages"]) == 2
+    assert body["messages"][0]["user_question"] == "Turn one?"
+    assert body["messages"][1]["user_question"] == "Turn two?"

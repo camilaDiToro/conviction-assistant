@@ -3,12 +3,17 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.auth import require_admin_token
 from app.config import settings
 from app.config.db import get_session
 from app.schemas.ingest import IngestResponse
 from app.services import ingest as ingest_service
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 @router.post("/ingest", response_model=IngestResponse)

@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     retrieval_strategy: Literal["bm25"] = "bm25"
     verifier_strategy: Literal["substring"] = "substring"
 
+    # B9 access tokens. Loaded from .env. The chat token is what the user
+    # pastes into the frontend gate; the admin token is for /admin/* and
+    # is never exposed to the browser. Both are validated server-side via
+    # hmac.compare_digest. Empty values keep the endpoints open in tests
+    # (the test fixtures override the deps directly); production .env
+    # MUST set both — see app/api/auth.py.
+    chat_access_token: str | None = None
+    admin_token: str | None = None
+
     @property
     def async_database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"

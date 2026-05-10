@@ -12,6 +12,9 @@ from fastapi.responses import JSONResponse
 
 from app.agent.verifier import get_verifier
 from app.api.admin import router as admin_router
+from app.api.chat import router as chat_router
+from app.api.chat_history import router as chat_history_router
+from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.config import db, settings
 from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
@@ -61,3 +64,6 @@ async def _domain_error_handler(request: Request, exc: DomainError) -> JSONRespo
 
 app.include_router(health_router)
 app.include_router(admin_router)
+app.include_router(chat_router)
+app.include_router(chat_history_router)
+app.include_router(conversations_router)
