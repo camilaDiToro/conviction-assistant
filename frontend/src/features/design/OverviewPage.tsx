@@ -243,11 +243,13 @@ function ArchitectureDiagram() {
           <text x="180" y="136" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600" fontFamily="Inter">Agent loop</text>
           <text x="180" y="154" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/agent/loop.py</text>
           <line x1="40" y1="170" x2="320" y2="170" stroke="#262626" />
-          <text x="180" y="200" textAnchor="middle" fill="#B5B5B5" fontSize="12" fontFamily="Inter">Gather → Act → Answer</text>
-          <text x="180" y="232" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≤ 5 tool calls</text>
-          <text x="180" y="252" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≥ 1 search before answer</text>
-          <text x="180" y="272" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">strict JSON output</text>
-          <text x="180" y="292" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">no prior assistant text</text>
+          <text x="180" y="196" textAnchor="middle" fill="#B5B5B5" fontSize="12" fontFamily="Inter">Gather → Act → Answer</text>
+          <text x="180" y="224" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">list_documents · read_document_outline</text>
+          <text x="180" y="240" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">search_convictions · read_passage</text>
+          <text x="180" y="276" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≤ 5 tool calls · configurable (.env)</text>
+          <text x="180" y="296" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≥ 1 search before a grounded answer</text>
+          <text x="180" y="316" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">strict JSON output</text>
+          <text x="180" y="336" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">no prior assistant text</text>
         </g>
 
         {/* Agent ↔ Tools */}
