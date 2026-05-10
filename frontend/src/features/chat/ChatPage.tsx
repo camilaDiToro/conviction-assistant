@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GridMark } from '@/components/GridMark'
 import {
@@ -179,13 +179,7 @@ export default function ChatPage() {
             <GridMark size={26} />
             <span className="text-sm tracking-tight font-medium">Decade AI Chat</span>
           </Link>
-          <span className="pill">
-            <ShieldCheck size={11} /> Token-gated · audit-logged
-          </span>
         </div>
-        <Link to="/design/overview" className="btn-ghost">
-          <ArrowLeft size={14} /> Design
-        </Link>
       </header>
 
       <div className="flex-1 flex">
@@ -233,7 +227,7 @@ export default function ChatPage() {
                       ask(input)
                     }
                   }}
-                  placeholder="Ask about Decade convictions — PT, EN, or ES."
+                  placeholder="Ask about Decade convictions"
                   className="flex-1 bg-transparent text-ink-1 px-4 py-3 outline-none resize-none placeholder:text-ink-3"
                   disabled={busy}
                 />
