@@ -41,6 +41,7 @@ class VerifiedCitation(BaseModel):
     heading_path: list[str]
     document_updated: date | None
     quote: str
+    passage_text: str | None = None
 
 
 class CitationFailure(BaseModel):

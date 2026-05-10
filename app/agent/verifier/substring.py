@@ -99,6 +99,7 @@ def verify_answer(
                 heading_path=passage.heading_path,
                 document_updated=passage.document_updated,
                 quote=citation.quote,
+                passage_text=passage.text,
             )
         )
 

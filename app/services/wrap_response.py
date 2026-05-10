@@ -122,6 +122,7 @@ def _verified_to_chat(vc: VerifiedCitation) -> ChatCitation:
         heading=heading,
         heading_path=list(vc.heading_path),
         quote=vc.quote,
+        passage_text=vc.passage_text,
     )
 
 

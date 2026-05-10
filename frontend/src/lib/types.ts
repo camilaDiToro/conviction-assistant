@@ -52,6 +52,7 @@ export interface Citation {
   heading: string
   heading_path: string[]
   quote: string
+  passage_text?: string | null
 }
 
 export interface TokenUsage {

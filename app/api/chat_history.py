@@ -216,9 +216,7 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
     kind = output.get("kind", "answer")
     citations = [_citation_from_dump(c) for c in (payload.get("verified_citations") or [])]
 
-    user_question_raw = (
-        payload.get("user_question") or payload.get("rewritten_question") or ""
-    )
+    user_question_raw = payload.get("user_question") or payload.get("rewritten_question") or ""
     common = {
         "question_id": row["question_id"],
         "timestamp": row["timestamp"],  # parsed by Pydantic
@@ -275,6 +273,7 @@ def _citation_from_dump(dump: dict[str, Any]) -> ChatCitation:
         heading=heading,
         heading_path=heading_path,
         quote=dump.get("quote", ""),
+        passage_text=dump.get("passage_text"),
     )
 
 

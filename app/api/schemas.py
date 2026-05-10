@@ -54,6 +54,7 @@ class ChatCitation(BaseModel):
     heading: str
     heading_path: list[str]
     quote: str
+    passage_text: str | None = None
 
 
 class DebugStep(BaseModel):
