@@ -106,7 +106,7 @@ export default function ToolsPage() {
 class ToolDefinition:
     name: str
     description: str
-    parameters: dict          # JSON schema; OpenAI strict-mode compliant
+    parameters: dict
 
 @dataclass(frozen=True)
 class ToolContext:
