@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+
+  ::selection {
+    background-color: #FFFFFF;
+    color: #000000;
+  }
+
+  /* Scrollbar — minimal, decade-ish */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #262626;
+    border: 2px solid #000000;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #3A3A3A; }
+}
+
+@layer components {
+  .hairline {
+    @apply border-t border-border;
+  }
+
+  .grid-mark {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+  }
+  .grid-mark > span {
+    background: currentColor;
+    border-radius: 1px;
+  }
+
+  /* Restraint-driven button */
+  .btn-line {
+    @apply inline-flex items-center gap-2 border border-ink-1 px-5 py-3
+           text-sm font-medium tracking-tight text-ink-1
+           transition-colors duration-200 ease-decade
+           hover:bg-ink-1 hover:text-bg;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-5 py-3 text-sm font-medium
+           tracking-tight text-ink-2
+           transition-colors duration-200 ease-decade
+           hover:text-ink-1;
+  }
+
+  .link-underline {
+    @apply text-ink-1 underline underline-offset-4 decoration-ink-3
+           transition-colors duration-200 ease-decade
+           hover:decoration-ink-1;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border
+           bg-surface px-2.5 py-1 text-[11px] font-medium tracking-tight
+           text-ink-3 uppercase;
+  }
+
+  .codeblock {
+    @apply font-mono text-[13px] leading-relaxed text-ink-1 bg-surface
+           border border-border rounded-md p-4 overflow-x-auto;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
