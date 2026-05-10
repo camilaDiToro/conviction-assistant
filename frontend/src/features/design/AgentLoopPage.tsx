@@ -58,7 +58,7 @@ export default function AgentLoopPage() {
           <SpecItem term="max_tool_calls = 5">A single conversation step may chain at most five tool calls. The 6th raises a synthetic <code className="font-mono text-[13px] text-ink-1">ToolBudgetExceeded</code> the agent sees as a tool-result error.</SpecItem>
           <SpecItem term="min_searches_before_answer = 1">Tracked by counting <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls. An Act response emitted before this counter is non-zero is rejected and the agent is re-prompted with a directive to search.</SpecItem>
           <SpecItem term="verifier_retries = 1">Per Act response. The retry message contains the per-citation failure reasons returned by the verifier verbatim.</SpecItem>
-          <SpecItem term='reasoning_effort = "low"'>On gpt-5. Reduces reasoning tokens by an order of magnitude. The verifier covers what reasoning would have caught (paraphrase, hallucinated passage_id).</SpecItem>
+          <SpecItem term='reasoning_effort = "medium"'>On gpt-5. Bumped from <code className='font-mono text-[13px] text-ink-1'>low</code> after observing shallow synthesis on broad questions; the verifier still catches paraphrase / hallucinated passage_id. Override via <code className='font-mono text-[13px] text-ink-1'>AGENT_REASONING_EFFORT=low</code> for cost-sensitive eval / CI.</SpecItem>
           <SpecItem term="temperature = 0">Where the provider honors it. OpenAI gpt-5 ignores temperature; the verifier and the structured-output schema are the determinism-relevant constraints.</SpecItem>
         </SpecList>
       </Section>

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     agent_max_tool_calls: int = 5
     agent_max_iterations: int = 12
     agent_max_output_tokens: int = 4096
-    agent_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "low"
+    agent_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "medium"
     rewrite_max_output_tokens: int = 200
     rewrite_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
 

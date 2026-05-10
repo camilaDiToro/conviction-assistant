@@ -51,7 +51,7 @@ export default function OverviewPage() {
           <dd className="text-ink-2 pt-3 border-t border-border">Every step is recorded in <code className="font-mono text-[13px] text-ink-1">audit_log</code> with three IDs (step, question, conversation). Cost is derived from <code className="font-mono text-[13px] text-ink-1">TokenUsage</code> + a vendored price table; old rows re-price under new prices.</dd>
 
           <dt className="text-ink-1 font-medium pt-3 border-t border-border">Cost</dt>
-          <dd className="text-ink-2 pt-3 border-t border-border">Prompt caching on the system prompt; <code className="font-mono text-[13px] text-ink-1">reasoning_effort=low</code> on gpt-5; no LLM calls in unit or integration tests.</dd>
+          <dd className="text-ink-2 pt-3 border-t border-border">Prompt caching on the system prompt; <code className="font-mono text-[13px] text-ink-1">reasoning_effort=medium</code> on gpt-5 (override to <code className="font-mono text-[13px] text-ink-1">low</code> via <code className="font-mono text-[13px] text-ink-1">AGENT_REASONING_EFFORT</code> for cost-sensitive runs); no LLM calls in unit or integration tests.</dd>
         </dl>
       </Section>
 

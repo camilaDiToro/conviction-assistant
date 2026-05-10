@@ -7,10 +7,10 @@ Why each tuning param has the value it does, for *this* use case (constrained ag
 | Knob | Default | Tool-routing turns | Final-answer turn | Why |
 |---|---|---|---|---|
 | `temperature` | unset (omitted from API call) | unset | unset | gpt-5 rejects explicit `temperature`. Determinism comes from the verifier rejecting non-grounded citations, not from `temperature=0`. |
-| `reasoning_effort` | unset (provider default) | `"low"` | `"low"` | Tool selection is schema-constrained; final synthesis is bounded by retrieval. Neither task is multi-step reasoning. `"medium"` would 2–3× latency and reasoning-token spend without measurable quality gain. |
+| `reasoning_effort` | unset (provider default) | `"medium"` | `"medium"` | Bumped from `"low"` after observing shallow synthesis on broad questions ("what is the thesis on X?"). The model summarised multi-bullet sections into a single sentence under low effort, omitting evidence the analyst needs. Medium roughly doubles latency and reasoning-token spend; the comprehensiveness gain is the load-bearing tradeoff for an analyst-facing assistant. Override via `.env` (`AGENT_REASONING_EFFORT=low`) for cost-sensitive eval / CI. |
 | `verbosity` | unset | unset | `"low"` | Schema bounds the surface; verbosity controls chattiness *within* fields. Decade analysts want signal. |
 | `max_output_tokens` | unset | `~200` | `~800` | Defense in depth. Final answer is bounded by the schema (~400 tok answer + ≤8 citations × ~30 tok). 800 = 2× natural ceiling — generous but fails loud on a runaway. |
-| `openai_timeout_seconds` (settings) | `60.0` | — | — | `reasoning_effort=low` calls return in 5–15s; 60s = 4× headroom. Agent loop bounded at 5 turns → worst-case 5min request budget. SDK default is 10min, wrong for an interactive `/chat`. |
+| `openai_timeout_seconds` (settings) | `60.0` | — | — | `reasoning_effort=medium` calls return in ~10–25s; 60s gives ~2.5× headroom. Agent loop bounded at 5 turns → worst-case 5min request budget. SDK default is 10min, wrong for an interactive `/chat`. |
 
 The orchestrator (B8) is the only place that picks per-call values. The protocol exposes the params; nothing defaults them.
 
