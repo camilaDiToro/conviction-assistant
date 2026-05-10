@@ -106,31 +106,40 @@ export const TOOLS: ToolSpec[] = [
   },
   {
     name: 'read_passage',
-    oneLine: 'Full passage text — the only tool that returns the full body.',
+    oneLine: 'Full text for one or more passages — the only tool that returns the full body.',
     description:
-      "Return the full text of one passage by ID, plus its document title, heading path, and last-updated date. This is the only tool that returns full passage text; other tools return identifiers and outlines.",
+      "Return the full text of one or more passages by ID, each with its document title, heading path, and last-updated date. Pass every ID you intend to cite in a single call — the result is a list aligned to the input order. This is the only tool that returns full passage text; other tools return identifiers and outlines.",
     parameters: {
       type: 'object',
       properties: {
-        passage_id: {
-          type: 'string',
+        passage_ids: {
+          type: 'array',
+          items: { type: 'string' },
           description:
-            'The passage ID, as returned by search_convictions or read_document_outline (Heading.passage_id).',
+            'One or more passage IDs, as returned by search_convictions or read_document_outline (Heading.passage_id). Batch every passage you intend to cite in a single call rather than issuing one tool call per ID.',
         },
       },
-      required: ['passage_id'],
+      required: ['passage_ids'],
       additionalProperties: false,
     },
     whenToCall:
-      'After search_convictions surfaces a relevant snippet — the snippet is truncated to ~200 chars. The agent must read the full passage before quoting it, otherwise the verifier will fail.',
-    sampleInput: { passage_id: 'lci_lca_investimentos#prazo-minimo-carencia-tributacao' },
-    sampleOutput: {
-      id: 'lci_lca_investimentos#prazo-minimo-carencia-tributacao',
-      document_title: 'LCI e LCA: Guia Completo de Letras de Crédito',
-      heading: 'Prazo Mínimo, Carência e Tributação',
-      heading_path: ['LCI e LCA: Guia Completo de Letras de Crédito', 'Prazo Mínimo, Carência e Tributação'],
-      text: 'LCIs e LCAs são isentas de Imposto de Renda para pessoas físicas nos rendimentos. Para manter a isenção, devem ser mantidas pelo prazo mínimo de carência de 120 dias corridos a partir da data de emissão, conforme regulamentação do CMN…',
-      document_updated: '2026-04-01',
+      'After search_convictions surfaces relevant snippets — snippets are truncated to ~200 chars. Batch every passage you intend to cite into one call; reading them is the prerequisite for the verifier to accept verbatim quotes.',
+    sampleInput: {
+      passage_ids: [
+        'lci_lca_investimentos#prazo-minimo-carencia-tributacao',
+        'cdbs_quick_guide#tributacao',
+      ],
     },
+    sampleOutput: [
+      {
+        id: 'lci_lca_investimentos#prazo-minimo-carencia-tributacao',
+        document_title: 'LCI e LCA: Guia Completo de Letras de Crédito',
+        heading: 'Prazo Mínimo, Carência e Tributação',
+        heading_path: ['LCI e LCA: Guia Completo de Letras de Crédito', 'Prazo Mínimo, Carência e Tributação'],
+        text: 'LCIs e LCAs são isentas de Imposto de Renda para pessoas físicas nos rendimentos. Para manter a isenção, devem ser mantidas pelo prazo mínimo de carência de 120 dias corridos a partir da data de emissão, conforme regulamentação do CMN…',
+        document_updated: '2026-04-01',
+      },
+      '... 1 more',
+    ],
   },
 ]

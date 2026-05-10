@@ -127,7 +127,7 @@ class ToolEntry:
 async def list_documents(ctx: ToolContext) -> list[DocSummary]: ...
 async def read_document_outline(ctx: ToolContext, *, document_id: str) -> DocumentOutline: ...
 async def search_convictions(ctx: ToolContext, *, query: str, k: int = 5) -> list[PassageHit]: ...
-async def read_passage(ctx: ToolContext, *, passage_id: str) -> Passage: ...`}
+async def read_passage(ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]: ...`}
         />
       </Section>
 
@@ -138,11 +138,11 @@ async def read_passage(ctx: ToolContext, *, passage_id: str) -> Passage: ...`}
             <code className="font-mono text-[13px] text-ink-1">EmptyQueryError</code>;
             mapped to HTTP 400 at the boundary.
           </SpecItem>
-          <SpecItem term="Unknown passage_id">
+          <SpecItem term="Unknown id in passage_ids">
             <code className="font-mono text-[13px] text-ink-1">read_passage</code> raises{' '}
-            <code className="font-mono text-[13px] text-ink-1">PassageNotFoundError</code>.
-            Today maps to 500; in B8 the orchestrator surfaces it as a tool-result error so
-            the agent self-corrects.
+            <code className="font-mono text-[13px] text-ink-1">PassageNotFoundError</code> for
+            the first missing id. The orchestrator surfaces it as a tool-result error so
+            the agent self-corrects on the next turn.
           </SpecItem>
           <SpecItem term="Unknown document_id">
             <code className="font-mono text-[13px] text-ink-1">read_document_outline</code> raises{' '}

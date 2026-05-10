@@ -43,7 +43,7 @@ Agent LLM with read-only tools
    ├── list_documents()
    ├── read_document_outline(doc_id)
    ├── search_convictions(query, k)
-   └── read_passage(passage_id)
+   └── read_passage(passage_ids)
    │
    ▼
 Evidence Pack          (passages the agent decided to use)
@@ -163,8 +163,10 @@ search_convictions(query: str, k: int = 8) -> list[PassageHit]
 # conversation with the project owner. See ROADMAP B6.
 # Returns id, doc_title, heading_path, snippet, score.
 
-read_passage(passage_id: str) -> Passage
-# Full text of a passage by ID.
+read_passage(passage_ids: list[str]) -> list[Passage]
+# Full text of one or more passages by ID, returned in input order.
+# The agent is expected to batch every passage it intends to cite into a
+# single call rather than issuing one read_passage per id.
 ```
 
 All four tools are defined once with JSON schemas and reused across every provider adapter — tool use is the most provider-portable surface area in modern LLM APIs.

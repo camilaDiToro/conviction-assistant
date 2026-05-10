@@ -11,7 +11,8 @@
   - id: call_read_bad
     name: read_passage
     arguments:
-      passage_id: does_not_exist#nope
+      passage_ids:
+        - does_not_exist#nope
   usage:
     model: stub-llm
     prompt_tokens: 100

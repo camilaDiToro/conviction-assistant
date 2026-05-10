@@ -116,8 +116,8 @@ def _wire_basic_search(monkeypatch: pytest.MonkeyPatch, stub: StubLLM) -> None:
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit()]
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        return _passage(passage_id)
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        return [_passage(pid) for pid in passage_ids]
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
     _patch_passage_repo(monkeypatch)

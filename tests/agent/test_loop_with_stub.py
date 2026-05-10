@@ -85,9 +85,9 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
         assert k == 5
         return [_hit("cdbs_quick_guide#tributacao")]
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        assert passage_id == "cdbs_quick_guide#tributacao"
-        return _passage(passage_id)
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        assert passage_ids == ["cdbs_quick_guide#tributacao"]
+        return [_passage(pid) for pid in passage_ids]
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
 
@@ -123,8 +123,8 @@ async def test_empty_history_runs_passthrough_rewrite(monkeypatch: pytest.Monkey
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit("cdbs_quick_guide#tributacao")]
 
-    async def fake_read(_ctx: ToolContext, **_: Any) -> Passage:
-        return _passage("cdbs_quick_guide#tributacao")
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        return [_passage(pid) for pid in passage_ids]
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
 
@@ -279,12 +279,15 @@ async def test_dated_conflict_surfaced(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit("doc_a#section"), _hit("doc_b#section")]
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        if passage_id == "doc_a#section":
-            return _passage("doc_a#section", updated=date(2026, 4, 1))
-        if passage_id == "doc_b#section":
-            return _passage("doc_b#section", updated=date(2026, 1, 1))
-        raise PassageNotFoundError(passage_id)
+    dates = {"doc_a#section": date(2026, 4, 1), "doc_b#section": date(2026, 1, 1)}
+
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        out: list[Passage] = []
+        for pid in passage_ids:
+            if pid not in dates:
+                raise PassageNotFoundError(pid)
+            out.append(_passage(pid, updated=dates[pid]))
+        return out
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
 
@@ -306,12 +309,18 @@ async def test_undated_conflict_says_undated(monkeypatch: pytest.MonkeyPatch) ->
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit("doc_a#section"), _hit("doc_b_undated#section")]
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        if passage_id == "doc_a#section":
-            return _passage("doc_a#section", updated=date(2026, 4, 1))
-        if passage_id == "doc_b_undated#section":
-            return _passage("doc_b_undated#section", updated=None)
-        raise PassageNotFoundError(passage_id)
+    dates: dict[str, date | None] = {
+        "doc_a#section": date(2026, 4, 1),
+        "doc_b_undated#section": None,
+    }
+
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        out: list[Passage] = []
+        for pid in passage_ids:
+            if pid not in dates:
+                raise PassageNotFoundError(pid)
+            out.append(_passage(pid, updated=dates[pid]))
+        return out
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
 
@@ -330,10 +339,13 @@ async def test_domain_error_surfaces_to_model(monkeypatch: pytest.MonkeyPatch) -
     """A tool that raises PassageNotFoundError yields an error tool
     message the model can recover from on the next turn."""
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        if passage_id.startswith("does_not_exist"):
-            raise PassageNotFoundError(passage_id)
-        return _passage(passage_id)
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        out: list[Passage] = []
+        for pid in passage_ids:
+            if pid.startswith("does_not_exist"):
+                raise PassageNotFoundError(pid)
+            out.append(_passage(pid))
+        return out
 
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit("cdbs_quick_guide#tributacao")]

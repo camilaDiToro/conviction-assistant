@@ -22,7 +22,8 @@
   - id: call_read
     name: read_passage
     arguments:
-      passage_id: cdbs_quick_guide#tributacao
+      passage_ids:
+        - cdbs_quick_guide#tributacao
   usage:
     model: stub-llm
     prompt_tokens: 320

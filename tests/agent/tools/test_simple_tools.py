@@ -126,32 +126,30 @@ async def test_read_document_outline_undated_doc(session: AsyncSession):
 # ---- read_passage ----
 
 
-async def test_read_passage_returns_full_passage(session: AsyncSession):
-    p = _passage(
-        "tax",
-        "cdb_guide",
-        "Tributação",
-        text="A tributação segue a tabela regressiva...",
-        updated=date(2026, 4, 1),
-    )
+async def test_read_passage_returns_passages_in_input_order(session: AsyncSession):
+    items = [
+        _passage("a", "doc_x", "A", text="alpha", updated=date(2026, 4, 1)),
+        _passage("b", "doc_x", "B", text="beta", updated=date(2026, 4, 1)),
+    ]
     async with session.begin():
-        await passages_repo.upsert_many(session, [p])
+        await passages_repo.upsert_many(session, items)
     ctx = ToolContext(session=session, retriever=BM25Retriever())
 
-    got = await read_passage(ctx, passage_id="cdb_guide#tax")
+    got = await read_passage(ctx, passage_ids=["doc_x#b", "doc_x#a"])
 
-    assert isinstance(got, Passage)
-    assert got.id == "cdb_guide#tax"
-    assert got.text == "A tributação segue a tabela regressiva..."
-    assert got.document_updated == date(2026, 4, 1)
-    assert got.heading_path == ["Cdb Guide", "Tributação"]
+    assert [p.id for p in got] == ["doc_x#b", "doc_x#a"]
+    assert [p.text for p in got] == ["beta", "alpha"]
+    assert all(isinstance(p, Passage) for p in got)
 
 
-async def test_read_passage_unknown_id_raises(session: AsyncSession):
+async def test_read_passage_raises_on_any_missing_id(session: AsyncSession):
+    async with session.begin():
+        await passages_repo.upsert_many(session, [_passage("a", "doc_x", "A")])
     ctx = ToolContext(session=session, retriever=BM25Retriever())
+
     with pytest.raises(PassageNotFoundError) as excinfo:
-        await read_passage(ctx, passage_id="ghost#missing")
-    assert excinfo.value.passage_id == "ghost#missing"
+        await read_passage(ctx, passage_ids=["doc_x#a", "doc_x#missing"])
+    assert excinfo.value.passage_id == "doc_x#missing"
 
 
 # ---- TOOLS registry / schema-shape sanity ----
