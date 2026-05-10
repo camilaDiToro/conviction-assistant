@@ -30,7 +30,7 @@ async def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_session] = _override
     # Lifespan doesn't run under ASGITransport; attach the search index manually
     # so the admin ingest handler's rebuild() call has somewhere to land.
-    app.state.search_index = BM25Retriever()
+    app.state.retriever = BM25Retriever()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac

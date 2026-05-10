@@ -34,7 +34,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "agent_scenario
 def _stub_ctx() -> ToolContext:
     """ToolContext with sentinel mocks. Tools are patched per-test, so
     the session and search_index are never actually touched."""
-    return ToolContext(session=MagicMock(), search_index=MagicMock())
+    return ToolContext(session=MagicMock(), retriever=MagicMock())
 
 
 def _patch_tools(

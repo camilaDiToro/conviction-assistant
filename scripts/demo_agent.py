@@ -51,7 +51,7 @@ async def _amain(args: argparse.Namespace) -> int:
     index = BM25Retriever()
     async with factory() as session:
         await index.build(session)
-        ctx = ToolContext(session=session, search_index=index)
+        ctx = ToolContext(session=session, retriever=index)
         llm = _build_llm(args)
 
         history = [

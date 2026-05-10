@@ -14,7 +14,7 @@ async def search_convictions(
 ) -> list[PassageHit]:
     if not query or not query.strip():
         raise EmptyQueryError()
-    pairs = ctx.search_index.search(query, k=k)
+    pairs = ctx.retriever.search(query, k=k)
     return [
         PassageHit(
             passage_id=p.id,

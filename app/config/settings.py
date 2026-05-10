@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     verifier_enabled: bool = True
     verifier_retry_budget: int = 1  # ROADMAP B8 pins one retry; configurable for tests.
 
+    # Strategy seams. Single-member Literals today — adding a second
+    # entry is a deliberate code change (register the new strategy +
+    # widen the Literal), not a `.env` flip.
+    retrieval_strategy: Literal["bm25"] = "bm25"
+
     @property
     def async_database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"

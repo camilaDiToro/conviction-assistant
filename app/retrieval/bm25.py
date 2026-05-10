@@ -28,6 +28,8 @@ import bm25s  # type: ignore[import-untyped]
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories import passages as passages_repo
+from app.retrieval.base import Retriever
+from app.retrieval.registry import register
 from app.schemas.passage import Passage
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -53,7 +55,7 @@ def _make_snippet(text: str, max_chars: int = 200) -> str:
 class BM25Retriever:
     """In-memory BM25 retriever over conviction passages.
 
-    A single instance lives on `app.state.search_index`. Lifespan calls
+    A single instance lives on `app.state.retriever`. Lifespan calls
     `build()`; admin ingest calls `rebuild()`. Tests construct one, seed
     the DB, call `build()`, and pass the index into `ToolContext`.
     """
@@ -104,3 +106,8 @@ class BM25Retriever:
             score = float(scores[0, i])
             out.append((self._passages[idx], score))
         return out
+
+
+@register("bm25")
+def _bm25_factory() -> Retriever:
+    return BM25Retriever()

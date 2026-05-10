@@ -17,7 +17,7 @@ async def trigger_ingest(
     session: AsyncSession = Depends(get_session),
 ) -> IngestResponse:
     report = await ingest_service.ingest_corpus(session, settings.convictions_dir)
-    await request.app.state.search_index.rebuild(session)
+    await request.app.state.retriever.rebuild(session)
     return IngestResponse(
         documents=report.documents,
         passages=report.passages,

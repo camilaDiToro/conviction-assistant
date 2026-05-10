@@ -62,7 +62,7 @@ async def ctx_for_real_corpus(tmp_path_factory):
         await ingest_corpus(session, CONVICTIONS_DIR)
         index = BM25Retriever()
         await index.build(session)
-        yield ToolContext(session=session, search_index=index)
+        yield ToolContext(session=session, retriever=index)
 
     await engine.dispose()
 
@@ -88,7 +88,7 @@ async def test_retrieval_golden(ctx_for_real_corpus, capsys):
 
     import time
 
-    index = ctx_for_real_corpus.search_index
+    index = ctx_for_real_corpus.retriever
     # Warm up bm25s caches so the first few timed cases don't skew p95 on
     # this 29-sample run. Queries chosen to hit different docs.
     for warm_q in ("CDB", "fundos imobiliarios", "private equity", "renda fixa", "ETF"):

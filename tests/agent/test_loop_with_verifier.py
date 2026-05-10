@@ -40,7 +40,7 @@ PASSAGE_TEXT = "example passage text covering tabela regressiva and position A a
 
 
 def _stub_ctx() -> ToolContext:
-    return ToolContext(session=MagicMock(), search_index=MagicMock())
+    return ToolContext(session=MagicMock(), retriever=MagicMock())
 
 
 def _patch_tools(
