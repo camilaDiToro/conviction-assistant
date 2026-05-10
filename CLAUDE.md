@@ -6,9 +6,11 @@ Index for future Claude sessions working on this project. Read this first; follo
 
 A conversational AI assistant strictly grounded on Decade's investment conviction documents. The challenge brief is in `AI_CHALLENGE.md`. The corpus is in `convictions/` (30 markdown files, mixed Portuguese/English, expected to grow).
 
-**One-line framing for the interview:** *a constrained agentic harness over the conviction corpus — inspired by Claude Code's "tools, not embeddings-as-the-retriever" philosophy — with a deterministic substring verifier as the grounding guarantee that no provider's Citations API matches.*
+**One-line framing for the interview:** *a deterministic substring verifier as the grounding guarantee — paired with a constrained agentic harness (small read-only tool surface + bounded gather→act→verify loop) whose discipline is inspired by Claude Code. No provider's Citations API matches the verifier's guarantee.*
 
-The architecture is a **constrained tool-using agent + deterministic citation verifier**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user.
+The architecture is a **deterministic citation verifier + constrained tool-using agent**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user. Retry-with-feedback on first failure; strip-claim on second.
+
+**A note on the Claude Code analogy.** We adopt Claude Code's two load-bearing ideas — a small read-only tool surface and the gather→act→verify loop — but we keep a deterministic retrieval index (BM25, sparse) instead of going full grep-in-the-loop. The corpus is natural-language PT/EN prose, not source code: grep alone misses paraphrase, and at 30 documents the per-turn latency win for the user dominates the token-cost win the agent would get from navigating outlines in real time. A purer Claude Code interpretation (drop `search_convictions`, give the agent only `list_documents` + `read_document_outline` + `read_passage`) was considered and rejected on those grounds. BM25-vs-hybrid is a tactical level-up gated on eval (see `docs/reports/b6-*.md`); the verifier is the architectural commitment.
 
 ## Stack
 
@@ -56,7 +58,6 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 | `AI_CHALLENGE.md` | The challenge brief from Decade. The requirements live here. |
 | `docs/ROADMAP.md` | **Multi-session step-by-step build plan.** Read this at the start of every implementation session. Update between sessions (check off `- [x]`, note deviations). |
 | `docs/ARCHITECTURES.md` | **The chosen architecture.** Tool surface, agent loop, verifier, what's *not* implemented in this version, alternatives that were considered and rejected, eval-driven implementation order. |
-| `docs/INSIGHTS.md` | Research notes on provider-built RAG (Anthropic / OpenAI / Google) and how Claude Code works internally. Explains *why* the tool-based design is the right answer. Has links and videos. |
 | `docs/TESTING.md` | Testing strategy. Layer-by-layer test plan, faithfulness eval suite, CI tiers. Confirms the architecture is testable by construction. |
 | `docs/QUESTIONS.md` | Open questions to ask Decade that could change the design. |
 | `docs/ASSUMPTIONS.md` | Confirmed assumptions from the project owner. Read before making decisions. |
