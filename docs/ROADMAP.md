@@ -52,13 +52,12 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Depends on:** none.
 
 ### B2 — Markdown parser + Passage model (in-memory; no DB yet)  - [x]
-- **Goal:** pure parser turning `convictions/*.md` into `list[Passage]` with stable IDs and `Updated` dates (where present).
+- **Goal:** pure parser turning `convictions/*.md` into `list[Passage]` with stable IDs.
 - **Scope cap:** in-memory only. No SQLite. No embeddings. No tools yet.
-- **Files:** `app/models.py` (Passage, DocSummary, Heading), `app/parser/markdown.py`, `app/parser/dates.py`, `app/parser/cli.py`, `tests/parser/test_markdown.py`, `tests/parser/test_dates.py`, `tests/parser/test_corpus_snapshot.py`.
+- **Files:** `app/models.py` (Passage, DocSummary, Heading), `app/parser/markdown.py`, `app/parser/cli.py`, `tests/parser/test_markdown.py`, `tests/parser/test_corpus_snapshot.py`.
 - **Acceptance:**
-  - Date extraction handles all 6 known variants: header italic/bold, EN/PT, `Atualizado`/`Atualização`/`Updated`/`Last Updated`/`Última Atualização`, with or without `de`, footer markers (e.g. ending in ` | Decade Investment Research`). When two markers exist, take the later one. When none, `updated=None` — never inferred.
-  - Snapshot test pins: 30 documents → expected passage count; the ~13 documents whose `updated` is `None`; stable passage IDs (slug-based) for every passage.
-  - `python -m app.parser.cli convictions/` prints: total passages, language breakdown, dated/undated counts, top-5 longest passages.
+  - Snapshot test pins: 30 documents → expected passage count; stable passage IDs (slug-based) for every passage.
+  - `python -m app.parser.cli convictions/` prints: total passages, language breakdown, top-5 longest passages.
   - Slugification rule documented in `app/parser/markdown.py` docstring (NFKD-strip-accents, lowercase, dash-join, collapse-double-dashes).
   - Per-passage language detection (heuristic: accents + common stopwords). Tested against fixtures.
 - **Depends on:** B1.
@@ -96,7 +95,7 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Acceptance:** each tool callable as a plain Python function and returns the documented shape; schemas validated against the return types; OpenAI strict-mode invariants asserted in test; `TOOLS` registry keys equal each `definition.name`.
 - **Depends on:** B3.
 - **Deviations from the original step description (intentional):**
-  - **`DocumentOutline` schema added** to `app/schemas/passage.py` (the original step listed `read_document_outline` returning a bare `list[Heading]`). Carrying `document_id`, `document_title`, `document_updated`, `passage_count` next to the headings supports CLAUDE.md Rule B (conflicting-conviction surfacing by date) without forcing the agent to call `list_documents` first every time.
+  - **`DocumentOutline` schema added** to `app/schemas/passage.py` (the original step listed `read_document_outline` returning a bare `list[Heading]`). Carrying `document_id`, `document_title`, `passage_count` next to the headings supports CLAUDE.md Rule B (conflicting-conviction surfacing) without forcing the agent to call `list_documents` first every time.
   - **`ToolContext` / `ToolEntry` formalized** in `app/tools/context.py`. Original step said "registry" without pinning a contract; the dataclass-based context is the DI seam every later step (B6's BM25 index, B8's agent loop) reuses. Architectural rules pinned in `docs/ARCHITECTURES.md` § "Tools layer".
   - **`PassageNotFoundError` and `DocumentNotFoundError`** added to `app/errors.py`. Tools raise typed `DomainError` subclasses on bad inputs so the B8 agent loop can feed them back to the LLM as tool-error messages.
   - **`docs/b5-decisions.md`** added — per-tool decisions (return shapes, sort orders, descriptions, error semantics) that don't rise to architecture but should be visible to a reviewer.
@@ -126,7 +125,7 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Deviations from the original step description (intentional):**
   - **Test gate is per-bucket floors, not a single overall threshold.** Original wording: "≥ 80% of fixture cases (8/10)". After the eval ran (overall 20/29 = 69.0%), the 80% overall gate would have failed because the 5 fixture-flagged cross_lang cases — which the ROADMAP itself says "do not auto-promote to hybrid" if they fail — pulled the headline below threshold. The test now asserts: literal ≥ 90% (currently 93.8%), topic ≥ 50% (currently 62.5%), cross_lang reported only, p95 latency < 50 ms. See `docs/reports/b6-eval-results.md` for the empirical breakdown and `docs/reports/b6-eval-methodology.md` for the scoring-rule discussion (option A primary-only is current; B/C/D/E documented as alternatives pending user decision).
   - **Three reports added under `docs/reports/`** instead of a single writeup: `b6-eval-results.md` (empirical numbers + per-failure analysis), `b6-eval-methodology.md` (verified facts about the corpus and fixture; scoring options), `b6-improvement-proposals.md` (hybrid retrieval, BM25 tuning, query expansion — designed not built).
-  - **`PassageHit` is richer than the `Passage` shape** that B5's decisions doc anticipated. Carries `score`, `snippet`, and `document_updated` so the agent can apply Rule B without an extra `read_passage` round-trip per hit.
+  - **`PassageHit` is richer than the `Passage` shape** that B5's decisions doc anticipated. Carries `score` and `snippet` so the agent can apply Rule B without an extra `read_passage` round-trip per hit.
   - **`EmptyQueryError` added** to `app/errors.py`; mapped to HTTP 400 in `app/main.py`.
   - **Index module at `app/services/search.py`** (not `app/store/search.py` per original wording — `app/store/` was renamed to `app/repositories/` in B3, and the BM25 index isn't SQL-backed so it doesn't fit there).
   - **Bulk-load function `iter_all` added to `app/repositories/passages.py`.** B5's repository didn't expose a "load all passages with full text" function; B6 needs one for index build/rebuild.
@@ -145,7 +144,6 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - `scripts/demo_agent.py` — CLI entry.
   - `tests/agent/test_loop_with_stub.py`, `tests/agent/test_rewrite.py`.
   - `tests/fixtures/agent_scenarios/*.yaml`.
-- **Rule B in the prompt must explicitly handle undated convictions:** *"If `document_updated` is missing for one or both conflicting passages, say so — e.g. 'A (Abril 2026) and B (undated) disagree on …' — never silently pick the dated one as 'newer'."* Direct consequence of B2's finding that ~13 of 30 docs are dateless.
 - **Acceptance:**
   - With `StubProvider`, `python scripts/demo_agent.py --provider stub --fixture basic_search "What is a CDB?"` runs deterministically.
   - **Loop bound (upper):** test that a 6th tool call is rejected (never executed) and the loop forces a final structured answer.
@@ -185,13 +183,13 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Depends on:** B3, B7.
 - **Deviations from the original step description (intentional):**
   - **Order swap with what was originally B8.** Original sequencing built the verifier first so every later step measured verifier pass rate from day one. After conversation with the project owner, the order was swapped: agent orchestrator first (B7), then verifier+retry (B8). Trade-off accepted: B7's tests don't measure verifier pass rate. Trade-off bought: the retry-once-with-feedback path is wired into a real loop, not a speculative stub. See `docs/b7-decisions.md` § "Why the swap".
-  - **`VerifiedCitation` provenance carrier added.** Each successful verification emits a `VerifiedCitation` carrying `passage_id`, `document_id`, `document_title`, `heading_path`, `document_updated`, `quote` — surfaced via `AgentResult.verified_citations` so B9 can render which document/passage was quoted without re-fetching. Out of original step scope but trivially earned by the substring check; documented in `docs/b8-decisions.md`.
+  - **`VerifiedCitation` provenance carrier added.** Each successful verification emits a `VerifiedCitation` carrying `passage_id`, `document_id`, `document_title`, `heading_path`, `quote` — surfaced via `AgentResult.verified_citations` so B9 can render which document/passage was quoted without re-fetching. Out of original step scope but trivially earned by the substring check; documented in `docs/b8-decisions.md`.
   - **Inline language detector** in `app/agent/loop.py` (PT/ES/EN heuristic over the rewritten question) for the localized refusal fallback. B9 ships a proper detector at `app/agent/language.py`; this is the seam to be replaced (one-line swap).
   - **`StepRecord.kind` widened** to include `"verifier"` so the trace records each verification attempt (attempt index, all_passed, verified, failures) for B9's audit log.
   - **`tests/agent/conftest.py`** added — autouse fixture that patches `app.agent.loop.passages_repo.get` to return a passage whose text covers every fixture quote. Required because B7 tests use `MagicMock` sessions; the verifier hook now runs by default after every `AnswerOutput`. Existing `test_loop_with_stub.py` was updated in only one place (the exact step-kind sequence assertion now expects a trailing `"verifier"` step).
 
 ### B9 — POST /chat endpoint + audit log + response wrapping  - [x]
-- **Goal:** HTTP-callable chat. Wraps the agent's structured output with enriched citations (document filename, heading path, `Updated` date), deterministic disclaimer, `usage_summary`, optional `debug` block. Persists every step to `audit_log` (SQLite); `cost_log` is a SQL view filtering to `kind = 'llm_call'` rows.
+- **Goal:** HTTP-callable chat. Wraps the agent's structured output with enriched citations (document filename, heading path), deterministic disclaimer, `usage_summary`, optional `debug` block. Persists every step to `audit_log` (SQLite); `cost_log` is a SQL view filtering to `kind = 'llm_call'` rows.
 - **Scope cap:** no streaming, no SSE. Single sync endpoint. Auth was added in this step (see deviations).
 - **ID ownership:** server generates `question_id` and `conversation_id` (UUIDv4) on every request. Client may send `conversation_id` to continue; server uses it as a grouping key without validating existence (unknown ids simply start a new group of audit rows).
 - **Language detection:** `app/agent/language.py` (already shipped in B8) classifies PT / EN / **ES** from the rewritten question (heuristic: stopwords + diacritics). Used for the disclaimer; the system prompt's language-mirroring instruction is already in place from B7.

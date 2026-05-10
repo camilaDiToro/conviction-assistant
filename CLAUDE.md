@@ -54,10 +54,7 @@ When two or more convictions contradict each other on a topic:
 
 - **Cite all sides.** Never silently pick one.
 - **State explicitly that the convictions disagree.**
-- **Indicate which conviction is newer**, using each document's `Updated:` date (parsed from the markdown header).
 - The analyst makes the judgment call; the assistant does not pretend consensus exists.
-
-This requires the parser to extract `Updated:` dates from document headers and surface them in tool results (`search_convictions`, `read_passage`).
 
 ---
 
@@ -73,7 +70,7 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 ## In scope for v1
 
-- Markdown ingestion → SQLite passage store with stable IDs (incl. `Updated:` date extraction). **Triggered via `POST /admin/ingest`**, not a CLI.
+- Markdown ingestion → SQLite passage store with stable IDs. **Triggered via `POST /admin/ingest`**, not a CLI.
 - `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5`; `text-embedding-3-large` ships in the adapter even though B6 doesn't use embeddings — keeps the adapter complete), Anthropic adapter second (portability proof)
 - Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output

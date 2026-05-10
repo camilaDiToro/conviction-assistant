@@ -51,15 +51,12 @@ Required behavior:
 
 - Cite **both** (or all) conflicting passages.
 - State explicitly that the convictions disagree.
-- Indicate **which conviction is newer**, using the `Updated:` date in each document's header.
 - The analyst makes the call; the assistant does not pretend a consensus exists.
 
 *Architectural impact:*
 
-- The passage parser must extract each document's `Updated:` date (e.g., the `*Updated: April 2026*` line in the small-caps thesis) and store it on every passage.
-- The retrieval tool results (`search_convictions`, `read_passage`) must surface `document_updated` so the agent has the date available without an extra call.
-- The system prompt must explicitly instruct: *"If convictions disagree, surface the conflict; cite all sides; state which is newer. Never silently pick one."*
-- The eval suite needs an explicit "conflicting convictions" bucket: golden-set questions that target topics where two convictions contradict, where the expected answer cites both and names the newer one.
+- The system prompt must explicitly instruct: *"If convictions disagree, surface the conflict and cite all sides. Never silently pick one."*
+- The eval suite needs an explicit "conflicting convictions" bucket: golden-set questions that target topics where two convictions contradict, where the expected answer cites both sides.
 
 **Tone:** not architecturally important. The system prompt describes the audience — *"an internal investment analyst at Decade, fluent in markets terminology, fluent in Portuguese and English"* — and lets the model pick the appropriate register. No fixed style template.
 
@@ -93,7 +90,7 @@ class MarkdownParser(DocumentParser): ...
 
 The ingestion pipeline iterates over registered parsers and dispatches each file by extension. Stable passage IDs are derived from `(document_id, heading_slug)`, which is format-agnostic — IDs survive a future migration of the same content from markdown to another format as long as `document_id` is preserved.
 
-**Versioning:** convictions are **not versioned**. Only the latest matters. Citations include the document's `Updated:` date (so the analyst can see how recent the source is) but no version number. No need for a `version` field on passages.
+**Versioning:** convictions are **not versioned**. Only the latest matters. No need for a `version` field on passages.
 
 **Languages:** Portuguese, English, **and Spanish**. The system prompt instructs the assistant to mirror the user's language. Any future embedding choice must support all three languages — `bge-m3` (multilingual) is the right pick if dense retrieval is ever added; English-only or PT-only embedding models are ruled out.
 

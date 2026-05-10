@@ -214,9 +214,7 @@ Tool execution is **parallel** (`asyncio.gather`) — when the model emits a bat
 
 `app/agent/prompts/system.md` and `app/agent/prompts/rewrite.md` are git-tracked markdown loaded once at module import via `Path.read_text()`. Not Python f-strings.
 
-Why markdown: the prompts encode policy (Rules A and B verbatim from `CLAUDE.md`, language mirroring, citation contract, undated-conflict guidance) that must survive a code review. Reviewers can scan a markdown file in seconds; spotting a regression in a 60-line Python f-string is harder.
-
-The system prompt's **Rule B undated clause** is the direct consequence of B2's finding that ~13/30 docs are dateless — the model is told explicitly: *"If `document_updated` is missing for one or both conflicting passages, say so — never silently pick the dated one as 'newer'."* A fixture-driven test (`test_undated_conflict_says_undated`) exercises this path.
+Why markdown: the prompts encode policy (Rules A and B verbatim from `CLAUDE.md`, language mirroring, citation contract) that must survive a code review. Reviewers can scan a markdown file in seconds; spotting a regression in a 60-line Python f-string is harder.
 
 ---
 

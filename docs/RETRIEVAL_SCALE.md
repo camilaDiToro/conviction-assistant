@@ -12,7 +12,7 @@ BM25 stays useful (it's still best for exact-term matches: tickers, regulation n
 
 - **Hundreds of docs** — near-duplicates and topical neighbors start crowding the top-K. Add a **cross-encoder reranker** (`bge-reranker-v2-m3` or Cohere `rerank-multilingual-v3`) that re-scores candidates `(query, passage)` jointly. Adds ~50–150 ms per query.
 - **Thousands of docs** — chunks pulled out of context lose meaning ("revenue grew 3%" — for which company?). Add **Anthropic-style Contextual Retrieval**: prepend a 50–100 token generated context summary to each chunk before indexing. One-time per-chunk cost; rebuild on doc changes.
-- **Tens of thousands+** — single-Postgres becomes the bottleneck. Move lexical to OpenSearch / Elasticsearch / ParadeDB `pg_search`, dense to a dedicated vector store (Qdrant, Weaviate) or HNSW indexes in Postgres. Add metadata filtering (asset class, language, `Updated:` date) and shard by tenant if multi-tenant.
+- **Tens of thousands+** — single-Postgres becomes the bottleneck. Move lexical to OpenSearch / Elasticsearch / ParadeDB `pg_search`, dense to a dedicated vector store (Qdrant, Weaviate) or HNSW indexes in Postgres. Add metadata filtering (asset class, language) and shard by tenant if multi-tenant.
 
 The agent loop, tool surface, citation contract, and verifier are unchanged at every step. Only the implementation of `search_convictions` grows.
 

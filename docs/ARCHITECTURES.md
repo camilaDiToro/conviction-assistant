@@ -117,7 +117,6 @@ The structured response is one of two shapes — a regular **answer** (with cita
     {
       "passage_id": "cdbs_quick_guide#tributacao",
       "document": "cdbs_quick_guide.md",
-      "document_updated": "2026-04",
       "heading": "Tributação: Tabela Regressiva",
       "passage_text": "...",
       "start": 16,
@@ -143,8 +142,6 @@ The structured response is one of two shapes — a regular **answer** (with cita
 ```
 
 The `disclaimer` is appended deterministically by the orchestrator (not the model) so it cannot be paraphrased or omitted. It lives in its own field so the resolver never tries to anchor it against a passage. The orchestrator picks the language to mirror the response language (PT / EN / ES).
-
-The `document_updated` field on each citation enables Rule B (conflicting convictions): the agent can name which conviction is newer when it surfaces a conflict.
 
 ### Tool surface
 
@@ -203,7 +200,7 @@ This gives the "modern models are smart" benefit without letting the model roam.
    - **Cite or refuse.** Every claim must cite `passage_id` + verbatim `quote`. No claim ships without a citation, and quotes that aren't a substring of the cited passage lose their highlight in the popup.
    - **Always prefer a real conviction.** If any conviction mentions the topic, even tangentially, cite that conviction rather than fall back to general knowledge.
    - **General knowledge is allowed, but must be marked very, very clearly** in `general_knowledge_section`, never interleaved with cited claims. (Rule A; see `../CLAUDE.md`.)
-   - **Surface conflicting convictions.** If two convictions contradict, cite both, state the disagreement, and name the newer one using `document_updated`. Never silently pick a side. (Rule B; see `../CLAUDE.md`.)
+   - **Surface conflicting convictions.** If two convictions contradict, cite both and state the disagreement explicitly. Never silently pick a side. (Rule B; see `../CLAUDE.md`.)
    - **Clarify only when truly ambiguous.** If the query can be reasonably interpreted, answer; only return `kind: "clarifying_question"` when answering would risk citing the wrong topic.
    - **Mirror the user's language** (PT / EN / ES).
 2. **Take action.** Model emits the structured response (answer or clarifying-question).
@@ -366,7 +363,7 @@ The following are designed but **out of scope for this submission**:
 
 ## Implementation order (eval-driven)
 
-1. **Passage parser + store.** Markdown → passages with stable IDs (incl. `Updated:` date extraction).
+1. **Passage parser + store.** Markdown → passages with stable IDs.
 2. **Provider abstractions.** `LLMProvider` and `EmbeddingProvider` protocols. **OpenAI adapter first** for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`).
 3. **`list_documents` + `read_passage` + `read_document_outline`** tools wired up.
 4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under `ROADMAP.md` § B6, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
