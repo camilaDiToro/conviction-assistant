@@ -11,6 +11,7 @@ gpt-5, which reject explicit ``temperature``.
 
 import json
 from typing import Any, cast
+
 from openai import APIError, AsyncOpenAI
 
 from app.providers.base import (

@@ -1,12 +1,13 @@
 """Read-only tools the agent can call against the conviction corpus.
 
 The four tools (`list_documents`, `read_document_outline`,
-`search_convictions` [B6], `read_passage`) are pure functions over the
+`search_convictions`, `read_passage`) are pure functions over the
 repository contract. They never import a DB driver; storage swaps don't
 touch this layer.
 
-See `docs/ARCHITECTURES.md` § "Tools layer" for the architectural rules
-and `docs/b5-decisions.md` for the per-tool decisions.
+See `docs/ARCHITECTURES.md` § "Tools layer" for the architectural rules,
+`docs/b5-decisions.md` for the simple-tool decisions, and
+`docs/b6-decisions.md` for `search_convictions` decisions.
 """
 
 from app.tools.context import ToolContext, ToolEntry
@@ -17,17 +18,21 @@ from app.tools.registry import (
     LIST_DOCUMENTS_DEF,
     READ_DOCUMENT_OUTLINE_DEF,
     READ_PASSAGE_DEF,
+    SEARCH_CONVICTIONS_DEF,
     TOOLS,
 )
+from app.tools.search_convictions import search_convictions
 
 __all__ = [
     "LIST_DOCUMENTS_DEF",
     "READ_DOCUMENT_OUTLINE_DEF",
     "READ_PASSAGE_DEF",
+    "SEARCH_CONVICTIONS_DEF",
     "TOOLS",
     "ToolContext",
     "ToolEntry",
     "list_documents",
     "read_document_outline",
     "read_passage",
+    "search_convictions",
 ]

@@ -39,7 +39,7 @@ class Heading(BaseModel):
 
 
 class DocumentOutline(BaseModel):
-    """One document's outline, returned by the read_document_outline tool.ok"""
+    """One document's outline, returned by the read_document_outline tool."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,3 +48,23 @@ class DocumentOutline(BaseModel):
     document_updated: date | None
     passage_count: int
     headings: list[Heading]
+
+
+class PassageHit(BaseModel):
+    """One BM25 search hit, returned by the search_convictions tool.
+
+    Carries `document_updated` so the agent can apply Rule B (surface
+    conflicting convictions, identify which is newer) without an extra
+    `read_passage` round-trip per hit. Snippet is a short excerpt, not the
+    full passage text — the agent calls `read_passage` for the full body.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    passage_id: str
+    score: float
+    document_id: str
+    document_title: str
+    heading_path: list[str]
+    snippet: str
+    document_updated: date | None

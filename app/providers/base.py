@@ -26,8 +26,7 @@ Role = Literal["system", "user", "assistant", "tool"]
 
 
 class ToolDefinition(BaseModel):
-    """One tool the model is allowed to call.
-    """
+    """One tool the model is allowed to call."""
 
     name: str
     description: str
@@ -134,7 +133,6 @@ class LLMProvider(Protocol):
 
 
 class EmbeddingProvider(Protocol):
-    """Embedding contract.
-    """
+    """Embedding contract."""
 
     async def embed(self, texts: list[str]) -> EmbeddingResponse: ...

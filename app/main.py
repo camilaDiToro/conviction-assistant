@@ -13,14 +13,20 @@ from fastapi.responses import JSONResponse
 from app.api.admin import router as admin_router
 from app.api.health import router as health_router
 from app.config import db, settings
-from app.errors import DomainError, IngestError
+from app.errors import DomainError, EmptyQueryError, IngestError
+from app.services.search import BM25Index
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db.migrate(settings.sqlite_path)
     engine = db.make_engine(settings.async_database_url)
-    db.set_session_factory(db.make_session_factory(engine))
+    factory = db.make_session_factory(engine)
+    db.set_session_factory(factory)
+    index = BM25Index()
+    async with factory() as session:
+        await index.build(session)
+    app.state.search_index = index
     try:
         yield
     finally:
@@ -33,6 +39,11 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 @app.exception_handler(IngestError)
 async def _ingest_error_handler(request: Request, exc: IngestError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(EmptyQueryError)
+async def _empty_query_error_handler(request: Request, exc: EmptyQueryError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 

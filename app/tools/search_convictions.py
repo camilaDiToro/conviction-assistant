@@ -1,0 +1,29 @@
+"""search_convictions tool: BM25 retrieval over the conviction corpus."""
+
+from app.errors import EmptyQueryError
+from app.schemas import PassageHit
+from app.services.search import _make_snippet
+from app.tools.context import ToolContext
+
+
+async def search_convictions(
+    ctx: ToolContext,
+    *,
+    query: str,
+    k: int = 5,
+) -> list[PassageHit]:
+    if not query or not query.strip():
+        raise EmptyQueryError()
+    pairs = ctx.search_index.search(query, k=k)
+    return [
+        PassageHit(
+            passage_id=p.id,
+            score=score,
+            document_id=p.document_id,
+            document_title=p.document_title,
+            heading_path=p.heading_path,
+            snippet=_make_snippet(p.text),
+            document_updated=p.document_updated,
+        )
+        for p, score in pairs
+    ]

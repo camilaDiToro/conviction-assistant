@@ -1,5 +1,4 @@
-"""Async engine + session factory; sync Alembic migration.
-"""
+"""Async engine + session factory; sync Alembic migration."""
 
 from collections.abc import AsyncIterator
 from pathlib import Path

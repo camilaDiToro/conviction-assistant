@@ -1,4 +1,11 @@
 from app.schemas.ingest import IngestResponse
-from app.schemas.passage import DocSummary, DocumentOutline, Heading, Passage
+from app.schemas.passage import DocSummary, DocumentOutline, Heading, Passage, PassageHit
 
-__all__ = ["DocSummary", "DocumentOutline", "Heading", "IngestResponse", "Passage"]
+__all__ = [
+    "DocSummary",
+    "DocumentOutline",
+    "Heading",
+    "IngestResponse",
+    "Passage",
+    "PassageHit",
+]

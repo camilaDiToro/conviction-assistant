@@ -13,6 +13,7 @@ dependencies = [
     "alembic>=1.13",
     "openai>=2.36.0",
     "pyyaml>=6.0.3",
+    "bm25s>=0.3.8",
 ]
 
 [dependency-groups]

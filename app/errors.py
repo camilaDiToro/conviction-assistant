@@ -29,3 +29,10 @@ class DocumentNotFoundError(DomainError):
     def __init__(self, document_id: str) -> None:
         super().__init__(f"document not found: {document_id!r}")
         self.document_id = document_id
+
+
+class EmptyQueryError(DomainError):
+    """Raised when search_convictions is called with an empty/whitespace query."""
+
+    def __init__(self) -> None:
+        super().__init__("query must be a non-empty string")

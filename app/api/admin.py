@@ -1,6 +1,6 @@
 """Admin endpoints — operations not exposed to end users."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -13,9 +13,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.post("/ingest", response_model=IngestResponse)
 async def trigger_ingest(
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> IngestResponse:
     report = await ingest_service.ingest_corpus(session, settings.convictions_dir)
+    await request.app.state.search_index.rebuild(session)
     return IngestResponse(
         documents=report.documents,
         passages=report.passages,

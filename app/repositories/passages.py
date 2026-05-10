@@ -141,6 +141,16 @@ async def all_ids(session: AsyncSession) -> set[str]:
     return set(result.scalars().all())
 
 
+async def iter_all(session: AsyncSession) -> list[Passage]:
+    """Bulk-load every passage with full text. Used by the BM25 index at
+    startup and after re-ingest. Sorted by (document_id, ordinal) for
+    deterministic indexing.
+    """
+    stmt = select(PassageORM).order_by(PassageORM.document_id, PassageORM.ordinal)
+    result = await session.execute(stmt)
+    return [_orm_to_schema(row) for row in result.scalars().all()]
+
+
 async def delete_ids(session: AsyncSession, ids: Iterable[str]) -> int:
     ids_list = list(ids)
     if not ids_list:
