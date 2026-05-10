@@ -26,6 +26,7 @@ in :mod:`app.agent.retry_policy`, language detection in :mod:`app.agent.language
 import asyncio
 import json
 from pathlib import Path
+from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -36,6 +37,7 @@ from app.agent.audit import (
     record_verifier,
     verify_output,
 )
+from app.agent.language import detect_language
 from app.agent.rewrite import rewrite_question
 from app.agent.schemas import (
     AGENT_OUTPUT_SCHEMA,
@@ -51,6 +53,12 @@ from app.agent.verifier import VerificationResult
 from app.config import settings
 from app.errors import AgentError
 from app.providers import LLMProvider, LLMResponse, Message
+
+_LANGUAGE_NAME: dict[Literal["pt", "es", "en"], str] = {
+    "pt": "Portuguese",
+    "es": "Spanish",
+    "en": "English",
+}
 
 SYSTEM_PROMPT: str = (Path(__file__).parent / "prompts" / "system.md").read_text(encoding="utf-8")
 
@@ -81,8 +89,9 @@ async def run(
     else:
         loop_input = user_message
 
+    language = detect_language(loop_input)
     output, loop_steps, tool_count, search_count, verify_result = await _agent_loop(
-        loop_input, tool_ctx=tool_ctx, llm=llm
+        loop_input, tool_ctx=tool_ctx, llm=llm, language=language
     )
     steps.extend(loop_steps)
 
@@ -107,6 +116,7 @@ async def _agent_loop(
     *,
     tool_ctx: ToolContext,
     llm: LLMProvider,
+    language: Literal["pt", "es", "en"] = "en",
 ) -> tuple[AgentOutput, list[StepRecord], int, int, VerificationResult | None]:
     # Loop bounds are read from settings at call time so .env overrides
     # take effect without restart; see app/config/settings.py.
@@ -115,8 +125,21 @@ async def _agent_loop(
     verifier_enabled = settings.verifier_enabled
     verifier_retry_budget = settings.verifier_retry_budget
 
+    # Deterministic language directive — the system prompt's language
+    # mirroring rule is sometimes ignored by the model when the cited
+    # passages are in a different language than the user's question
+    # (observed: ES question, PT corpus, PT answer). Pinning the answer
+    # language here removes that drift.
+    lang_name = _LANGUAGE_NAME[language]
+    language_directive = (
+        f"ANSWER LANGUAGE: {lang_name} ({language}). "
+        f"You MUST write the `answer` field and any clarifying `question` "
+        f"in {lang_name}, regardless of the language of the cited passages. "
+        f"Citation `quote` fields stay in their source language."
+    )
     messages: list[Message] = [
         Message(role="system", content=SYSTEM_PROMPT),
+        Message(role="system", content=language_directive),
         Message(role="user", content=question),
     ]
     tool_definitions = [entry.definition for entry in TOOLS.values()]
