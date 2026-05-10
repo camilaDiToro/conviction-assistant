@@ -27,7 +27,7 @@ from app.config import db, settings  # noqa: E402
 from app.providers import LLMProvider, get_llm_provider  # noqa: E402
 from app.providers.stub import StubLLM, load_stub_responses  # noqa: E402
 from app.services.search import BM25Index  # noqa: E402
-from app.tools import ToolContext  # noqa: E402
+from app.agent.tools import ToolContext  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "agent_scenarios"
 

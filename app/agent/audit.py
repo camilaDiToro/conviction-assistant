@@ -16,12 +16,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.agent.schemas import AnswerOutput, StepRecord
+from app.agent.tools import ToolContext
 from app.agent.verifier import VerificationResult, verify_answer
 from app.errors import VerificationError
 from app.providers import LLMResponse, ToolCall
 from app.repositories import passages as passages_repo
 from app.schemas.passage import Passage
-from app.tools import ToolContext
 
 
 def record_llm_call(response: LLMResponse, *, stage: str) -> StepRecord:

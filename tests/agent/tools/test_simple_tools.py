@@ -5,18 +5,18 @@ from datetime import date
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import db
-from app.errors import DocumentNotFoundError, PassageNotFoundError
-from app.repositories import passages as passages_repo
-from app.schemas import DocSummary, DocumentOutline, Passage
-from app.services.search import BM25Index
-from app.tools import (
+from app.agent.tools import (
     TOOLS,
     ToolContext,
     list_documents,
     read_document_outline,
     read_passage,
 )
+from app.config import db
+from app.errors import DocumentNotFoundError, PassageNotFoundError
+from app.repositories import passages as passages_repo
+from app.schemas import DocSummary, DocumentOutline, Passage
+from app.services.search import BM25Index
 
 
 @pytest.fixture

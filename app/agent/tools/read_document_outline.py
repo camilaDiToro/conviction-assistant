@@ -1,9 +1,9 @@
 """read_document_outline tool: one document's heading tree + metadata."""
 
+from app.agent.tools.context import ToolContext
 from app.errors import DocumentNotFoundError
 from app.repositories import passages as passages_repo
 from app.schemas import DocumentOutline
-from app.tools.context import ToolContext
 
 
 async def read_document_outline(ctx: ToolContext, *, document_id: str) -> DocumentOutline:

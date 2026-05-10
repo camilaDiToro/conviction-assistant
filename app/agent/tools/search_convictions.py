@@ -1,9 +1,9 @@
 """search_convictions tool: BM25 retrieval over the conviction corpus."""
 
+from app.agent.tools.context import ToolContext
 from app.errors import EmptyQueryError
 from app.schemas import PassageHit
 from app.services.search import _make_snippet
-from app.tools.context import ToolContext
 
 
 async def search_convictions(

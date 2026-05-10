@@ -12,9 +12,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.agent.tools import TOOLS, ToolContext
 from app.errors import DomainError
 from app.providers import ToolCall
-from app.tools import TOOLS, ToolContext
 
 
 async def execute_tool(call: ToolCall, ctx: ToolContext) -> str:

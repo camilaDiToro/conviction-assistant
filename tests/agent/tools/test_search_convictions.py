@@ -28,13 +28,13 @@ from pathlib import Path
 import pytest
 import yaml
 
+from app.agent.tools import ToolContext, search_convictions
 from app.config import db
 from app.errors import EmptyQueryError
 from app.services.ingest import ingest_corpus
 from app.services.search import BM25Index
-from app.tools import ToolContext, search_convictions
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 CONVICTIONS_DIR = REPO_ROOT / "convictions"
 GOLDEN_PATH = REPO_ROOT / "tests" / "fixtures" / "retrieval_golden.yaml"
 K = 5

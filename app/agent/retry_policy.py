@@ -17,9 +17,9 @@ keep. Today it is plain functions — the policy is one specification.
 
 from app.agent.language import detect_language
 from app.agent.schemas import AnswerOutput
+from app.agent.tools import ToolContext
 from app.agent.verifier import VerificationResult
 from app.repositories import passages as passages_repo
-from app.tools import ToolContext
 
 
 async def compose_feedback(result: VerificationResult, *, ctx: ToolContext) -> str:

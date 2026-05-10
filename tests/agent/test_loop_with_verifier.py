@@ -24,9 +24,9 @@ import pytest
 
 from app.agent import run
 from app.agent.schemas import AnswerOutput
+from app.agent.tools import TOOLS, ToolContext, ToolEntry
 from app.providers.stub import StubLLM, load_stub_responses
 from app.schemas import Passage, PassageHit
-from app.tools import TOOLS, ToolContext, ToolEntry
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "agent_scenarios"
 

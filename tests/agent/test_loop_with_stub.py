@@ -20,10 +20,10 @@ from app.agent.schemas import (
     ClarifyingQuestionOutput,
     ConversationTurn,
 )
+from app.agent.tools import TOOLS, ToolContext, ToolEntry
 from app.errors import PassageNotFoundError
 from app.providers.stub import StubLLM, load_stub_responses
 from app.schemas import Passage, PassageHit
-from app.tools import TOOLS, ToolContext, ToolEntry
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "agent_scenarios"
 

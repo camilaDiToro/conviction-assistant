@@ -46,11 +46,11 @@ from app.agent.schemas import (
     StepRecord,
 )
 from app.agent.tool_dispatch import execute_tool
+from app.agent.tools import TOOLS, ToolContext
 from app.agent.verifier import VerificationResult
 from app.config import settings
 from app.errors import AgentError
 from app.providers import LLMProvider, LLMResponse, Message
-from app.tools import TOOLS, ToolContext
 
 SYSTEM_PROMPT: str = (Path(__file__).parent / "prompts" / "system.md").read_text(encoding="utf-8")
 
