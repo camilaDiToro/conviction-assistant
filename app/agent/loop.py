@@ -203,9 +203,15 @@ async def _agent_loop(
             except ValidationError as exc:
                 raise AgentError(f"model output failed schema validation: {exc}") from exc
 
-            # Lower-bound enforcement — only AnswerOutput requires a
-            # prior search. ClarifyingQuestionOutput is always allowed.
-            if isinstance(output, AnswerOutput) and search_count == 0:
+            # Lower-bound enforcement — only in-scope grounded answers
+            # require a prior search. ClarifyingQuestionOutput is always
+            # allowed. Out-of-scope replies (greetings, unrelated topics)
+            # also bypass the rule: there is nothing to search for.
+            if (
+                isinstance(output, AnswerOutput)
+                and search_count == 0
+                and not output.out_of_scope
+            ):
                 content = response.content or json.dumps(response.parsed)
                 messages.append(Message(role="assistant", content=content))
                 messages.append(
@@ -213,7 +219,9 @@ async def _agent_loop(
                         role="user",
                         content=(
                             "You must call search_convictions to gather evidence "
-                            "before producing an answer. Use the tools."
+                            "before producing an answer. If the message is a "
+                            "greeting or unrelated to Decade's convictions, set "
+                            "out_of_scope=true instead."
                         ),
                     )
                 )
@@ -247,8 +255,14 @@ async def _agent_loop(
                         output = retry_policy.localized_refusal(question)
                         verify = VerificationResult(verified=[], failures=[])
 
+                # Collapse duplicate citations by passage_id (the model
+                # often emits one per claim). Runs after verify so every
+                # quote is validated before any are dropped.
+                output = retry_policy.dedupe_citations(output)
                 return output, steps, tool_call_count, search_count, verify
 
+            if isinstance(output, AnswerOutput):
+                output = retry_policy.dedupe_citations(output)
             return output, steps, tool_call_count, search_count, None
 
         # Defensive — schema attached but neither tool_calls nor parsed.

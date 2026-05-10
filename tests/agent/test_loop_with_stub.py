@@ -253,6 +253,20 @@ async def test_clarifying_question_exempt_from_lower_bound() -> None:
     assert result.tool_call_count == 0
 
 
+@pytest.mark.asyncio
+async def test_out_of_scope_answer_exempt_from_lower_bound() -> None:
+    """An AnswerOutput with out_of_scope=true is accepted without a
+    prior search — greetings and unrelated topics have nothing to ground."""
+    stub = StubLLM(load_stub_responses(FIXTURES / "out_of_scope_no_search.yaml"))
+    result = await run("hola", [], tool_ctx=_stub_ctx(), llm=stub)
+
+    assert isinstance(result.output, AnswerOutput)
+    assert result.output.out_of_scope is True
+    assert result.output.citations == []
+    assert result.search_count == 0
+    assert result.tool_call_count == 0
+
+
 # ---- conflict surfacing (Rule B) ----------------------------------
 
 

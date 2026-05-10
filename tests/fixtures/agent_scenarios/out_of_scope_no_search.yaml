@@ -1,0 +1,15 @@
+# Out-of-scope answers are exempt from the lower bound: a greeting or
+# unrelated topic can be answered with out_of_scope=true and citations=[]
+# without calling search_convictions first.
+- content: '{"kind":"answer","answer":"Hola, soy el asistente de convicciones de Decade. ¿Sobre qué tema querés consultarme?","citations":[],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":true,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Hola, soy el asistente de convicciones de Decade. ¿Sobre qué tema querés consultarme?"
+    citations: []
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: true
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 60, completion_tokens: 25 }
+  finish_reason: stop

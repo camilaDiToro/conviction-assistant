@@ -10,16 +10,25 @@ The retry behavior pinned by ROADMAP B8 is a sequence of three named steps:
 3. **Zero grounded citations remain** → :func:`localized_refusal` builds
    a safe-refusal :class:`AnswerOutput` in the user's language.
 
+A fourth helper, :func:`dedupe_citations`, runs **after** verification on
+the success path: it collapses duplicate citations by ``passage_id`` and
+remaps inline ``[N]`` markers in ``answer`` so the user sees one card
+per passage instead of one per claim.
+
 This module is the seam for the documented "re-search-then-retry" level-up:
 if/when that lands, this file grows or splits and a Protocol earns its
 keep. Today it is plain functions — the policy is one specification.
 """
 
+import re
+
 from app.agent.language import detect_language
-from app.agent.schemas import AnswerOutput
+from app.agent.schemas import AnswerOutput, Citation
 from app.agent.tools import ToolContext
 from app.agent.verifier import VerificationResult
 from app.repositories import passages as passages_repo
+
+_MARKER_RE = re.compile(r"\[(\d+)\]")
 
 
 async def compose_feedback(result: VerificationResult, *, ctx: ToolContext) -> str:
@@ -88,4 +97,50 @@ def localized_refusal(question: str) -> AnswerOutput:
     )
 
 
-__all__ = ["compose_feedback", "localized_refusal", "strip_failed_citations"]
+def dedupe_citations(output: AnswerOutput) -> AnswerOutput:
+    """Collapse citations by ``passage_id`` and remap ``[N]`` markers in ``answer``.
+
+    The agent often emits one Citation per *claim*, so a passage that
+    backs five claims appears as five entries (often with five different
+    verbatim substrings). The bottom Citations block then renders five
+    cards with the same passage header — visually noisy.
+
+    This helper keeps the **first** citation per ``passage_id`` and drops
+    the rest. Inline ``[N]`` markers in ``output.answer`` (1-indexed) are
+    rewritten through an ``old_index → new_index`` remap, so claims that
+    pointed to dropped duplicates collapse onto the canonical index.
+
+    Markers whose number is out of range (``N == 0`` or ``N > len(citations)``)
+    are left untouched.
+    """
+    seen: dict[str, int] = {}
+    deduped: list[Citation] = []
+    remap: dict[int, int] = {}
+    for old_idx, c in enumerate(output.citations):
+        if c.passage_id in seen:
+            remap[old_idx] = seen[c.passage_id]
+            continue
+        new_idx = len(deduped)
+        seen[c.passage_id] = new_idx
+        deduped.append(c)
+        remap[old_idx] = new_idx
+
+    if len(deduped) == len(output.citations):
+        return output
+
+    def _rewrite(match: re.Match[str]) -> str:
+        n = int(match.group(1))
+        if n < 1 or n > len(output.citations):
+            return match.group(0)
+        return f"[{remap[n - 1] + 1}]"
+
+    new_answer = _MARKER_RE.sub(_rewrite, output.answer)
+    return output.model_copy(update={"answer": new_answer, "citations": deduped})
+
+
+__all__ = [
+    "compose_feedback",
+    "dedupe_citations",
+    "localized_refusal",
+    "strip_failed_citations",
+]

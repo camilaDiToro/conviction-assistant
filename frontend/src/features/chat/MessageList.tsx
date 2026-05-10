@@ -93,7 +93,17 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
 const INLINE_RE = /\*\*(.+?)\*\*|⟦cite:(\d+)⟧/g
 
 function injectCitationTokens(answer: string, citations: Citation[]): string {
-  let out = answer
+  // Primary pass: convert literal [N] markers (1-indexed) typed by the
+  // agent into the internal token. Out-of-range numbers are left alone
+  // (they may be legitimate bracketed numbers in the prose).
+  let out = answer.replace(/\[(\d+)\]/g, (match, n) => {
+    const idx = Number(n)
+    if (idx < 1 || idx > citations.length) return match
+    return `⟦cite:${idx}⟧`
+  })
+  // Fallback pass: for any citation not yet referenced, try to find its
+  // verbatim quote in the answer and append a token. Protects answers
+  // produced before the [N]-marker convention landed.
   citations.forEach((c, i) => {
     if (!c.quote) return
     const token = `⟦cite:${i + 1}⟧`
