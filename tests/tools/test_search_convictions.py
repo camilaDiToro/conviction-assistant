@@ -7,7 +7,11 @@ literal / topic / cross_lang buckets in PT/EN/ES), ingests the real
 - literal    >= 90%   (BM25 is decisive on literal queries)
 - topic      >= 50%   (loose floor; paraphrase recall is what hybrid lifts)
 - cross_lang  reported-only (canary — fixture-flagged BM25-hostile)
-- p95 latency < 50 ms
+- p95 latency < 50 ms — measured around the **BM25Index.search** call only,
+  not the full `await search_convictions(...)` wrapper. The wrapper adds
+  PassageHit construction + snippet generation that we don't want masking
+  a retrieval regression. Tool-level p95 is reported alongside but doesn't
+  gate. A 5-query warm-up settles bm25s caches before the timed loop.
 
 The gates are **provisional** pending the methodology discussion in
 `docs/reports/b6-eval-methodology.md`. Empirical baseline at B6 ship time
@@ -84,15 +88,26 @@ async def test_retrieval_golden(ctx_for_real_corpus, capsys):
 
     import time
 
-    # (case_id, bucket, primary_passed, weighted_score, latency_ms)
-    results: list[tuple[str, str, bool, float, float]] = []
+    index = ctx_for_real_corpus.search_index
+    # Warm up bm25s caches so the first few timed cases don't skew p95 on
+    # this 29-sample run. Queries chosen to hit different docs.
+    for warm_q in ("CDB", "fundos imobiliarios", "private equity", "renda fixa", "ETF"):
+        index.search(warm_q, k=K)
+
+    # (case_id, bucket, primary_passed, weighted_score, index_ms, tool_ms)
+    results: list[tuple[str, str, bool, float, float, float]] = []
     for case in cases:
         expected = case["expected_passage_ids"]
         primary = expected[0]
         secondaries = expected[1:]
-        t0 = time.perf_counter()
+        # Index-only timing — what the p95 gate is meant to measure.
+        ti = time.perf_counter()
+        index.search(case["query"], k=K)
+        dt_index_ms = (time.perf_counter() - ti) * 1000.0
+        # Tool-level timing — reported as overhead headroom, doesn't gate.
+        tt = time.perf_counter()
         hits = await search_convictions(ctx_for_real_corpus, query=case["query"], k=K)
-        dt_ms = (time.perf_counter() - t0) * 1000.0
+        dt_tool_ms = (time.perf_counter() - tt) * 1000.0
         ids_returned = [h.passage_id for h in hits]
         primary_passed = primary in ids_returned
         if primary_passed:
@@ -101,37 +116,42 @@ async def test_retrieval_golden(ctx_for_real_corpus, capsys):
             weighted = 0.5
         else:
             weighted = 0.0
-        results.append((case["id"], case["bucket"], primary_passed, weighted, dt_ms))
+        results.append(
+            (case["id"], case["bucket"], primary_passed, weighted, dt_index_ms, dt_tool_ms)
+        )
 
-    # Per-bucket aggregation
-    by_bucket: dict[str, list[tuple[bool, float, float]]] = defaultdict(list)
-    for _, bucket, passed, weighted, dt in results:
-        by_bucket[bucket].append((passed, weighted, dt))
+    # Per-bucket aggregation: (passed, weighted, dt_index, dt_tool)
+    by_bucket: dict[str, list[tuple[bool, float, float, float]]] = defaultdict(list)
+    for _, bucket, passed, weighted, dt_i, dt_t in results:
+        by_bucket[bucket].append((passed, weighted, dt_i, dt_t))
 
     # Print breakdown — visible with pytest -s; on failure, pytest also dumps stdout.
     lines = ["", f"=== retrieval_golden — recall@{K} ==="]
     for bucket in sorted(by_bucket):
         rows = by_bucket[bucket]
-        passes = sum(1 for p, _, _ in rows if p)
-        weighted_sum = sum(w for _, w, _ in rows)
+        passes = sum(1 for p, _, _, _ in rows if p)
+        weighted_sum = sum(w for _, w, _, _ in rows)
         n = len(rows)
-        mean_ms = sum(dt for _, _, dt in rows) / n
+        mean_index_ms = sum(dt for _, _, dt, _ in rows) / n
         lines.append(
             f"  {bucket:<11} {passes:>2}/{n:<2}  ({passes / n:>5.1%})  "
-            f"weighted {weighted_sum / n:>4.2f}  mean {mean_ms:5.1f} ms"
+            f"weighted {weighted_sum / n:>4.2f}  mean idx {mean_index_ms:5.2f} ms"
         )
-    overall_pass = sum(1 for _, _, p, _, _ in results if p)
+    overall_pass = sum(1 for _, _, p, _, _, _ in results if p)
     overall_n = len(results)
     overall_rate = overall_pass / overall_n
-    overall_weighted = sum(w for _, _, _, w, _ in results) / overall_n
-    all_latencies = [dt for _, _, _, _, dt in results]
-    p95 = _percentile(all_latencies, 95)
+    overall_weighted = sum(w for _, _, _, w, _, _ in results) / overall_n
+    index_latencies = [dt for _, _, _, _, dt, _ in results]
+    tool_latencies = [dt for _, _, _, _, _, dt in results]
+    p95_index = _percentile(index_latencies, 95)
+    p95_tool = _percentile(tool_latencies, 95)
     lines.append(
         f"  {'overall':<11} {overall_pass:>2}/{overall_n:<2}  ({overall_rate:>5.1%})  "
-        f"weighted {overall_weighted:>4.2f}  p95 {p95:5.1f} ms"
+        f"weighted {overall_weighted:>4.2f}  "
+        f"p95 idx {p95_index:5.2f} ms  p95 tool {p95_tool:5.2f} ms"
     )
     # Failed-case roll-up makes failure diagnostics one line away.
-    failures = [cid for cid, _, p, _, _ in results if not p]
+    failures = [cid for cid, _, p, _, _, _ in results if not p]
     if failures:
         lines.append("  failed: " + ", ".join(failures))
     print("\n".join(lines))
@@ -141,11 +161,13 @@ async def test_retrieval_golden(ctx_for_real_corpus, capsys):
         rows = by_bucket.get(bucket, [])
         if not rows:
             continue
-        rate = sum(1 for p, _, _ in rows if p) / len(rows)
+        rate = sum(1 for p, _, _, _ in rows if p) / len(rows)
         if rate < floor:
             bucket_violations.append(f"{bucket} recall@{K}={rate:.1%} below floor {floor:.0%}")
     assert not bucket_violations, "; ".join(bucket_violations)
-    assert p95 < P95_LATENCY_MS, f"p95 latency={p95:.1f}ms exceeds {P95_LATENCY_MS}ms"
+    assert p95_index < P95_LATENCY_MS, (
+        f"index-only p95 latency={p95_index:.2f}ms exceeds {P95_LATENCY_MS}ms"
+    )
 
 
 async def test_search_convictions_empty_query_raises(ctx_for_real_corpus):

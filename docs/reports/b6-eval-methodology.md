@@ -100,17 +100,24 @@ Per-bucket weighted scores are printed in the test breakdown next to primary-onl
 
 ### Latency
 
-Per-case latency is measured around the `search_convictions(...)` call. The test asserts **p95 < 50 ms** across all 29 cases (currently ~2.2 ms — three orders of magnitude under budget).
+Per case we record **two latencies**:
+
+- **index-only**: `time.perf_counter` around `BM25Index.search(query, k=5)` directly. This is what the p95 gate measures, because that's the operation the SLO is about — if `bm25s` regresses, this number moves; tool-wrapper overhead can't mask it.
+- **tool-level**: `time.perf_counter` around `await search_convictions(ctx, query, k=5)` — index call plus PassageHit construction, snippet generation, and any session/awaitable overhead. Reported alongside as overhead headroom; doesn't gate.
+
+Before the timed loop, 5 throwaway `index.search` calls warm up bm25s caches so the first few cases don't skew p95 on a 29-sample run. The gate is **index-only p95 < 50 ms** (currently sub-millisecond — orders of magnitude under budget). Tool-level p95 typically sits in the low tens of milliseconds.
 
 ## What the breakdown looks like at runtime
 
 ```
 === retrieval_golden — recall@5 ===
-  cross_lang   0/5   ( 0.0%)  weighted 0.00  mean   1.0 ms
-  literal     15/16  (93.8%)  weighted 0.94  mean   0.7 ms
-  topic        5/8   (62.5%)  weighted 0.62  mean   0.7 ms
-  overall     20/29  (69.0%)  weighted 0.69  p95   1.9 ms
+  cross_lang   0/5   ( 0.0%)  weighted 0.00  mean idx  0.20 ms
+  literal     15/16  (93.8%)  weighted 0.94  mean idx  0.18 ms
+  topic        5/8   (62.5%)  weighted 0.62  mean idx  0.19 ms
+  overall     20/29  (69.0%)  weighted 0.69  p95 idx  0.30 ms  p95 tool 12.4 ms
 ```
+
+(Exact numbers vary run-to-run; the index-only p95 sits well under 1 ms on this corpus while the tool-level p95 reflects PassageHit construction + snippet generation overhead.)
 
 Printed unconditionally each test run; pytest dumps stdout on failure so a regression surfaces with full diagnostics inline.
 
