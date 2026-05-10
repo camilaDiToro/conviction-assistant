@@ -17,7 +17,7 @@ from typing import Any
 
 from app.agent.schemas import AnswerOutput, StepRecord
 from app.agent.tools import ToolContext
-from app.agent.verifier import VerificationResult, verify_answer
+from app.agent.verifier import VerificationResult
 from app.errors import VerificationError
 from app.providers import LLMResponse, ToolCall
 from app.repositories import passages as passages_repo
@@ -72,13 +72,14 @@ def record_verifier(result: VerificationResult, *, attempt: int) -> StepRecord:
 
 
 async def verify_output(output: AnswerOutput, *, ctx: ToolContext) -> VerificationResult:
-    """Fetch each cited passage and run the deterministic verifier.
+    """Fetch each cited passage and run the configured verifier.
 
     Each unique ``passage_id`` in ``output.citations`` is loaded via the
     passage repository. ``None`` results (passage_id not in the store)
-    are passed through to :func:`verify_answer` as a missing key, which
-    records a ``passage_not_found`` failure for that citation.
-    Repository errors propagate as :class:`VerificationError`.
+    are passed through to the verifier as a missing key, which records a
+    ``passage_not_found`` failure for that citation. Repository errors
+    propagate as :class:`VerificationError`. The verifier itself comes
+    from ``ctx.verifier`` — :class:`SubstringVerifier` by default.
     """
     unique_ids = {c.passage_id for c in output.citations}
     passages: dict[str, Passage] = {}
@@ -89,7 +90,7 @@ async def verify_output(output: AnswerOutput, *, ctx: ToolContext) -> Verificati
                 passages[pid] = passage
     except Exception as exc:  # repo errors are bug-class for the verifier
         raise VerificationError(f"failed to load passages for verification: {exc}") from exc
-    return verify_answer(output, passages)
+    return ctx.verifier.verify(output, passages)
 
 
 def _maybe_parse_json(text: str) -> Any:

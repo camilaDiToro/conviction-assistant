@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.agent.verifier import get_verifier
 from app.api.admin import router as admin_router
 from app.api.health import router as health_router
 from app.config import db, settings
@@ -27,6 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with factory() as session:
         await retriever.build(session)
     app.state.retriever = retriever
+    app.state.verifier = get_verifier(settings.verifier_strategy)
     try:
         yield
     finally:

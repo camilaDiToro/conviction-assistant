@@ -39,8 +39,11 @@ class Settings(BaseSettings):
 
     # Strategy seams. Single-member Literals today — adding a second
     # entry is a deliberate code change (register the new strategy +
-    # widen the Literal), not a `.env` flip.
+    # widen the Literal), not a `.env` flip. The substring verifier is
+    # the architectural commitment of this project; alternatives ship as
+    # a conversation, not auto-promotion.
     retrieval_strategy: Literal["bm25"] = "bm25"
+    verifier_strategy: Literal["substring"] = "substring"
 
     @property
     def async_database_url(self) -> str:

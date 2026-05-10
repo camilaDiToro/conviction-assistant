@@ -1,77 +1,34 @@
-"""Deterministic substring verifier for citations.
+"""Deterministic substring verifier — the architectural commitment.
 
-The verifier is the architectural commitment of this project: every
-``Citation`` produced by the agent must contain a ``quote`` that is a
-verbatim substring of the cited passage's ``text`` (after the pinned
-normalization in ``app.agent.verifier.normalize``). No LLM-as-judge, no
-fuzzy match — the verifier either says the substring is there or it
-isn't.
+Every ``Citation`` produced by the agent must contain a ``quote`` that
+is a verbatim substring of the cited passage's ``text`` (after the
+pinned normalization in :mod:`app.agent.verifier.normalize`). No
+LLM-as-judge, no fuzzy match — the verifier either says the substring
+is there or it isn't.
 
-This module is **pure**: it knows nothing about repositories,
-sessions, the LLM, or settings. The agent loop (or any caller) is
-responsible for fetching passages by id and handing them in.
+This module is **pure**: it knows nothing about repositories, sessions,
+the LLM, or settings. The agent loop (or any caller) is responsible for
+fetching passages by id and handing them in.
+
+Result types (``VerificationResult``, ``VerifiedCitation``,
+``CitationFailure``, ``FailureReason``) live in :mod:`app.agent.verifier.base`
+so they're owned by the contract, not this implementation.
 """
 
-from datetime import date
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
-
+from app.agent.verifier.base import (
+    CitationFailure,
+    VerificationResult,
+    VerifiedCitation,
+    Verifier,
+)
 from app.agent.verifier.normalize import normalize
+from app.agent.verifier.registry import register
 from app.schemas.passage import Passage
 
 if TYPE_CHECKING:
     from app.agent.schemas import AnswerOutput
-
-FailureReason = Literal["substring_not_found", "passage_not_found", "empty_quote"]
-
-
-class VerifiedCitation(BaseModel):
-    """One citation that successfully verified.
-
-    Carries full passage provenance so downstream (B9, frontend) can
-    render *which document and which passage was quoted* without an
-    extra ``read_passage`` round-trip.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    passage_id: str
-    document_id: str
-    document_title: str
-    heading_path: list[str]
-    document_updated: date | None
-    quote: str
-
-
-class CitationFailure(BaseModel):
-    """One citation that failed verification."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    index: int
-    passage_id: str
-    quote: str
-    reason: FailureReason
-
-
-class VerificationResult(BaseModel):
-    """Outcome of verifying one ``AnswerOutput``.
-
-    ``verified`` contains only the citations that passed, in their
-    original ``answer.citations`` order. ``failures`` carries each
-    failed citation's index in the original list so callers can strip
-    by index.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    verified: list[VerifiedCitation]
-    failures: list[CitationFailure]
-
-    @property
-    def all_passed(self) -> bool:
-        return not self.failures
 
 
 def verify_citation(quote: str, passage_text: str) -> bool:
@@ -93,8 +50,8 @@ def verify_answer(
     ``passages`` maps ``passage_id`` → ``Passage``. A citation whose
     ``passage_id`` is not in the map fails with reason
     ``"passage_not_found"``. The caller (typically the agent loop's
-    ``_verify_output`` helper) is responsible for populating the map
-    via the passage repository.
+    ``verify_output`` adapter in :mod:`app.agent.audit`) is responsible
+    for populating the map via the passage repository.
     """
     verified: list[VerifiedCitation] = []
     failures: list[CitationFailure] = []
@@ -148,11 +105,26 @@ def verify_answer(
     return VerificationResult(verified=verified, failures=failures)
 
 
-__all__ = [
-    "CitationFailure",
-    "FailureReason",
-    "VerificationResult",
-    "VerifiedCitation",
-    "verify_answer",
-    "verify_citation",
-]
+class SubstringVerifier:
+    """The :class:`Verifier` adapter wrapping :func:`verify_answer`.
+
+    Stateless. Held on ``app.state.verifier`` after lifespan resolves
+    ``settings.verifier_strategy``. The free :func:`verify_answer` and
+    :func:`verify_citation` functions remain as the canonical
+    implementation; this class is the Protocol-conforming surface.
+    """
+
+    def verify(
+        self,
+        answer: "AnswerOutput",
+        passages: dict[str, Passage],
+    ) -> VerificationResult:
+        return verify_answer(answer, passages)
+
+
+@register("substring")
+def _substring_factory() -> Verifier:
+    return SubstringVerifier()
+
+
+__all__ = ["SubstringVerifier", "verify_answer", "verify_citation"]
