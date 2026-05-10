@@ -2,10 +2,12 @@
 
 The B8 verifier runs by default after every ``AnswerOutput``, which
 means tests that drive the loop with ``StubLLM`` need a stand-in for
-``app.agent.loop.passages_repo.get`` (the real one would await on a
-``MagicMock`` session and crash). This conftest provides a single
-autouse fixture that returns a Passage whose ``text`` is a superset
-of every verbatim quote used across the fixture YAMLs in
+``passages_repo.get`` at the modules where the loop reaches the repo
+(``app.agent.audit`` for verification, ``app.agent.retry_policy`` for
+the retry-feedback message). The real one would await on a
+``MagicMock`` session and crash. This conftest provides a single autouse
+fixture that returns a Passage whose ``text`` is a superset of every
+verbatim quote used across the fixture YAMLs in
 ``tests/fixtures/agent_scenarios/``.
 
 Tests that need a different passage (e.g. ``test_loop_with_verifier.py``
@@ -41,12 +43,13 @@ def _make_passage(passage_id: str) -> Passage:
 
 @pytest.fixture(autouse=True)
 def _autopatch_passages_repo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make ``app.agent.loop.passages_repo.get`` return a Passage whose
-    text is a superset of every fixture quote. Tests that need a
-    different passage shape can re-patch on top of this one.
+    """Patch ``passages_repo.get`` at every module the agent loop reaches
+    for it. Returns a Passage whose text is a superset of every fixture
+    quote. Tests that need a different passage shape can re-patch on top.
     """
 
     async def fake_get(_session: Any, passage_id: str) -> Passage:
         return _make_passage(passage_id)
 
-    monkeypatch.setattr("app.agent.loop.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.retry_policy.passages_repo.get", fake_get)
