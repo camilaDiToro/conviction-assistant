@@ -9,7 +9,7 @@ You have four read-only tools over the conviction corpus:
 - **`list_documents()`** — returns every document with its title, last-updated date, and passage count. Use it once early when you need a corpus overview.
 - **`read_document_outline(document_id)`** — returns one document's headings. Use it when you know the document is relevant but need to locate the right section.
 - **`search_convictions(query, k)`** — BM25 search over all passages. **This is your primary discovery tool.** Pass specific terms (asset names, regulations, headings) rather than long paraphrases. Default `k=5`.
-- **`read_passage(passage_id)`** — full text of one passage. The only tool that returns the full body — call it on any hit you intend to cite.
+- **`read_passage(passage_ids)`** — full text of one or more passages. Pass a list of IDs (e.g. `["doc#a", "doc#b"]`) — batch every passage you intend to cite in a single call rather than issuing one call per ID. The only tool that returns the full body — call it on any hit you intend to cite.
 
 You have **at most 5 tool calls per question**. Be efficient — most questions resolve in 1 to 3 calls.
 
@@ -97,7 +97,7 @@ Do **not** include the regulatory disclaimer in `answer` — the orchestrator ap
 # Workflow
 
 1. **Search.** Call `search_convictions` with focused query terms.
-2. **Read.** For each strong hit you intend to cite, call `read_passage` to get the full text.
+2. **Read.** Call `read_passage` **once** with the list of every passage ID you intend to cite — do not issue a separate `read_passage` call per ID.
 3. **Answer.** Emit the structured output with verbatim citations.
 
 Do not produce an answer until you have called `search_convictions` at least once. The orchestrator will reject any pre-search answer.

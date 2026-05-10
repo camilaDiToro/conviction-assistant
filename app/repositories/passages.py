@@ -63,6 +63,16 @@ async def get(session: AsyncSession, passage_id: str) -> Passage | None:
     return _orm_to_schema(row) if row else None
 
 
+async def get_many(session: AsyncSession, ids: Iterable[str]) -> dict[str, Passage]:
+    """Fetch multiple passages in one query, keyed by id. Missing ids omitted."""
+    ids_list = list(ids)
+    if not ids_list:
+        return {}
+    stmt = select(PassageORM).where(PassageORM.id.in_(ids_list))
+    result = await session.execute(stmt)
+    return {row.id: _orm_to_schema(row) for row in result.scalars().all()}
+
+
 async def list_documents(session: AsyncSession) -> list[DocSummary]:
     stmt = (
         select(

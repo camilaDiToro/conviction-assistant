@@ -108,12 +108,17 @@ class AgentResult(BaseModel):
     heading_path, document_updated, quote. B9 reads this to enrich the
     HTTP response without re-fetching passages. ``None`` when ``output``
     is a ``ClarifyingQuestionOutput`` (no citations to verify).
+
+    ``language`` is the model-detected language from the rewrite stage
+    (PT / ES / EN), used to localize the disclaimer and the safe-refusal
+    text. Single source of truth for the answer-language choice.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     output: AgentOutput
     rewritten_question: str | None
+    language: Literal["pt", "es", "en"]
     steps: list[StepRecord]
     tool_call_count: int
     search_count: int
@@ -226,8 +231,18 @@ REWRITE_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
                 "return it unchanged. Preserve the user's language verbatim."
             ),
         },
+        "detected_language": {
+            "type": "string",
+            "enum": ["pt", "es", "en"],
+            "description": (
+                "The language of the user's new question — Portuguese, Spanish, "
+                "or English. The downstream agent uses this to pin its answer "
+                "language regardless of the cited passages' language. Choose the "
+                "language of the new question, not of the prior turns."
+            ),
+        },
     },
-    "required": ["rewritten_question"],
+    "required": ["rewritten_question", "detected_language"],
     "additionalProperties": False,
 }
 

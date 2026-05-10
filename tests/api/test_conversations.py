@@ -97,8 +97,8 @@ async def _seed_one_chat(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit()]
 
-    async def fake_read(_ctx: ToolContext, *, passage_id: str) -> Passage:
-        return _passage()
+    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
+        return [_passage() for _ in passage_ids]
 
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
     _patch_passage_repo(monkeypatch)

@@ -20,9 +20,9 @@ New schema added in B5: `DocumentOutline { document_id, document_title, document
 
 **Why a new schema instead of reusing `list[Heading]`?** Surfacing `document_updated` and `passage_count` next to the headings supports CLAUDE.md Rule B (conflicting-conviction surfacing by date) without forcing the agent to call `list_documents` first every time it inspects a document. The shape is the smallest extension that carries that signal.
 
-### `read_passage(passage_id) -> Passage`
+### `read_passage(passage_ids) -> list[Passage]`
 
-Returns the full `Passage` schema (`id`, `document_id`, `document_title`, `heading`, `heading_path`, `text`, `document_updated`). Same shape `search_convictions` will return per hit in B6, so the model's mental model of "what a passage looks like" is consistent across tools.
+Accepts a list of passage IDs and returns the matching `Passage` rows in the same order (`id`, `document_id`, `document_title`, `heading`, `heading_path`, `text`, `document_updated`). Same `Passage` shape `search_convictions` returns per hit in B6, so the model's mental model of "what a passage looks like" is consistent across tools. **Batching is the contract:** the agent is expected to issue one `read_passage` call per turn carrying every ID it intends to cite, not one call per ID.
 
 ---
 
@@ -32,7 +32,7 @@ Returns the full `Passage` schema (`id`, `document_id`, `document_title`, `headi
 |-------------------------|------------------------------|---------------------------------------|
 | `list_documents`        | empty corpus                 | returns `[]` (pre-ingest is normal)   |
 | `read_document_outline` | unknown `document_id`        | raises `DocumentNotFoundError`        |
-| `read_passage`          | unknown `passage_id`         | raises `PassageNotFoundError`         |
+| `read_passage`          | any unknown id in `passage_ids` | raises `PassageNotFoundError` (first missing id)         |
 
 `read_document_outline` detects "document does not exist" via empty headings — at v1 every ingested document has ≥ 1 passage, so an empty heading list is a reliable proxy for "no such document." Both errors subclass `DomainError` (`app/errors.py`); the agent loop in B8 catches them and feeds the error back to the LLM as a tool-error message.
 
@@ -43,7 +43,7 @@ Returns the full `Passage` schema (`id`, `document_id`, `document_title`, `headi
 ```python
 async def list_documents(ctx: ToolContext) -> list[DocSummary]: ...
 async def read_document_outline(ctx: ToolContext, *, document_id: str) -> DocumentOutline: ...
-async def read_passage(ctx: ToolContext, *, passage_id: str) -> Passage: ...
+async def read_passage(ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]: ...
 ```
 
 - `ctx` is positional-only by convention.
@@ -60,7 +60,7 @@ The LLM picks tools based on each tool's `description`. These were drafted in B5
 |-------------------------|------------------------|
 | `list_documents`        | "Return all conviction documents with their titles, last-updated dates (if known), and passage counts. Use this once early in a conversation to discover what documents are available." |
 | `read_document_outline` | "Return one document's outline: its title, last-updated date, passage count, and the ordered list of headings (each with its passage_id). Use this to find which passage in a document covers a topic before reading it." |
-| `read_passage`          | "Return the full text of one passage by ID, plus its document title, heading path, and last-updated date. This is the only tool that returns full passage text; other tools return identifiers and outlines." |
+| `read_passage`          | "Return the full text of one or more passages by ID, each with its document title, heading path, and last-updated date. Pass every ID you intend to cite in a single call — the result is a list aligned to the input order. This is the only tool that returns full passage text; other tools return identifiers and outlines." |
 
 Test `test_tool_definitions_have_nontrivial_descriptions` floors each at 40 characters so an accidental `"TODO"` cannot ship.
 

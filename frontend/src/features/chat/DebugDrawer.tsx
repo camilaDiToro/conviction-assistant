@@ -341,21 +341,22 @@ function ToolResultRender({ value }: { value: unknown }) {
         </ul>
       )
     }
-  }
-  // read_passage returns one Passage object.
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const obj = value as Record<string, unknown>
-    if ('id' in obj && 'text' in obj) {
+    // read_passage returns a list of Passage objects.
+    if ('id' in first && 'text' in first) {
       return (
-        <div className="text-[12px] space-y-1.5">
-          <code className="font-mono text-ink-1 block">{String(obj.id ?? '')}</code>
-          <div className="text-ink-3 text-[11px]">
-            {((obj.heading_path as string[] | undefined) ?? []).join(' › ')}
-          </div>
-          <div className="text-ink-2 leading-relaxed whitespace-pre-wrap mt-1">
-            {String(obj.text ?? '')}
-          </div>
-        </div>
+        <ul className="space-y-2">
+          {(value as Array<Record<string, unknown>>).map((p, i) => (
+            <li key={i} className="border border-border bg-bg rounded-md p-2.5 text-[12px] space-y-1.5">
+              <code className="font-mono text-ink-1 block">{String(p.id ?? '')}</code>
+              <div className="text-ink-3 text-[11px]">
+                {((p.heading_path as string[] | undefined) ?? []).join(' › ')}
+              </div>
+              <div className="text-ink-2 leading-relaxed whitespace-pre-wrap mt-1">
+                {String(p.text ?? '')}
+              </div>
+            </li>
+          ))}
+        </ul>
       )
     }
   }

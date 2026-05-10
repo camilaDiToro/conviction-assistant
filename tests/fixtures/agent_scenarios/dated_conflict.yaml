@@ -1,39 +1,53 @@
-# Two passages with different document_updated dates produce a final
-# answer that surfaces the conflict and names the newer one. The two
-# read_passage calls return passages we feed the loop via the stub —
-# the agent's response just has to mention both dates.
+- content: '{"rewritten_question": "What does Decade say about X?", "detected_language":
+    "en"}'
+  parsed:
+    rewritten_question: What does Decade say about X?
+    detected_language: en
+  usage:
+    model: stub-llm
+    prompt_tokens: 50
+    completion_tokens: 12
+  finish_reason: stop
 - tool_calls:
-    - id: call_search
-      name: search_convictions
-      arguments:
-        query: "renda fixa imposto"
-        k: 5
-  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 18 }
+  - id: call_search
+    name: search_convictions
+    arguments:
+      query: renda fixa imposto
+      k: 5
+  usage:
+    model: stub-llm
+    prompt_tokens: 200
+    completion_tokens: 18
 - tool_calls:
-    - id: call_read_a
-      name: read_passage
-      arguments:
-        passage_id: doc_a#section
-  usage: { model: stub-llm, prompt_tokens: 280, completion_tokens: 14 }
-- tool_calls:
-    - id: call_read_b
-      name: read_passage
-      arguments:
-        passage_id: doc_b#section
-  usage: { model: stub-llm, prompt_tokens: 360, completion_tokens: 14 }
-- content: '{"kind":"answer","answer":"Convictions disagree: doc_a (Abril 2026) and doc_b (Janeiro 2026) state different positions. doc_a is the newer one.","citations":[{"passage_id":"doc_a#section","quote":"position A"},{"passage_id":"doc_b#section","quote":"position B"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  - id: call_read
+    name: read_passage
+    arguments:
+      passage_ids:
+        - doc_a#section
+        - doc_b#section
+  usage:
+    model: stub-llm
+    prompt_tokens: 280
+    completion_tokens: 18
+- content: '{"kind":"answer","answer":"Convictions disagree: doc_a (Abril 2026) and
+    doc_b (Janeiro 2026) state different positions. doc_a is the newer one.","citations":[{"passage_id":"doc_a#section","quote":"position
+    A"},{"passage_id":"doc_b#section","quote":"position B"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
   parsed:
     kind: answer
-    answer: "Convictions disagree: doc_a (Abril 2026) and doc_b (Janeiro 2026) state different positions. doc_a is the newer one."
+    answer: 'Convictions disagree: doc_a (Abril 2026) and doc_b (Janeiro 2026) state
+      different positions. doc_a is the newer one.'
     citations:
-      - passage_id: doc_a#section
-        quote: "position A"
-      - passage_id: doc_b#section
-        quote: "position B"
+    - passage_id: doc_a#section
+      quote: position A
+    - passage_id: doc_b#section
+      quote: position B
     general_knowledge_used: false
     general_knowledge_section: null
     out_of_scope: false
     question: null
     options: null
-  usage: { model: stub-llm, prompt_tokens: 520, completion_tokens: 95 }
+  usage:
+    model: stub-llm
+    prompt_tokens: 520
+    completion_tokens: 95
   finish_reason: stop

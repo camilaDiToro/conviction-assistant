@@ -38,15 +38,18 @@ READ_DOCUMENT_OUTLINE_PARAMETERS: dict[str, Any] = {
 READ_PASSAGE_PARAMETERS: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "passage_id": {
-            "type": "string",
+        "passage_ids": {
+            "type": "array",
+            "items": {"type": "string"},
             "description": (
-                "The passage ID, as returned by search_convictions or "
-                "read_document_outline (Heading.passage_id)."
+                "One or more passage IDs, as returned by search_convictions "
+                "or read_document_outline (Heading.passage_id). Batch every "
+                "passage you intend to cite in a single call rather than "
+                "issuing one tool call per ID."
             ),
         },
     },
-    "required": ["passage_id"],
+    "required": ["passage_ids"],
     "additionalProperties": False,
 }
 
@@ -98,9 +101,11 @@ READ_DOCUMENT_OUTLINE_DEF = ToolDefinition(
 READ_PASSAGE_DEF = ToolDefinition(
     name="read_passage",
     description=(
-        "Return the full text of one passage by ID, plus its document title, "
-        "heading path, and last-updated date. This is the only tool that "
-        "returns full passage text; other tools return identifiers and outlines."
+        "Return the full text of one or more passages by ID, each with its "
+        "document title, heading path, and last-updated date. Pass every ID "
+        "you intend to cite in a single call — the result is a list aligned "
+        "to the input order. This is the only tool that returns full passage "
+        "text; other tools return identifiers and outlines."
     ),
     parameters=READ_PASSAGE_PARAMETERS,
 )

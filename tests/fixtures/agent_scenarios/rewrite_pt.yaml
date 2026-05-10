@@ -1,6 +1,10 @@
-# Single rewrite-stage response: PT history + PT current → PT rewritten.
-- content: '{"rewritten_question":"Como as LCAs são tributadas no Brasil?"}'
+- content: '{"rewritten_question": "Como as LCAs s\u00e3o tributadas no Brasil?",
+    "detected_language": "pt"}'
   parsed:
-    rewritten_question: "Como as LCAs são tributadas no Brasil?"
-  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 25 }
+    rewritten_question: Como as LCAs são tributadas no Brasil?
+    detected_language: pt
+  usage:
+    model: stub-llm
+    prompt_tokens: 200
+    completion_tokens: 25
   finish_reason: stop

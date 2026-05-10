@@ -21,8 +21,8 @@ keep. Today it is plain functions — the policy is one specification.
 """
 
 import re
+from typing import Literal
 
-from app.agent.language import detect_language
 from app.agent.schemas import AnswerOutput, Citation
 from app.agent.tools import ToolContext
 from app.agent.verifier import VerificationResult
@@ -86,10 +86,15 @@ _REFUSAL_TEXTS = {
 }
 
 
-def localized_refusal(question: str) -> AnswerOutput:
-    """Safe-refusal :class:`AnswerOutput` in the user's language (PT/ES/EN)."""
+def localized_refusal(language: Literal["pt", "es", "en"]) -> AnswerOutput:
+    """Safe-refusal :class:`AnswerOutput` in the user's language (PT/ES/EN).
+
+    Takes the model-detected ``language`` from the rewrite stage rather
+    than re-running heuristic detection on the (possibly rewritten)
+    question — keeps the language signal aligned across the trace.
+    """
     return AnswerOutput(
-        answer=_REFUSAL_TEXTS[detect_language(question)],
+        answer=_REFUSAL_TEXTS[language],
         citations=[],
         general_knowledge_used=False,
         general_knowledge_section=None,
