@@ -177,6 +177,19 @@ def test_completion_to_response_invalid_json_raises():
         _completion_to_response(completion, model="gpt-5", schema=schema)
 
 
+def test_completion_to_response_extra_data_after_first_object_is_tolerated():
+    # gpt-5 occasionally appends a second JSON object or stray text
+    # after the first object even with strict=true. raw_decode takes
+    # the first complete value and discards the tail.
+    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
+    content = '{"kind":"answer","answer":"hi","citations":[]}\n{"trailing":"junk"}'
+    completion = _fake_completion(content=content)
+
+    response = _completion_to_response(completion, model="gpt-5", schema=schema)
+
+    assert response.parsed == {"kind": "answer", "answer": "hi", "citations": []}
+
+
 def test_completion_to_response_no_choices_raises():
     completion = SimpleNamespace(choices=[], usage=SimpleNamespace())
     with pytest.raises(ProviderError, match="no choices"):

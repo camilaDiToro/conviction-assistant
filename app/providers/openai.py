@@ -206,10 +206,15 @@ def _completion_to_response(
     content: str | None = message.content
     parsed: dict[str, Any] | None = None
     if schema is not None and content is not None and not tool_calls:
+        # Strict mode should give us a single JSON object, but gpt-5
+        # occasionally appends a trailing object or stray text after the
+        # first object — json.loads then raises "Extra data". Use
+        # raw_decode to take the first complete JSON value and discard
+        # any tail, falling back to a hard error if even the first value
+        # is unparseable.
         try:
-            parsed = json.loads(content)
+            parsed, _ = json.JSONDecoder().raw_decode(content.lstrip())
         except json.JSONDecodeError as exc:
-            # Strict mode should make this unreachable — surface loudly if it does.
             raise ProviderError(
                 "OpenAI returned content that did not match the requested JSON schema"
             ) from exc
