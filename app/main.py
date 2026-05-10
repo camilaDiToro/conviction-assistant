@@ -27,8 +27,25 @@ from app.services import ingest as ingest_service
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
+def _require_access_tokens() -> None:
+    missing = [
+        name
+        for name, value in (
+            ("CHAT_ACCESS_TOKEN", settings.chat_access_token),
+            ("ADMIN_TOKEN", settings.admin_token),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            f"refusing to start: required access token(s) not set: {', '.join(missing)}. "
+            "Set them in .env (local dev) or as Space secrets (Hugging Face)."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    _require_access_tokens()
     db.migrate(settings.sqlite_path)
     engine = db.make_engine(settings.async_database_url)
     factory = db.make_session_factory(engine)

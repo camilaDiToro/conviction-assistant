@@ -1,6 +1,6 @@
 # Assumptions — Decade AI Challenge
 
-Answers gathered from the project owner that pin down design decisions. Anything not yet here is still in `QUESTIONS.md`.
+Answers gathered from the project owner that pin down design decisions.
 
 ---
 
