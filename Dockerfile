@@ -15,8 +15,8 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    UV_SYSTEM_PYTHON=1 \
     UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH" \
     AUTO_INGEST_ON_STARTUP=true
 
 # uv is the project's package manager.
@@ -46,4 +46,6 @@ USER user
 
 # HF Spaces routes traffic to port 7860 by default.
 EXPOSE 7860
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Call uvicorn from the venv directly — `uv run` re-syncs at runtime and
+# tries to install dev deps into a read-only image layer.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
