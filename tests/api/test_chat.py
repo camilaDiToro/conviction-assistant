@@ -185,7 +185,11 @@ async def test_chat_unconfigured_token_returns_503(client, monkeypatch) -> None:
 
 
 async def test_chat_es_question_gets_es_disclaimer(client, monkeypatch: pytest.MonkeyPatch) -> None:
-    stub = StubLLM(load_stub_responses(FIXTURES / "basic_search.yaml"))
+    responses = load_stub_responses(FIXTURES / "basic_search.yaml")
+    # The fixture's rewrite stage hardcodes detected_language="en"; flip to
+    # "es" so the agent loop & disclaimer mirror the user's question.
+    responses[0].parsed["detected_language"] = "es"  # type: ignore[index]
+    stub = StubLLM(responses)
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(
@@ -199,7 +203,9 @@ async def test_chat_es_question_gets_es_disclaimer(client, monkeypatch: pytest.M
 
 
 async def test_chat_pt_question_gets_pt_disclaimer(client, monkeypatch: pytest.MonkeyPatch) -> None:
-    stub = StubLLM(load_stub_responses(FIXTURES / "basic_search.yaml"))
+    responses = load_stub_responses(FIXTURES / "basic_search.yaml")
+    responses[0].parsed["detected_language"] = "pt"  # type: ignore[index]
+    stub = StubLLM(responses)
     _wire_basic_search(monkeypatch, stub)
 
     response = await client.post(

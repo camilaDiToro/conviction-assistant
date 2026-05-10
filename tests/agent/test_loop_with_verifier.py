@@ -157,9 +157,9 @@ async def test_verifier_retry_then_pass(monkeypatch: pytest.MonkeyPatch) -> None
 
     # The retry feedback message must have included passage_id and the
     # original (paraphrased) quote so the model knew what to fix.
-    # That's the second-to-last user message before the second LLM call.
-    second_call = stub.calls[2]  # call 0 = search; call 1 = answer (paraphrase); call 2 = retry
-    last_user = next(m for m in reversed(second_call.messages) if m.role == "user")
+    # Calls index: 0=rewrite; 1=search; 2=answer (paraphrase); 3=retry.
+    retry_call = stub.calls[3]
+    last_user = next(m for m in reversed(retry_call.messages) if m.role == "user")
     assert last_user.content is not None
     assert "regressive IR table" in last_user.content
     assert "cdbs_quick_guide#tributacao" in last_user.content
@@ -236,12 +236,16 @@ async def test_verifier_double_fail_pt_question_yields_pt_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Same fixture as zero-grounded, but the user question is in PT —
-    the inline language detector should pick PT for the refusal text.
+    the rewrite stage's language signal flows into the refusal text.
     """
     _common_tool_patches(monkeypatch)
     _patch_passage_repo(monkeypatch)
 
-    stub = StubLLM(load_stub_responses(FIXTURES / "verifier_double_fail_zero_grounded.yaml"))
+    responses = load_stub_responses(FIXTURES / "verifier_double_fail_zero_grounded.yaml")
+    # The shared fixture hardcodes detected_language="en"; flip to "pt" so
+    # the loop's localized_refusal returns the PT refusal text.
+    responses[0].parsed["detected_language"] = "pt"  # type: ignore[index]
+    stub = StubLLM(responses)
     result = await run(
         "Como funciona a tributação do CDB? Você é capaz de responder?",
         [],
@@ -269,10 +273,12 @@ async def test_verifier_disabled_skips_verification(
     # No need to patch passages_repo — the verifier should never be called.
     monkeypatch.setattr("app.agent.loop.settings.verifier_enabled", False)
 
-    # Reuse the retry-then-pass fixture but only the first AnswerOutput
-    # is consumed because verification is skipped — drop the second.
+    # Reuse the retry-then-pass fixture but only the rewrite + first
+    # AnswerOutput is consumed because verification is skipped — drop
+    # the retry response.
     stub = StubLLM(
-        load_stub_responses(FIXTURES / "verifier_retry_then_pass.yaml")[:2]  # search + first answer
+        # 0=rewrite, 1=search, 2=first answer; index 3 (retry) is not needed.
+        load_stub_responses(FIXTURES / "verifier_retry_then_pass.yaml")[:3]
     )
     result = await run("What is a CDB?", [], tool_ctx=_stub_ctx(), llm=stub)
 

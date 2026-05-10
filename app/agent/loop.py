@@ -20,7 +20,9 @@ Architectural commitments (``docs/ARCHITECTURES.md`` § "Loop bounds"):
 
 Helpers live in sibling modules: tool dispatch in :mod:`app.agent.tool_dispatch`,
 step recorders + verify adapter in :mod:`app.agent.audit`, retry policy
-in :mod:`app.agent.retry_policy`, language detection in :mod:`app.agent.language`.
+in :mod:`app.agent.retry_policy`. Language detection is the rewrite
+stage's responsibility (see :mod:`app.agent.rewrite`); the agent loop
+just consumes the ``detected_language`` it returns.
 """
 
 import asyncio
@@ -38,7 +40,6 @@ from app.agent.audit import (
     record_verifier,
     verify_output,
 )
-from app.agent.language import detect_language
 from app.agent.rewrite import rewrite_question
 from app.agent.schemas import (
     AGENT_OUTPUT_SCHEMA,
@@ -75,22 +76,18 @@ async def run(
 ) -> AgentResult:
     """Run one full agent turn.
 
-    On the first turn (empty history) the rewrite stage is skipped and
-    the agent loop sees ``user_message`` verbatim. On turn 2+ the rewrite
-    stage produces a self-contained question.
+    The rewrite stage runs on **every** turn — it doubles as the language
+    classifier whose output drives the answer-language directive. With
+    empty history the rewrite is a passthrough on the question text but
+    still emits ``detected_language``.
     """
     steps: list[StepRecord] = []
-    rewritten_question: str | None = None
 
-    if history:
-        rewritten, rewrite_step = await rewrite_question(user_message, history, llm=llm)
-        steps.append(rewrite_step)
-        loop_input = rewritten
-        rewritten_question = rewritten
-    else:
-        loop_input = user_message
+    rewritten, language, rewrite_step = await rewrite_question(user_message, history, llm=llm)
+    steps.append(rewrite_step)
+    loop_input = rewritten
+    rewritten_question = rewritten if history else None
 
-    language = detect_language(loop_input)
     output, loop_steps, tool_count, search_count, verify_result = await _agent_loop(
         loop_input, tool_ctx=tool_ctx, llm=llm, language=language
     )
@@ -105,6 +102,7 @@ async def run(
     return AgentResult(
         output=output,
         rewritten_question=rewritten_question,
+        language=language,
         steps=steps,
         tool_call_count=tool_count,
         search_count=search_count,
@@ -207,11 +205,7 @@ async def _agent_loop(
             # require a prior search. ClarifyingQuestionOutput is always
             # allowed. Out-of-scope replies (greetings, unrelated topics)
             # also bypass the rule: there is nothing to search for.
-            if (
-                isinstance(output, AnswerOutput)
-                and search_count == 0
-                and not output.out_of_scope
-            ):
+            if isinstance(output, AnswerOutput) and search_count == 0 and not output.out_of_scope:
                 content = response.content or json.dumps(response.parsed)
                 messages.append(Message(role="assistant", content=content))
                 messages.append(
@@ -252,7 +246,7 @@ async def _agent_loop(
                     # survive, fall through to a localized safe refusal.
                     output = retry_policy.strip_failed_citations(output, verify)
                     if not output.citations:
-                        output = retry_policy.localized_refusal(question)
+                        output = retry_policy.localized_refusal(language)
                         verify = VerificationResult(verified=[], failures=[])
 
                 # Collapse duplicate citations by passage_id (the model

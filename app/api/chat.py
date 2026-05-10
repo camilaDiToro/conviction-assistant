@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent import ConversationTurn
 from app.agent import run as run_agent
-from app.agent.language import detect_language
 from app.agent.tools import ToolContext
 from app.api.auth import require_chat_token
 from app.api.deps import get_llm_provider_dep
@@ -61,7 +60,7 @@ async def chat(
     )
     result = await run_agent(payload.question, history, tool_ctx=tool_ctx, llm=llm)
 
-    language = detect_language(result.rewritten_question or payload.question)
+    language = result.language
 
     response, summary = wrap_response.wrap(
         result,

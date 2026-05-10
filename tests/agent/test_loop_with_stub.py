@@ -101,9 +101,11 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.rewritten_question is None  # empty history → no rewrite stage
 
     kinds = [s.kind for s in result.steps]
+    # Step 0 = rewrite stage (always runs, doubles as language detector).
     # B8: a passing verifier step is appended after the final llm_call.
     assert kinds == [
-        "llm_call",
+        "llm_call",  # rewrite
+        "llm_call",  # agent loop turn 1 (tool decision)
         "tool_call",
         "llm_call",
         "tool_call",
@@ -113,16 +115,10 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 @pytest.mark.asyncio
-async def test_empty_history_skips_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Architectural commitment: rewrite stage MUST be skipped when there's
-    nothing to resolve against."""
-    sentinel = {"called": False}
-
-    async def fake_rewrite(*_args: Any, **_kwargs: Any) -> Any:
-        sentinel["called"] = True
-        raise AssertionError("rewrite_question must not run on empty history")
-
-    monkeypatch.setattr("app.agent.loop.rewrite_question", fake_rewrite)
+async def test_empty_history_runs_passthrough_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rewrite stage runs on every turn — on empty history it's a passthrough
+    on the question text but still emits ``detected_language`` for the agent
+    loop's answer-language directive."""
 
     async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
         return [_hit("cdbs_quick_guide#tributacao")]
@@ -133,9 +129,16 @@ async def test_empty_history_skips_rewrite(monkeypatch: pytest.MonkeyPatch) -> N
     _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
 
     stub = StubLLM(load_stub_responses(FIXTURES / "basic_search.yaml"))
-    await run("What is a CDB?", [], tool_ctx=_stub_ctx(), llm=stub)
+    result = await run("What is a CDB?", [], tool_ctx=_stub_ctx(), llm=stub)
 
-    assert sentinel["called"] is False
+    # Rewrite ran (the fixture's first response is a rewrite stage).
+    rewrite_step = result.steps[0]
+    assert rewrite_step.kind == "llm_call"
+    assert rewrite_step.payload["stage"] == "rewrite"
+    assert rewrite_step.payload["history_turns"] == 0
+    # `rewritten_question` reported up to the caller stays None on turn 1
+    # (the rewrite was a passthrough; nothing to surface).
+    assert result.rewritten_question is None
 
 
 # ---- multi-turn / conversation-memory quarantine ------------------
@@ -228,14 +231,12 @@ async def test_lower_bound_rejects_pre_search_answer(monkeypatch: pytest.MonkeyP
     assert result.output.answer == "Now grounded."
     assert result.search_count == 1
 
-    # The third LLM call is the one we accept; the first was the rejected
-    # premature answer. Verify the reminder was appended to the messages
-    # the model saw on its third call.
-    third_call_messages = stub.calls[2].messages
+    # Call 0 = rewrite stage. Calls 1+ = the agent loop. Inside the loop:
+    # call 1 was the rejected premature answer; call 2+ retried with the
+    # appended reminder. Find any agent-loop call that saw the reminder.
+    loop_messages = [m for c in stub.calls[1:] for m in c.messages]
     reminder_msgs = [
-        m
-        for m in third_call_messages
-        if m.role == "user" and "search_convictions" in (m.content or "")
+        m for m in loop_messages if m.role == "user" and "search_convictions" in (m.content or "")
     ]
     assert len(reminder_msgs) >= 1
 
@@ -345,10 +346,11 @@ async def test_domain_error_surfaces_to_model(monkeypatch: pytest.MonkeyPatch) -
     assert isinstance(result.output, AnswerOutput)
     assert result.output.answer == "Recovered."
 
-    # Inspect the second LLM call's messages: the tool message for the
-    # bad read should contain the error string the model can act on.
-    second_call_messages = stub.calls[1].messages
-    tool_msgs = [m for m in second_call_messages if m.role == "tool"]
+    # Inspect agent-loop messages (calls[0] is the rewrite stage). The tool
+    # message for the bad read should contain the error string the model
+    # can act on.
+    loop_messages = [m for c in stub.calls[1:] for m in c.messages]
+    tool_msgs = [m for m in loop_messages if m.role == "tool"]
     assert any("PassageNotFoundError" in (m.content or "") for m in tool_msgs), [
         m.content for m in tool_msgs
     ]
