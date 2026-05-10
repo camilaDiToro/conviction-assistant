@@ -12,7 +12,6 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.agent.verifier import get_verifier
 from app.api.admin import router as admin_router
 from app.api.chat import router as chat_router
 from app.api.chat_history import router as chat_history_router
@@ -62,7 +61,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with factory() as session:
         await retriever.build(session)
     app.state.retriever = retriever
-    app.state.verifier = get_verifier(settings.verifier_strategy)
     try:
         yield
     finally:

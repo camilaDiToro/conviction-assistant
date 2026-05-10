@@ -48,10 +48,10 @@ class AgentError(DomainError):
 
 
 class VerificationError(DomainError):
-    """Raised on internal verifier failures (B8).
+    """Raised on internal offset-resolver I/O failures.
 
-    The normal verify-fail-then-retry-then-strip flow is steady-state
-    and does NOT raise — it's how the loop enforces grounding. This
-    exception is reserved for genuine bug-class problems (e.g. the
-    passage repo lookup itself errors during verification).
+    The normal resolve path does NOT raise — citations that don't anchor
+    simply surface without a highlight. This exception is reserved for
+    bug-class problems (e.g. the passage repo lookup itself errors during
+    resolution).
     """

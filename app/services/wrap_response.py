@@ -7,7 +7,7 @@ the request-level identifiers, it produces:
    the HTTP handler returns to the client.
 2. A summary dict the caller stores as the ``kind='response'`` audit row.
 
-Citation enrichment uses the ``VerifiedCitation`` provenance the agent
+Citation enrichment uses the ``CitationResolution`` entries the agent
 already produced — no extra DB hits at response time. Cost is computed
 per LLM-call step via :func:`app.services.cost.compute_call_cost_usd`.
 """
@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any
 
 from app.agent import AgentResult, AnswerOutput, ClarifyingQuestionOutput, StepRecord
-from app.agent.verifier import VerifiedCitation
+from app.agent.resolver import CitationResolution
 from app.api.schemas import (
     ChatAnswerResponse,
     ChatCitation,
@@ -40,7 +40,6 @@ def wrap(
     question_id: str,
     user_question: str,
     retriever_name: str,
-    verifier_name: str,
     prior_conversation_cost_usd: float = 0.0,
 ) -> tuple[ChatAnswerResponse | ChatClarifyResponse, dict[str, Any]]:
     """Wrap one agent turn into the wire response + the audit summary.
@@ -51,17 +50,15 @@ def wrap(
     sent — persisted in the audit summary so the conversation list
     endpoint can render a title without re-running the agent.
     """
-    debug_steps = [_step_to_debug(s, retriever_name, verifier_name) for s in result.steps]
+    resolution_entries = list(result.resolution.entries) if result.resolution else []
+    debug_steps = [_step_to_debug(s, retriever_name) for s in result.steps]
     question_cost = round(sum(d.cost_usd or 0.0 for d in debug_steps), 8)
     conversation_cost = round(prior_conversation_cost_usd + question_cost, 8)
-    verifier_passed = _all_verifiers_passed(result.steps)
 
     debug_steps.append(
         _response_debug_step(
             result.output.model_dump(mode="json"),
-            verified_citations=[
-                vc.model_dump(mode="json") for vc in (result.verified_citations or [])
-            ],
+            resolution_entries=[e.model_dump(mode="json") for e in resolution_entries],
         )
     )
 
@@ -73,7 +70,6 @@ def wrap(
     )
     debug = DebugBlock(
         tool_calls=[d for d in debug_steps if d.kind == "tool_call"],
-        verification_passed=verifier_passed,
         steps=debug_steps,
     )
 
@@ -88,7 +84,9 @@ def wrap(
             question_id=question_id,
         )
     else:
-        citations = [_verified_to_chat(vc) for vc in (result.verified_citations or [])]
+        citations = [
+            chat for e in resolution_entries if (chat := _resolution_to_chat(e)) is not None
+        ]
         response = ChatAnswerResponse(
             answer=result.output.answer,
             citations=citations,
@@ -107,27 +105,36 @@ def wrap(
         language=language,
         user_question=user_question,
         retriever_name=retriever_name,
-        verifier_name=verifier_name,
-        verifier_passed=verifier_passed,
+        resolution_entries=resolution_entries,
     )
     return response, summary
 
 
-def _verified_to_chat(vc: VerifiedCitation) -> ChatCitation:
-    heading = vc.heading_path[-1] if vc.heading_path else ""
+def _resolution_to_chat(entry: CitationResolution) -> ChatCitation | None:
+    """Convert one resolution entry into a wire ``ChatCitation``.
+
+    Citations whose passage couldn't be loaded (``passage_not_found``)
+    are dropped — without ``passage_text`` there is nothing to show.
+    All other entries surface; ``start`` / ``end`` are ``None`` when the
+    quote did not anchor.
+    """
+    if entry.passage_text is None or entry.document_id is None:
+        return None
+    heading = entry.heading_path[-1] if entry.heading_path else ""
     return ChatCitation(
-        passage_id=vc.passage_id,
-        document=f"{vc.document_id}.md",
-        document_updated=vc.document_updated,
+        passage_id=entry.passage_id,
+        document=f"{entry.document_id}.md",
+        document_updated=entry.document_updated,
         heading=heading,
-        heading_path=list(vc.heading_path),
-        quote=vc.quote,
-        passage_text=vc.passage_text,
+        heading_path=list(entry.heading_path),
+        passage_text=entry.passage_text,
+        start=entry.start,
+        end=entry.end,
     )
 
 
-def _step_to_debug(step: StepRecord, retriever_name: str, verifier_name: str) -> DebugStep:
-    name, detail = _name_and_detail(step, retriever_name, verifier_name)
+def _step_to_debug(step: StepRecord, retriever_name: str) -> DebugStep:
+    name, detail = _name_and_detail(step, retriever_name)
     cost_usd: float | None = None
     if step.kind == "llm_call" and step.usage is not None:
         # Cost is a derived metric — an unpriced model (e.g. `stub-llm`
@@ -153,8 +160,8 @@ def _step_result_summary(step: StepRecord) -> dict[str, Any] | None:
     """Step-kind-specific JSON summary of what the step produced.
 
     Surfaces the data the audit_log already persists (tool return values,
-    LLM parsed output, verifier verified/failures lists) so the debug
-    drawer can show *what came back*, not just *what was called*.
+    LLM parsed output, resolver entries) so the debug drawer can show
+    *what came back*, not just *what was called*.
     """
     p = step.payload or {}
     if step.kind == "tool_call":
@@ -170,20 +177,15 @@ def _step_result_summary(step: StepRecord) -> dict[str, Any] | None:
         if p.get("content") is not None:
             out["content"] = p["content"]
         return out or None
-    if step.kind == "verifier":
-        return {
-            "attempt": p.get("attempt", 0),
-            "all_passed": p.get("all_passed", False),
-            "verified": p.get("verified") or [],
-            "failures": p.get("failures") or [],
-        }
+    if step.kind == "resolver":
+        return {"entries": p.get("entries") or []}
     return None
 
 
 def _response_debug_step(
     output_dump: dict[str, Any],
     *,
-    verified_citations: list[dict[str, Any]] | None = None,
+    resolution_entries: list[dict[str, Any]] | None = None,
     step_id: str | None = None,
 ) -> DebugStep:
     """Synthetic ``kind='response'`` step appended at the end of the trace.
@@ -203,8 +205,8 @@ def _response_debug_step(
         answer = output_dump.get("answer", "")
         detail = f"answer ({len(answer)} chars): {_truncate(answer, 80)}"
     result: dict[str, Any] = {"output": output_dump}
-    if verified_citations:
-        result["verified_citations"] = verified_citations
+    if resolution_entries:
+        result["resolution_entries"] = resolution_entries
     return DebugStep(
         step_id=step_id or str(_uuid.uuid4()),
         kind="response",
@@ -222,7 +224,7 @@ def _truncate(s: str, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def _name_and_detail(step: StepRecord, retriever_name: str, verifier_name: str) -> tuple[str, str]:
+def _name_and_detail(step: StepRecord, retriever_name: str) -> tuple[str, str]:
     if step.kind == "llm_call":
         stage = step.payload.get("stage", "agent_loop")
         finish = step.payload.get("finish_reason", "stop")
@@ -238,15 +240,13 @@ def _name_and_detail(step: StepRecord, retriever_name: str, verifier_name: str) 
             return name, f"query={query!r} k={k}{via}"
         args = step.payload.get("arguments") or {}
         return name, "args=" + ",".join(f"{k}={v}" for k, v in args.items())
-    if step.kind == "verifier":
-        attempt = step.payload.get("attempt", 0)
-        all_passed = step.payload.get("all_passed", False)
-        verified = step.payload.get("verified") or []
-        failures = step.payload.get("failures") or []
+    if step.kind == "resolver":
+        entries = step.payload.get("entries") or []
+        anchored = sum(1 for e in entries if e.get("failure_reason") is None)
         return (
-            verifier_name or "verifier",
-            f"attempt={attempt} all_passed={all_passed} "
-            f"verified={len(verified)} failures={len(failures)}",
+            "resolver",
+            f"entries={len(entries)} anchored={anchored} "
+            f"unresolved={len(entries) - anchored}",
         )
     return step.kind, ""
 
@@ -265,24 +265,13 @@ def _question_duration_ms(steps: list[StepRecord]) -> int:
     return int(delta.total_seconds() * 1000)
 
 
-def _all_verifiers_passed(steps: list[StepRecord]) -> bool:
-    """``true`` iff every verifier step passed (or there were none)."""
-    verifier_steps = [s for s in steps if s.kind == "verifier"]
-    if not verifier_steps:
-        return True
-    # The final verifier step is what counts — earlier failed attempts
-    # are part of the retry path, not the steady-state outcome.
-    return bool(verifier_steps[-1].payload.get("all_passed", False))
-
-
 def _audit_summary(
     *,
     result: AgentResult,
     language: Language,
     user_question: str,
     retriever_name: str,
-    verifier_name: str,
-    verifier_passed: bool,
+    resolution_entries: list[CitationResolution],
 ) -> dict[str, Any]:
     output = result.output
     summary: dict[str, Any] = {
@@ -291,17 +280,13 @@ def _audit_summary(
         "rewritten_question": result.rewritten_question,
         "tool_call_count": result.tool_call_count,
         "search_count": result.search_count,
-        "verifier_passed": verifier_passed,
         "retriever": retriever_name,
-        "verifier_strategy": verifier_name,
         "step_count": len(result.steps),
         "step_kinds": [s.kind for s in result.steps],
         "output": output.model_dump(mode="json"),
-        # Enriched citation provenance — lets the conversation-load
-        # endpoint render the same chips as the live response.
-        "verified_citations": [
-            vc.model_dump(mode="json") for vc in (result.verified_citations or [])
-        ],
+        # Enriched citation provenance + offsets — lets the conversation-
+        # load endpoint render the same chips as the live response.
+        "resolution_entries": [e.model_dump(mode="json") for e in resolution_entries],
     }
     if isinstance(output, AnswerOutput):
         summary["out_of_scope"] = output.out_of_scope
@@ -313,8 +298,7 @@ def reconstruct_steps_from_audit(
     rows: list[audit_repo.AuditRow],
     *,
     retriever_name: str,
-    verifier_name: str,
-) -> tuple[list[DebugStep], bool]:
+) -> list[DebugStep]:
     """Rebuild ``DebugStep``s from persisted audit rows.
 
     The live request emits ``StepRecord``s through :func:`_step_to_debug`.
@@ -323,15 +307,15 @@ def reconstruct_steps_from_audit(
     :class:`StepRecord` and reuses the same name/detail/cost logic so the
     historical drawer renders identically to the live one.
 
-    Returns ``(steps, verifier_passed)``. Rows whose ``kind`` is not one
-    of ``llm_call|tool_call|verifier`` are skipped — the response row is
-    expected to be filtered out by the caller, but defending here makes
-    the function safe regardless.
+    Rows whose ``kind`` is not in the current literal (e.g. legacy
+    ``'verifier'`` rows from before the offset-resolver rollout) are
+    skipped — the response row is expected to be filtered out by the
+    caller, but defending here makes the function safe regardless.
     """
     transient: list[StepRecord] = []
     for row in rows:
         kind = row["kind"]
-        if kind not in ("llm_call", "tool_call", "verifier"):
+        if kind not in ("llm_call", "tool_call", "resolver"):
             continue
         try:
             payload = json.loads(row["payload"]) if row["payload"] else {}
@@ -366,21 +350,22 @@ def reconstruct_steps_from_audit(
                 duration_ms=duration_ms,
             )
         )
-    debug_steps = [_step_to_debug(s, retriever_name, verifier_name) for s in transient]
-    return debug_steps, _all_verifiers_passed(transient)
-
-
-__all__ = ["build_response_debug_step", "reconstruct_steps_from_audit", "wrap"]
+    return [_step_to_debug(s, retriever_name) for s in transient]
 
 
 def build_response_debug_step(
     output_dump: dict[str, Any],
     *,
-    verified_citations: list[dict[str, Any]] | None = None,
+    resolution_entries: list[dict[str, Any]] | None = None,
     step_id: str | None = None,
 ) -> DebugStep:
     """Public wrapper for :func:`_response_debug_step` so the historical
     steps endpoint can append the same synthetic response step the live
     path emits.
     """
-    return _response_debug_step(output_dump, verified_citations=verified_citations, step_id=step_id)
+    return _response_debug_step(
+        output_dump, resolution_entries=resolution_entries, step_id=step_id
+    )
+
+
+__all__ = ["build_response_debug_step", "reconstruct_steps_from_audit", "wrap"]

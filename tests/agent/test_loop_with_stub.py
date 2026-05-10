@@ -102,7 +102,7 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
 
     kinds = [s.kind for s in result.steps]
     # Step 0 = rewrite stage (always runs, doubles as language detector).
-    # B8: a passing verifier step is appended after the final llm_call.
+    # A resolver step is appended after the final llm_call.
     assert kinds == [
         "llm_call",  # rewrite
         "llm_call",  # agent loop turn 1 (tool decision)
@@ -110,7 +110,7 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
         "llm_call",
         "tool_call",
         "llm_call",
-        "verifier",
+        "resolver",
     ]
 
 

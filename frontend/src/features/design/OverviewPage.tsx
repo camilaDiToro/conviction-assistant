@@ -10,12 +10,12 @@ export default function OverviewPage() {
         title="Architecture."
         lead={
           <>
-            A FastAPI service over a corpus of 30 markdown investment-conviction documents.
-            The agent uses four read-only tools to gather evidence and produces a structured
-            JSON answer with citations; a deterministic substring verifier rejects any quote
-            that does not round-trip through its claimed source. Provider-portable above{' '}
-            <code className="font-mono text-[15px] text-ink-1">app/providers/</code>; SQLite +
-            BM25 below it.
+            An agentic assistant grounded on Decade's conviction corpus. A bounded agent uses
+            four read-only tools to explore 30 markdown documents and produce a structured
+            JSON answer, with every citation anchored to a span of its source passage. The
+            agent, tools and resolver are provider-agnostic; SQLite and BM25 sit behind the
+            repository, and the LLM lives behind a single adapter at{' '}
+            <code className="font-mono text-[15px] text-ink-1">app/providers/</code>.
           </>
         }
       />
@@ -36,32 +36,50 @@ export default function OverviewPage() {
         </div>
       </Section>
 
-      <Section eyebrow="Constraints">
-        <dl className="max-w-prose grid grid-cols-1 md:grid-cols-[12rem_1fr] gap-x-8 gap-y-2 text-[15px] leading-relaxed">
-          <dt className="text-ink-1 font-medium pt-px">Correctness</dt>
-          <dd className="text-ink-2">Every cited quote substring-matches its source passage after a pinned normalization pipeline. No model self-judges its own grounding.</dd>
-
-          <dt className="text-ink-1 font-medium pt-px md:pt-3 border-t md:border-t border-border md:pl-0">Portability</dt>
-          <dd className="text-ink-2 md:pt-3 md:border-t md:border-border">No provider SDKs are imported outside <code className="font-mono text-[13px] text-ink-1">app/providers/</code>. The orchestrator, tools, and verifier are provider-agnostic. Swapping providers is a config change, not a refactor.</dd>
-
-          <dt className="text-ink-1 font-medium pt-3 border-t border-border">Reproducibility</dt>
-          <dd className="text-ink-2 pt-3 border-t border-border">The verifier is deterministic. The stub provider (<code className="font-mono text-[13px] text-ink-1">app/providers/stub.py::StubLLM</code>) replays canned responses from YAML fixtures. Tests run without network or tokens.</dd>
-
-          <dt className="text-ink-1 font-medium pt-3 border-t border-border">Inspectability</dt>
-          <dd className="text-ink-2 pt-3 border-t border-border">Every step is recorded in <code className="font-mono text-[13px] text-ink-1">audit_log</code> with three IDs (step, question, conversation). Cost is derived from <code className="font-mono text-[13px] text-ink-1">TokenUsage</code> + a vendored price table; old rows re-price under new prices.</dd>
-
-          <dt className="text-ink-1 font-medium pt-3 border-t border-border">Cost</dt>
-          <dd className="text-ink-2 pt-3 border-t border-border">Prompt caching on the system prompt; <code className="font-mono text-[13px] text-ink-1">reasoning_effort=medium</code> on gpt-5 (override to <code className="font-mono text-[13px] text-ink-1">low</code> via <code className="font-mono text-[13px] text-ink-1">AGENT_REASONING_EFFORT</code> for cost-sensitive runs); no LLM calls in unit or integration tests.</dd>
-        </dl>
+      <Section eyebrow="Before any question — ingest & indexing">
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
+          The corpus is parsed once and the BM25 index is built in memory at app startup, so
+          by the time a question arrives the system already has every passage indexed and
+          ready to search. Re-running ingest is a single admin POST.
+        </p>
+        <BootDiagram />
       </Section>
 
-      <Section eyebrow="Architecture">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          Five layers, each owning a single responsibility. Heavy outline marks a contract that
-          enforces an invariant. Dashed outline marks a node that is designed but not yet
-          implemented (B7 verifier, B8 agent, B9 chat endpoint).
-        </p>
+      <Section eyebrow="Architecture diagram">
+        <dl className="max-w-prose grid grid-cols-[8.5rem_1fr] gap-x-6 gap-y-3 text-[15px] leading-relaxed mb-8">
+          <dt className="text-ink-1 font-medium">Router</dt>
+          <dd className="text-ink-2">HTTP entry. Parses the request, hands off to the agent loop, formats the response.</dd>
+          <dt className="text-ink-1 font-medium">Agent loop</dt>
+          <dd className="text-ink-2">The orchestrator. Decides between calling another tool and producing the final structured answer; enforces the loop bounds.</dd>
+          <dt className="text-ink-1 font-medium">Tools</dt>
+          <dd className="text-ink-2">Four read-only functions over the corpus. The agent chooses which to call and in what order; the loop never gives it write access.</dd>
+          <dt className="text-ink-1 font-medium">LLMProvider</dt>
+          <dd className="text-ink-2">The single adapter for any LLM. Everything above it is provider-agnostic; swapping OpenAI for another provider is a config change.</dd>
+          <dt className="text-ink-1 font-medium">Offset resolver</dt>
+          <dd className="text-ink-2">Turns each cited quote into a <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region of its source passage so the UI can highlight exactly what the model used.</dd>
+          <dt className="text-ink-1 font-medium">Repository</dt>
+          <dd className="text-ink-2">The only layer that talks to the database. Tools and services go through it; raw SQL lives nowhere else.</dd>
+          <dt className="text-ink-1 font-medium">audit_log</dt>
+          <dd className="text-ink-2">Every step (LLM call, tool call, resolver) is recorded with step / question / conversation IDs and a per-step cost.</dd>
+        </dl>
         <ArchitectureDiagram />
+      </Section>
+
+      <Section eyebrow="The four tools">
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
+          The agent's entire view of the corpus is these four functions. They are pure,
+          read-only, and pass their results back through{' '}
+          <code className="font-mono text-[13px] text-ink-1">ToolContext</code> — no global
+          state, no side effects.
+        </p>
+        <div className="max-w-prose border border-border rounded-md divide-y divide-border">
+          {TOOLS.map(t => (
+            <div key={t.name} className="px-5 py-4 grid grid-cols-1 md:grid-cols-[14rem_1fr] md:items-baseline gap-x-6 gap-y-1">
+              <code className="font-mono text-[13px] text-ink-1">{t.name}({t.args})</code>
+              <p className="text-ink-2 text-[14px] leading-relaxed">{t.desc}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section eyebrow="Request lifecycle">
@@ -98,101 +116,193 @@ export default function OverviewPage() {
   )
 }
 
+const TOOLS = [
+  {
+    name: 'list_documents',
+    args: '',
+    desc: "Enumerate all documents in the corpus. Returns titles, IDs and the Updated: date for each.",
+  },
+  {
+    name: 'read_document_outline',
+    args: 'document_id',
+    desc: "One document's heading tree plus its metadata. No body text — used to plan which passages to read.",
+  },
+  {
+    name: 'search_convictions',
+    args: 'query, k',
+    desc: 'BM25 search across all passages. Returns ranked hits with snippets, scores and source metadata.',
+  },
+  {
+    name: 'read_passage',
+    args: 'passage_ids',
+    desc: 'Full text of one or more passages by id, returned in the order requested.',
+  },
+] as const
+
 const TOUR = [
   { to: '/design/pipeline/corpus', label: 'Corpus & chunking', desc: 'Markdown → Passage[]. Slug algorithm, date extraction, stable IDs.' },
   { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)', desc: 'BM25Index over normalized tokens. Cross-language is the level-up trigger.' },
-  { to: '/design/pipeline/verifier', label: 'Verifier', desc: 'Six-step normalization + substring check. Designed; ships in B7.' },
-  { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Gather → Act → Verify with bounded retries. Designed; ships in B8.' },
-  { to: '/design/plumbing/providers', label: 'Provider abstraction', desc: 'LLMProvider protocol, OpenAI + Stub adapters, Anthropic at B10.' },
+  { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Bounded gather → act → answer with strict loop invariants.' },
+  { to: '/design/plumbing/providers', label: 'Provider abstraction', desc: 'LLMProvider protocol, OpenAI + Stub adapters behind a single interface.' },
   { to: '/design/plumbing/cost', label: 'Cost tracking', desc: 'TokenUsage → vendored prices. Three-granularity audit_log.' },
   { to: '/design/plumbing/layering', label: 'Layering rules', desc: 'Router → Service → Repository. Domain errors. Configuration. Lifecycle.' },
   { to: '/design/framing/tiers', label: 'Production-grade vs simplified', desc: 'What is built right vs deliberately simplified, with documented level-ups.' },
 ] as const
 
+function BootDiagram() {
+  return (
+    <div className="my-2 border border-border rounded-md bg-surface p-6 md:p-8 overflow-x-auto">
+      <svg viewBox="0 0 1040 120" className="w-full max-w-[1040px] mx-auto" role="img" aria-label="Boot-time ingest and indexing">
+        <defs>
+          <marker id="arrow-boot" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#B5B5B5" />
+          </marker>
+        </defs>
+
+        {/* Markdown */}
+        <g>
+          <rect x="20" y="25" width="150" height="70" fill="#0A0A0A" stroke="#262626" />
+          <text x="95" y="55" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Markdown corpus</text>
+          <text x="95" y="73" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">convictions/*.md</text>
+        </g>
+        <line x1="170" y1="60" x2="220" y2="60" stroke="#B5B5B5" markerEnd="url(#arrow-boot)" />
+        <text x="195" y="50" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">POST /admin/ingest</text>
+
+        {/* Ingest + Parser */}
+        <g>
+          <rect x="220" y="25" width="180" height="70" fill="#0A0A0A" stroke="#262626" />
+          <text x="310" y="50" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Ingest + Parser</text>
+          <text x="310" y="68" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">split on ## headings</text>
+          <text x="310" y="84" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">services/parser/</text>
+        </g>
+        <line x1="400" y1="60" x2="450" y2="60" stroke="#B5B5B5" markerEnd="url(#arrow-boot)" />
+        <text x="425" y="50" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">write</text>
+
+        {/* SQLite */}
+        <g>
+          <rect x="450" y="25" width="200" height="70" fill="#0A0A0A" stroke="#262626" />
+          <text x="550" y="50" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">SQLite — passages</text>
+          <text x="550" y="68" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">id, doc, heading_path, text</text>
+          <text x="550" y="84" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">~30 docs · ~hundreds of passages</text>
+        </g>
+        <line x1="650" y1="60" x2="700" y2="60" stroke="#B5B5B5" markerEnd="url(#arrow-boot)" />
+        <text x="675" y="50" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">on startup</text>
+
+        {/* BM25 index */}
+        <g>
+          <rect x="700" y="25" width="220" height="70" fill="#0A0A0A" stroke="#FFFFFF" />
+          <text x="810" y="50" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">BM25 index (in-memory)</text>
+          <text x="810" y="68" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">accent-fold · lowercase · tokenize</text>
+          <text x="810" y="84" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/retrieval/bm25.py</text>
+        </g>
+      </svg>
+    </div>
+  )
+}
+
 function ArchitectureDiagram() {
   return (
     <div className="my-2 border border-border rounded-md bg-surface p-6 md:p-10 overflow-x-auto">
-      <svg viewBox="0 0 920 380" className="w-full max-w-[920px] mx-auto" role="img" aria-label="Architecture diagram">
+      <svg viewBox="0 0 1040 420" className="w-full max-w-[1040px] mx-auto" role="img" aria-label="Architecture diagram">
         <defs>
           <marker id="arrow-arch" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <path d="M0,0 L0,6 L9,3 z" fill="#B5B5B5" />
           </marker>
         </defs>
 
+        {/* User */}
         <g>
-          <rect x="20" y="160" width="100" height="60" fill="#0A0A0A" stroke="#262626" />
-          <text x="70" y="190" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontFamily="Inter">User</text>
-          <text x="70" y="208" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">PT/EN/ES</text>
+          <rect x="20" y="170" width="100" height="60" fill="#0A0A0A" stroke="#262626" />
+          <text x="70" y="200" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontFamily="Inter">User</text>
+          <text x="70" y="218" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">PT/EN/ES</text>
         </g>
 
-        <line x1="120" y1="190" x2="160" y2="190" stroke="#B5B5B5" strokeWidth="1" markerEnd="url(#arrow-arch)" />
-        <text x="140" y="180" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">POST</text>
+        <line x1="120" y1="200" x2="160" y2="200" stroke="#B5B5B5" strokeWidth="1" markerEnd="url(#arrow-arch)" />
+        <text x="140" y="190" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">POST</text>
 
+        {/* Router */}
         <g>
-          <rect x="160" y="160" width="120" height="60" fill="#0A0A0A" stroke="#262626" />
-          <text x="220" y="186" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontFamily="Inter">Router</text>
-          <text x="220" y="204" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">api/chat.py</text>
+          <rect x="160" y="170" width="120" height="60" fill="#0A0A0A" stroke="#262626" />
+          <text x="220" y="196" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontFamily="Inter">Router</text>
+          <text x="220" y="214" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">api/chat.py</text>
         </g>
 
-        <line x1="280" y1="190" x2="320" y2="190" stroke="#B5B5B5" strokeWidth="1" markerEnd="url(#arrow-arch)" />
+        <line x1="280" y1="200" x2="320" y2="200" stroke="#B5B5B5" strokeWidth="1" markerEnd="url(#arrow-arch)" />
 
+        {/* Agent loop */}
         <g>
-          <rect x="320" y="100" width="160" height="180" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="3 2" />
-          <text x="400" y="124" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600" fontFamily="Inter">Agent loop</text>
-          <text x="400" y="142" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">services/agent.py · B8</text>
-          <line x1="340" y1="156" x2="460" y2="156" stroke="#262626" />
-          <text x="400" y="178" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">Gather → Act → Verify</text>
-          <text x="400" y="200" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≤ 5 tool calls</text>
-          <text x="400" y="216" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≥ 1 search before answer</text>
-          <text x="400" y="232" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">retry budget = 1</text>
-          <text x="400" y="252" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">strict JSON output</text>
+          <rect x="320" y="80" width="180" height="260" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
+          <text x="410" y="104" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600" fontFamily="Inter">Agent loop</text>
+          <text x="410" y="122" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/agent/loop.py</text>
+          <line x1="340" y1="138" x2="480" y2="138" stroke="#262626" />
+          <text x="410" y="162" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">Gather → Act → Answer</text>
+          <text x="410" y="190" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≤ 5 tool calls</text>
+          <text x="410" y="208" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≥ 1 search before answer</text>
+          <text x="410" y="226" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">strict JSON output</text>
+          <text x="410" y="244" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">no prior assistant text</text>
         </g>
 
-        <line x1="480" y1="135" x2="540" y2="115" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
-        <line x1="540" y1="115" x2="480" y2="135" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        {/* Agent ↔ Tools (parallel arrows) */}
+        <line x1="500" y1="105" x2="560" y2="105" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        <line x1="560" y1="125" x2="500" y2="125" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+
+        {/* Tools */}
         <g>
-          <rect x="540" y="80" width="180" height="80" fill="#0A0A0A" stroke="#FFFFFF" />
-          <text x="630" y="104" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Tools (read-only)</text>
-          <text x="630" y="122" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">tools/list_documents.py</text>
-          <text x="630" y="135" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">tools/read_document_outline.py</text>
-          <text x="630" y="148" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">tools/search_convictions.py · read_passage.py</text>
+          <rect x="560" y="80" width="260" height="90" fill="#0A0A0A" stroke="#FFFFFF" />
+          <text x="690" y="104" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Tools (read-only)</text>
+          <text x="690" y="126" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">list_documents · read_document_outline</text>
+          <text x="690" y="142" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">search_convictions · read_passage</text>
+          <text x="690" y="160" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/agent/tools/</text>
         </g>
 
-        <line x1="480" y1="190" x2="540" y2="190" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
-        <line x1="540" y1="190" x2="480" y2="190" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        {/* Agent ↔ LLMProvider */}
+        <line x1="500" y1="210" x2="560" y2="210" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        <line x1="560" y1="230" x2="500" y2="230" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+
+        {/* LLMProvider */}
         <g>
-          <rect x="540" y="170" width="180" height="80" fill="#0A0A0A" stroke="#FFFFFF" />
-          <text x="630" y="194" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">LLMProvider</text>
-          <text x="630" y="210" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">providers/openai.py</text>
-          <text x="630" y="223" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">providers/stub.py</text>
-          <text x="630" y="236" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">providers/anthropic.py · B10</text>
+          <rect x="560" y="190" width="260" height="70" fill="#0A0A0A" stroke="#FFFFFF" />
+          <text x="690" y="214" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">LLMProvider</text>
+          <text x="690" y="234" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">providers/openai.py</text>
+          <text x="690" y="250" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">providers/stub.py</text>
         </g>
 
-        <line x1="480" y1="245" x2="540" y2="265" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        {/* Agent → Resolver */}
+        <line x1="500" y1="305" x2="560" y2="305" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+
+        {/* Resolver */}
         <g>
-          <rect x="540" y="260" width="180" height="60" fill="#0A0A0A" stroke="#FFFFFF" strokeDasharray="3 2" />
-          <text x="630" y="284" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Verifier</text>
-          <text x="630" y="302" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">verifier/substring.py · B7</text>
+          <rect x="560" y="280" width="260" height="60" fill="#0A0A0A" stroke="#FFFFFF" />
+          <text x="690" y="304" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Offset resolver</text>
+          <text x="690" y="324" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/agent/resolver/</text>
         </g>
 
-        <line x1="630" y1="160" x2="820" y2="60" stroke="#B5B5B5" strokeDasharray="2 3" markerEnd="url(#arrow-arch)" />
+        {/* Tools → Repository (clean horizontal) */}
+        <line x1="820" y1="125" x2="860" y2="125" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+
+        {/* Repository */}
         <g>
-          <rect x="780" y="40" width="120" height="60" fill="#0A0A0A" stroke="#262626" />
-          <text x="840" y="66" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Repository</text>
-          <text x="840" y="84" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">repositories/passages.py</text>
-        </g>
-        <line x1="840" y1="100" x2="840" y2="140" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
-        <g>
-          <rect x="780" y="140" width="120" height="60" fill="#0A0A0A" stroke="#262626" />
-          <text x="840" y="166" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">SQLite</text>
-          <text x="840" y="184" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">aiosqlite</text>
+          <rect x="860" y="90" width="160" height="70" fill="#0A0A0A" stroke="#262626" />
+          <text x="940" y="118" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">Repository</text>
+          <text x="940" y="138" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">repositories/passages.py</text>
         </g>
 
-        <line x1="400" y1="280" x2="400" y2="330" stroke="#B5B5B5" strokeDasharray="2 3" markerEnd="url(#arrow-arch)" />
+        {/* Repository → SQLite */}
+        <line x1="940" y1="160" x2="940" y2="190" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+
+        {/* SQLite */}
         <g>
-          <rect x="320" y="328" width="160" height="40" fill="#0A0A0A" stroke="#262626" />
-          <text x="400" y="354" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">audit_log + cost</text>
+          <rect x="860" y="190" width="160" height="60" fill="#0A0A0A" stroke="#262626" />
+          <text x="940" y="218" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">SQLite</text>
+          <text x="940" y="236" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">aiosqlite</text>
+        </g>
+
+        {/* Agent → audit_log */}
+        <line x1="410" y1="340" x2="410" y2="370" stroke="#B5B5B5" markerEnd="url(#arrow-arch)" />
+        <g>
+          <rect x="320" y="370" width="180" height="36" fill="#0A0A0A" stroke="#262626" />
+          <text x="410" y="393" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">audit_log + cost</text>
         </g>
       </svg>
     </div>
@@ -206,18 +316,15 @@ function LifecycleDiagram() {
     { x: 240, label: 'Agent', file: 'services/agent.py · B8' },
     { x: 390, label: 'Tools', file: 'tools/' },
     { x: 540, label: 'LLM', file: 'providers/' },
-    { x: 690, label: 'Verifier', file: 'verifier/ · B7' },
-    { x: 840, label: 'Audit', file: 'repositories/audit.py · B9' },
+    { x: 690, label: 'Resolver', file: 'app/agent/resolver/' },
+    { x: 840, label: 'Audit', file: 'repositories/audit.py' },
   ]
   return (
     <div className="my-2 border border-border rounded-md bg-surface p-6 md:p-8 overflow-x-auto">
-      <svg viewBox="0 0 920 540" className="w-full max-w-[920px] mx-auto" role="img" aria-label="Request lifecycle sequence">
+      <svg viewBox="0 0 920 500" className="w-full max-w-[920px] mx-auto" role="img" aria-label="Request lifecycle sequence">
         <defs>
           <marker id="arrow-life" markerWidth="8" markerHeight="8" refX="8" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="#FFFFFF" />
-          </marker>
-          <marker id="arrow-life-d" markerWidth="8" markerHeight="8" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#B5B5B5" />
           </marker>
         </defs>
 
@@ -227,7 +334,7 @@ function LifecycleDiagram() {
             <rect x={l.x - 60} y="0" width="120" height="48" fill="#0A0A0A" stroke="#262626" />
             <text x={l.x} y="22" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">{l.label}</text>
             <text x={l.x} y="38" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">{l.file}</text>
-            <line x1={l.x} y1="48" x2={l.x} y2="510" stroke="#262626" strokeDasharray="2 3" />
+            <line x1={l.x} y1="48" x2={l.x} y2="480" stroke="#262626" strokeDasharray="2 3" />
           </g>
         ))}
 
@@ -235,33 +342,26 @@ function LifecycleDiagram() {
         {[
           { y: 80, from: 0, to: 1, label: 'invoke loop with question' },
           { y: 120, from: 1, to: 2, label: 'search_convictions(query, k=5)' },
-          { y: 145, y2: 145, from: 2, to: 1, label: 'list[PassageHit]', back: true },
+          { y: 145, from: 2, to: 1, label: 'list[PassageHit]', back: true },
           { y: 180, from: 1, to: 2, label: 'read_passage(passage_ids)' },
           { y: 205, from: 2, to: 1, label: 'list[Passage]', back: true },
           { y: 245, from: 1, to: 3, label: 'generate(messages, schema=AnswerSchema)' },
           { y: 270, from: 3, to: 1, label: 'LLMResponse(parsed=Answer, usage)', back: true },
-          { y: 310, from: 1, to: 4, label: 'verify(quote, passage_text) for each citation', dashed: true },
-          { y: 335, from: 4, to: 1, label: 'VerifyResult(passed=true)', back: true, dashed: true },
-          { y: 375, from: 1, to: 5, label: 'append step rows · llm_call · tool_call · verifier', dashed: true },
+          { y: 310, from: 1, to: 4, label: 'resolve(citations, passages)' },
+          { y: 335, from: 4, to: 1, label: 'Resolution(passage_id, start, end)', back: true },
+          { y: 375, from: 1, to: 5, label: 'append step rows · llm_call · tool_call · resolver' },
           { y: 415, from: 1, to: 0, label: 'ChatAnswerResponse with citations + disclaimer + usage', back: true },
           { y: 455, from: 0, to: -1, label: 'response body', back: true },
         ].map((s, i) => {
           const fromX = s.from === -1 ? -20 : lanes[s.from].x
           const toX = s.to === -1 ? -20 : lanes[s.to].x
-          const stroke = s.dashed ? '#B5B5B5' : '#FFFFFF'
-          const dasharray = s.dashed ? '4 3' : undefined
-          const marker = s.dashed ? 'url(#arrow-life-d)' : 'url(#arrow-life)'
           return (
             <g key={i}>
-              <line x1={fromX} y1={s.y} x2={toX} y2={s.y} stroke={stroke} strokeWidth="1" strokeDasharray={dasharray} markerEnd={marker} />
+              <line x1={fromX} y1={s.y} x2={toX} y2={s.y} stroke="#FFFFFF" strokeWidth="1" markerEnd="url(#arrow-life)" />
               <text x={(fromX + toX) / 2} y={s.y - 6} textAnchor="middle" fill="#B5B5B5" fontSize="10" fontFamily="JetBrains Mono">{s.label}</text>
             </g>
           )
         })}
-
-        <text x="460" y="500" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">
-          dashed = designed; not yet built. Solid = wired today.
-        </text>
       </svg>
     </div>
   )

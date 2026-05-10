@@ -9,7 +9,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.agent.tools import TOOLS, ToolContext, ToolEntry
-from app.agent.verifier import SubstringVerifier
 from app.api.deps import get_llm_provider_dep
 from app.config import db, settings
 from app.config.db import get_session
@@ -62,7 +61,6 @@ def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
         return fake if passage_id == fake.id else None
 
     monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
-    monkeypatch.setattr("app.agent.retry_policy.passages_repo.get", fake_get)
 
 
 @pytest.fixture
@@ -82,7 +80,6 @@ async def client(tmp_path, monkeypatch):
 
     app.dependency_overrides[get_session] = _override_session
     app.state.retriever = BM25Retriever()
-    app.state.verifier = SubstringVerifier()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
@@ -191,10 +188,12 @@ async def test_load_conversation_returns_messages(client, monkeypatch: pytest.Mo
     assert msg["kind"] == "answer"
     assert msg["user_question"] == "What is a CDB?"
     assert msg["answer"].startswith("CDBs follow")
-    assert msg["citations"][0]["document"] == "cdbs_quick_guide.md"
-    assert msg["citations"][0]["quote"] == "tabela regressiva"
+    cit = msg["citations"][0]
+    assert cit["document"] == "cdbs_quick_guide.md"
+    assert isinstance(cit["start"], int) and isinstance(cit["end"], int)
+    assert cit["passage_text"][cit["start"] : cit["end"]] == "tabela regressiva"
+    assert "quote" not in cit
     assert msg["language"] == "en"
-    assert msg["verifier_passed"] is True
 
 
 async def test_load_conversation_unknown_id_returns_404(client) -> None:
@@ -240,7 +239,7 @@ async def test_question_steps_returns_reconstructed_trace(
         s["step_id"] for s in live_steps[:persisted_count]
     ]
     assert body["usage_summary"]["step_count"] == len(live_steps)
-    assert body["verifier_passed"] is True
+    assert "verifier_passed" not in body
     assert body["steps"][-1]["kind"] == "response"
     assert body["steps"][-1]["result"]["output"]["answer"].startswith("CDBs follow")
 

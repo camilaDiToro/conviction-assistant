@@ -33,17 +33,10 @@ class Settings(BaseSettings):
     rewrite_max_output_tokens: int = 200
     rewrite_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
 
-    # Verifier (B8). Read by app/agent/loop.py.
-    verifier_enabled: bool = True
-    verifier_retry_budget: int = 1  # ROADMAP B8 pins one retry; configurable for tests.
-
-    # Strategy seams. Single-member Literals today — adding a second
+    # Strategy seams. Single-member Literal today — adding a second
     # entry is a deliberate code change (register the new strategy +
-    # widen the Literal), not a `.env` flip. The substring verifier is
-    # the architectural commitment of this project; alternatives ship as
-    # a conversation, not auto-promotion.
+    # widen the Literal), not a `.env` flip.
     retrieval_strategy: Literal["bm25"] = "bm25"
-    verifier_strategy: Literal["substring"] = "substring"
 
     # B9 access tokens. Loaded from .env. The chat token is what the user
     # pastes into the frontend gate; the admin token is for /admin/* and

@@ -13,16 +13,18 @@ Architectural commitments (``docs/ARCHITECTURES.md`` § "Loop bounds"):
 - **No prior assistant text in the loop.** History is consumed only by
   the rewrite stage; the loop sees ``[system, user(rewritten)]``
   initially. This is the conversation-memory quarantine.
-- **Deterministic citation verifier (B8).** Every ``AnswerOutput`` is
-  substring-verified. First failure → retry with feedback. Second
-  failure → strip failed citations; if zero grounded citations remain,
-  fall through to a localized safe refusal.
+- **Deterministic offset resolver.** Every ``AnswerOutput`` runs through
+  the resolver: each citation's verbatim quote is turned into a
+  ``(start, end)`` region of the cited passage, and the literal quote
+  is dropped before the response is built. Non-anchoring citations
+  survive with offsets ``None`` — the popup shows the passage with no
+  highlight.
 
 Helpers live in sibling modules: tool dispatch in :mod:`app.agent.tool_dispatch`,
-step recorders + verify adapter in :mod:`app.agent.audit`, retry policy
-in :mod:`app.agent.retry_policy`. Language detection is the rewrite
-stage's responsibility (see :mod:`app.agent.rewrite`); the agent loop
-just consumes the ``detected_language`` it returns.
+step recorders + resolve adapter in :mod:`app.agent.audit`, dedupe in
+:mod:`app.agent.dedupe`. Language detection is the rewrite stage's
+responsibility (see :mod:`app.agent.rewrite`); the agent loop just
+consumes the ``detected_language`` it returns.
 """
 
 import asyncio
@@ -33,13 +35,14 @@ from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 
-from app.agent import retry_policy
 from app.agent.audit import (
     record_llm_call,
+    record_resolver,
     record_tool_call,
-    record_verifier,
-    verify_output,
+    resolve_output,
 )
+from app.agent.dedupe import dedupe_citations
+from app.agent.resolver import OffsetResolution
 from app.agent.rewrite import rewrite_question
 from app.agent.schemas import (
     AGENT_OUTPUT_SCHEMA,
@@ -51,7 +54,6 @@ from app.agent.schemas import (
 )
 from app.agent.tool_dispatch import execute_tool
 from app.agent.tools import TOOLS, ToolContext
-from app.agent.verifier import VerificationResult
 from app.config import settings
 from app.errors import AgentError
 from app.providers import LLMProvider, LLMResponse, Message
@@ -88,16 +90,10 @@ async def run(
     loop_input = rewritten
     rewritten_question = rewritten if history else None
 
-    output, loop_steps, tool_count, search_count, verify_result = await _agent_loop(
+    output, loop_steps, tool_count, search_count, resolution = await _agent_loop(
         loop_input, tool_ctx=tool_ctx, llm=llm, language=language
     )
     steps.extend(loop_steps)
-
-    verified_citations = (
-        list(verify_result.verified)
-        if isinstance(output, AnswerOutput) and verify_result is not None
-        else None
-    )
 
     return AgentResult(
         output=output,
@@ -106,7 +102,7 @@ async def run(
         steps=steps,
         tool_call_count=tool_count,
         search_count=search_count,
-        verified_citations=verified_citations,
+        resolution=resolution,
     )
 
 
@@ -116,13 +112,11 @@ async def _agent_loop(
     tool_ctx: ToolContext,
     llm: LLMProvider,
     language: Literal["pt", "es", "en"] = "en",
-) -> tuple[AgentOutput, list[StepRecord], int, int, VerificationResult | None]:
+) -> tuple[AgentOutput, list[StepRecord], int, int, OffsetResolution | None]:
     # Loop bounds are read from settings at call time so .env overrides
     # take effect without restart; see app/config/settings.py.
     max_tool_calls = settings.agent_max_tool_calls
     max_iterations = settings.agent_max_iterations
-    verifier_enabled = settings.verifier_enabled
-    verifier_retry_budget = settings.verifier_retry_budget
 
     # Deterministic language directive — the system prompt's language
     # mirroring rule is sometimes ignored by the model when the cited
@@ -145,7 +139,6 @@ async def _agent_loop(
     steps: list[StepRecord] = []
     tool_call_count = 0  # invariant: equals the number of *executed* tool calls
     search_count = 0
-    verify_attempts = 0  # number of failed verify cycles already consumed
     budget_exhausted = False
 
     for _ in range(max_iterations):
@@ -221,42 +214,18 @@ async def _agent_loop(
                 )
                 continue
 
-            # ---- Verifier hook (B8) ---------------------------------
-            # Skipped for ClarifyingQuestionOutput (no citations) and
-            # when the operator disables it via settings.
-            if isinstance(output, AnswerOutput) and verifier_enabled:
-                tv = perf_counter()
-                verify = await verify_output(output, ctx=tool_ctx)
-                v_dur = int((perf_counter() - tv) * 1000)
-                steps.append(record_verifier(verify, attempt=verify_attempts, duration_ms=v_dur))
-
-                if not verify.all_passed:
-                    if verify_attempts < verifier_retry_budget:
-                        verify_attempts += 1
-                        content = response.content or json.dumps(response.parsed)
-                        messages.append(Message(role="assistant", content=content))
-                        messages.append(
-                            Message(
-                                role="user",
-                                content=await retry_policy.compose_feedback(verify, ctx=tool_ctx),
-                            )
-                        )
-                        continue
-                    # Second failure → strip failed citations. If none
-                    # survive, fall through to a localized safe refusal.
-                    output = retry_policy.strip_failed_citations(output, verify)
-                    if not output.citations:
-                        output = retry_policy.localized_refusal(language)
-                        verify = VerificationResult(verified=[], failures=[])
-
-                # Collapse duplicate citations by passage_id (the model
-                # often emits one per claim). Runs after verify so every
-                # quote is validated before any are dropped.
-                output = retry_policy.dedupe_citations(output)
-                return output, steps, tool_call_count, search_count, verify
-
+            # ---- Resolver hook ---------------------------------------
+            # Collapse duplicate citations first (the model often emits
+            # one per claim) so the resolver only loads each passage
+            # once. ClarifyingQuestionOutput has no citations to resolve.
             if isinstance(output, AnswerOutput):
-                output = retry_policy.dedupe_citations(output)
+                output = dedupe_citations(output)
+                tv = perf_counter()
+                resolution = await resolve_output(output, ctx=tool_ctx)
+                v_dur = int((perf_counter() - tv) * 1000)
+                steps.append(record_resolver(resolution, duration_ms=v_dur))
+                return output, steps, tool_call_count, search_count, resolution
+
             return output, steps, tool_call_count, search_count, None
 
         # Defensive — schema attached but neither tool_calls nor parsed.

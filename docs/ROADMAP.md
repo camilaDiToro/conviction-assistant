@@ -13,7 +13,7 @@ This project ships two tiers of code. The split is deliberate, and reviewers sho
 **Production-grade — built right, will survive a deep-dive:**
 
 - Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
-- Citation verifier (deterministic, exhaustively tested, retry-with-feedback)
+- Offset resolver (deterministic substring → `(start, end)` mapping; literal quote dropped before the response is built; non-anchoring citations survive without a highlight). Replaces the original substring verifier (see B8); the substring match remains, just relocated and renamed.
 - Agent loop bounds (max 5 tool calls, ≥ 1 search before answer, `temperature=0`)
 - Audit log + cost tracking (3 granularities)
 - Response contract (deterministic disclaimer, language mirroring, schema-validated)
@@ -209,11 +209,11 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - **Deviation from the plan:** the plan called the audit-write transactional via `async with session.begin()`. That collided with SQLAlchemy's autobegin from the agent's prior reads on the same session, so the writer instead does `add_all → flush → commit` (rollback on failure) and remains best-effort.
 
 ### B10 — Eval suite + Anthropic adapter (portability proof)
-- **Goal:** golden Q/A bank (~30 items, buckets per `docs/TESTING.md`); `pytest -m eval` reports verifier pass rate. Add Anthropic adapter and re-run the suite to prove portability.
-- **Scope cap:** no human-rater UI, no LLM-as-judge dashboard. Verifier pass rate is the headline metric. Anthropic Citations API is **not** wired (interface slot only).
+- **Goal:** golden Q/A bank (~30 items, buckets per `docs/TESTING.md`); `pytest -m eval` reports anchor rate (% of citations whose quotes resolved to passage offsets). Add Anthropic adapter and re-run the suite to prove portability.
+- **Scope cap:** no human-rater UI, no LLM-as-judge dashboard. Anchor rate is the headline metric. Anthropic Citations API is **not** wired (interface slot only).
 - **Per-bucket floor:** ≥ 3 questions per bucket; **Rule A (tangential mention) and Rule B (conflicting convictions) get ≥ 4 each** since they're the highest-risk paths.
 - **Files:** `evals/golden_set.yaml`, `evals/run_eval.py`, `tests/eval/test_eval_suite.py` (skipped without API key), `app/providers/anthropic.py`.
-- **Acceptance:** `pytest -m eval` runs against OpenAI and Anthropic via `LLM_PROVIDER`; both report a verifier pass rate; the report is markdown that pastes into the README.
+- **Acceptance:** `pytest -m eval` runs against OpenAI and Anthropic via `LLM_PROVIDER`; both report an anchor rate; the report is markdown that pastes into the README.
 - **Depends on:** B9.
 
 ### B11 — README + production-grade-vs-simplified writeup
@@ -278,11 +278,11 @@ F0.5 ships the architecture explainer + a mocked chat preview ahead of the live 
 - **Acceptance:** clicking a citation opens the drawer; general-knowledge text impossible to confuse with grounded text; a fixture turn with two conflicting passages renders the conflict notice cleanly.
 - **Depends on:** F2.
 
-### F4 — Debug drawer (tool calls, verifier, usage_summary)
+### F4 — Debug drawer (tool calls, resolver, usage_summary)
 - **Goal:** developer/reviewer view of what the agent did. Fed by the `debug` block in `ChatResponse`.
 - **Scope cap:** no replay, no tracing graph. Chronological list of steps + top-line cost / step count.
 - **Files:** `frontend/src/features/debug/DebugDrawer.tsx`, `DebugStep.tsx`, `useDebug.ts`.
-- **Acceptance:** drawer shows tool calls in order, verifier pass/fail, total tokens, total cost. Toggleable.
+- **Acceptance:** drawer shows tool calls in order, resolver entries (anchored vs unresolved), total tokens, total cost. Toggleable.
 - **Depends on:** F2.
 
 **Frontend done after F4.**
@@ -312,6 +312,6 @@ When a session starts with "do step Bx" or "do step Fx":
 - **Anthropic Citations API** inside the Anthropic adapter. Provider-internal optimization slot; not wired in B10.
 - **Streaming `/chat`** (SSE). Single sync endpoint in v1.
 - **Auth, rate limiting, multi-tenant isolation.**
-- **LLM-as-judge dashboard.** Verifier pass rate is the headline; complementary judge metrics may be added later.
+- **LLM-as-judge dashboard.** Anchor rate is the headline; complementary judge metrics may be added later.
 
 If any of these become priorities, add them as new steps here.

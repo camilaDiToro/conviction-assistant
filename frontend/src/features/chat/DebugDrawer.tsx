@@ -77,23 +77,6 @@ export function DebugDrawer({ message, onClose, loading = false, loadError = nul
               ))}
             </ol>
           </section>
-
-          <section>
-            <h4 className="text-ink-3 text-[11px] uppercase tracking-tight mb-3">Verifier</h4>
-            <div className="border border-border bg-surface rounded-md p-4">
-              {r.debug.verification_passed ? (
-                <div className="text-ink-1">
-                  <span className="font-medium">✓ All citations verified.</span>
-                  <p className="text-ink-2 text-sm mt-1.5">Each cited quote substring-matched its passage after normalization.</p>
-                </div>
-              ) : (
-                <div className="text-ink-1">
-                  <span className="font-medium">✗ One or more citations failed.</span>
-                  <p className="text-ink-2 text-sm mt-1.5">Retried once with feedback; final state stripped the failing claim or returned a safe refusal.</p>
-                </div>
-              )}
-            </div>
-          </section>
         </div>
       </aside>
     </div>
@@ -143,7 +126,7 @@ function StepItem({ step, index }: { step: DebugStep; index: number }) {
             className="flex items-center gap-1.5 text-ink-3 hover:text-ink-1 text-[11px] uppercase tracking-tight transition-colors"
           >
             {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            {step.kind === 'response' ? 'Model response' : step.kind === 'tool_call' ? 'Tool result' : step.kind === 'verifier' ? 'Verifier detail' : 'LLM detail'}
+            {step.kind === 'response' ? 'Model response' : step.kind === 'tool_call' ? 'Tool result' : step.kind === 'resolver' ? 'Resolver detail' : 'LLM detail'}
           </button>
           {open && <ResultBlock step={step} />}
         </div>
@@ -180,7 +163,7 @@ function ResultBlock({ step }: { step: DebugStep }) {
     const outOfScope = Boolean(output.out_of_scope)
     const generalKnowledge = Boolean(output.general_knowledge_used)
     const generalSection = output.general_knowledge_section as string | null | undefined
-    const verified = (result.verified_citations as Array<Record<string, unknown>> | undefined) ?? []
+    const entries = (result.resolution_entries as Array<Record<string, unknown>> | undefined) ?? []
     return (
       <div className="mt-3 space-y-3">
         <div>
@@ -201,21 +184,23 @@ function ResultBlock({ step }: { step: DebugStep }) {
         )}
         <div>
           <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
-            Verified citations ({verified.length})
+            Resolved citations ({entries.length})
           </div>
-          {verified.length === 0 ? (
+          {entries.length === 0 ? (
             <div className="text-ink-3 text-xs italic">No citations in this response.</div>
           ) : (
             <ul className="space-y-2">
-              {verified.map((c, i) => (
+              {entries.map((c, i) => (
                 <li key={i} className="border border-border bg-bg rounded-md p-2.5 text-[12px]">
                   <code className="font-mono text-ink-1">{String(c.passage_id ?? '')}</code>
                   <div className="text-ink-3 text-[11px] mt-0.5">
                     {((c.heading_path as string[] | undefined) ?? []).join(' › ')}
                   </div>
-                  <blockquote className="text-ink-2 italic mt-1.5 leading-relaxed">
-                    "{String(c.quote ?? '')}"
-                  </blockquote>
+                  <div className="text-ink-3 text-[11px] mt-1 font-mono">
+                    {c.failure_reason
+                      ? `unresolved · ${String(c.failure_reason)}`
+                      : `anchored · [${String(c.start)}, ${String(c.end)})`}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -235,32 +220,34 @@ function ResultBlock({ step }: { step: DebugStep }) {
     )
   }
 
-  if (step.kind === 'verifier') {
-    const verified = (result.verified as Array<Record<string, unknown>> | undefined) ?? []
-    const failures = (result.failures as Array<Record<string, unknown>> | undefined) ?? []
+  if (step.kind === 'resolver') {
+    const entries = (result.entries as Array<Record<string, unknown>> | undefined) ?? []
+    const anchored = entries.filter(e => !e.failure_reason)
+    const unresolved = entries.filter(e => e.failure_reason)
     return (
       <div className="mt-3 space-y-2 text-[12px]">
         <div className="text-ink-2">
-          attempt {String(result.attempt ?? 0)} · all_passed{' '}
-          <span className="text-ink-1 font-medium">{String(Boolean(result.all_passed))}</span>
+          entries {entries.length} · anchored{' '}
+          <span className="text-ink-1 font-medium">{anchored.length}</span> · unresolved{' '}
+          <span className="text-ink-1 font-medium">{unresolved.length}</span>
         </div>
-        {verified.length > 0 && (
+        {anchored.length > 0 && (
           <div>
             <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
-              Verified ({verified.length})
+              Anchored ({anchored.length})
             </div>
             <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto">
-              {JSON.stringify(verified, null, 2)}
+              {JSON.stringify(anchored, null, 2)}
             </pre>
           </div>
         )}
-        {failures.length > 0 && (
+        {unresolved.length > 0 && (
           <div>
             <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
-              Failures ({failures.length})
+              Unresolved ({unresolved.length})
             </div>
             <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto">
-              {JSON.stringify(failures, null, 2)}
+              {JSON.stringify(unresolved, null, 2)}
             </pre>
           </div>
         )}

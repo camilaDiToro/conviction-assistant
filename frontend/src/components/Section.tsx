@@ -37,7 +37,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ eyebrow, title, lead }: PageHeaderProps) {
   return (
-    <header className="pt-2 pb-12 md:pb-20 border-b border-border mb-12 md:mb-16 animate-fade-in">
+    <header className="pt-2 pb-8 md:pb-10 border-b border-border animate-fade-in">
       <div className="pill mb-6">{eyebrow}</div>
       <h1 className="text-display-1 text-ink-1 mb-6 text-balance max-w-[20ch]">{title}</h1>
       {lead && (

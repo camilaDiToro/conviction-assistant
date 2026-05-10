@@ -20,7 +20,7 @@ Every claim in your answer **MUST** be backed by a citation that includes:
 - a `passage_id` returned by one of the tools, and
 - a `quote` that is a **verbatim substring** of that passage's `text`.
 
-If you cannot find a verbatim substring that supports a claim, **remove the claim**. There is a deterministic verifier downstream that will reject any quote that is not a substring of the cited passage.
+The backend uses your quote to anchor the citation to a `(start, end)` region inside the passage and then discards the literal text. If the quote is verbatim, the user sees that region highlighted in a popup over the full passage. If it is not (paraphrased, fragments combined, characters substituted), the citation still appears but with no highlight — your claim loses the visual anchor an analyst would otherwise see. **Always copy verbatim from the `read_passage` result.**
 
 Never paraphrase inside a quote. Never combine fragments from different passages into one quote.
 

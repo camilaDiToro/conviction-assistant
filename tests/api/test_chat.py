@@ -2,7 +2,7 @@
 
 Uses StubLLM for the agent loop and a real tmp-path SQLite DB for the
 audit-log writes. Tools are patched at the registry (same pattern as
-``tests/agent/test_loop_with_stub.py``); the verifier's
+``tests/agent/test_loop_with_stub.py``); the resolver's
 ``passages_repo.get`` lookup is patched to return the fixture passage.
 """
 
@@ -15,7 +15,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.agent.tools import TOOLS, ToolContext, ToolEntry
-from app.agent.verifier import SubstringVerifier
 from app.api.deps import get_llm_provider_dep
 from app.config import db, settings
 from app.config.db import get_session
@@ -71,7 +70,6 @@ def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
         return fake if passage_id == fake.id else None
 
     monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
-    monkeypatch.setattr("app.agent.retry_policy.passages_repo.get", fake_get)
 
 
 # ---- fixtures -------------------------------------------------------
@@ -95,9 +93,8 @@ async def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_session] = _override_session
 
     # Lifespan doesn't run under ASGITransport — wire up the search
-    # index and verifier manually.
+    # index manually.
     app.state.retriever = BM25Retriever()
-    app.state.verifier = SubstringVerifier()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
@@ -144,9 +141,13 @@ async def test_chat_happy_path(client, monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["citations"][0]["passage_id"] == "cdbs_quick_guide#tributacao"
     # Filename answer to "which file did this quote come from?"
     assert body["citations"][0]["document"] == "cdbs_quick_guide.md"
-    assert body["citations"][0]["quote"] == "tabela regressiva"
+    # The quote was anchored to (start, end) of the passage text.
+    cit = body["citations"][0]
+    assert isinstance(cit["start"], int) and isinstance(cit["end"], int)
+    assert cit["passage_text"][cit["start"] : cit["end"]] == "tabela regressiva"
+    assert "quote" not in cit
     assert body["disclaimer"].startswith("This response is informational")
-    assert body["debug"]["verification_passed"] is True
+    assert "verification_passed" not in body["debug"]
     assert body["usage_summary"]["step_count"] >= 1
     assert body["conversation_id"]
     assert body["question_id"]
@@ -244,11 +245,9 @@ async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch, t
     assert len(trace["questions"]) == 1
     q = trace["questions"][0]
     assert q["language"] == "en"
-    assert q["verifier_passed"] is True
     assert q["retriever"] == "bm25"
-    assert q["verifier_strategy"] == "substring"
-    # Step kinds: llm_call, tool_call, llm_call, tool_call, llm_call, verifier
-    assert "verifier" in q["step_kinds"]
+    # Step kinds: llm_call, tool_call, llm_call, tool_call, llm_call, resolver
+    assert "resolver" in q["step_kinds"]
     assert q["step_kinds"].count("llm_call") >= 1
 
 
@@ -295,5 +294,5 @@ async def test_chat_clarifying_branch(client, monkeypatch: pytest.MonkeyPatch) -
     assert body["options"] == ["LCI", "LCA"]
     # Clarifying responses still get the disclaimer.
     assert body["disclaimer"]
-    # Verification trivially passes (no citations to verify).
-    assert body["debug"]["verification_passed"] is True
+    # No resolver step runs for a clarifying response.
+    assert "verification_passed" not in body["debug"]
