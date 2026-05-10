@@ -23,8 +23,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.agent.verifier import VerifiedCitation
 from app.providers import StructuredOutputSchema, TokenUsage
-from app.verifier import VerifiedCitation
 
 
 class Citation(BaseModel):

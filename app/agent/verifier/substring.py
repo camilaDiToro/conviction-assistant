@@ -3,7 +3,7 @@
 The verifier is the architectural commitment of this project: every
 ``Citation`` produced by the agent must contain a ``quote`` that is a
 verbatim substring of the cited passage's ``text`` (after the pinned
-normalization in ``app.verifier.normalize``). No LLM-as-judge, no
+normalization in ``app.agent.verifier.normalize``). No LLM-as-judge, no
 fuzzy match — the verifier either says the substring is there or it
 isn't.
 
@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.agent.verifier.normalize import normalize
 from app.schemas.passage import Passage
-from app.verifier.normalize import normalize
 
 if TYPE_CHECKING:
     from app.agent.schemas import AnswerOutput

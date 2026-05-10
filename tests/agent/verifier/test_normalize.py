@@ -1,11 +1,11 @@
-"""Tests for the pinned normalization policy in app/verifier/normalize.py.
+"""Tests for the pinned normalization policy in app/agent/verifier/normalize.py.
 
 One test per rule in the policy + an idempotency property test. The
 policy itself is documented in the module docstring; if a rule
 changes, the docstring AND a test here must change together.
 """
 
-from app.verifier.normalize import normalize
+from app.agent.verifier.normalize import normalize
 
 
 def test_empty_string_returns_empty() -> None:

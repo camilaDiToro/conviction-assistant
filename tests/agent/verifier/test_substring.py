@@ -1,4 +1,4 @@
-"""Tests for the substring verifier in app/verifier/substring.py.
+"""Tests for the substring verifier in app/agent/verifier/substring.py.
 
 Covers the golden table from ROADMAP B8 acceptance plus a property
 test: any random ``passage.text[a:b]`` slice (with ``a < b``) verifies
@@ -11,14 +11,14 @@ import random
 from datetime import date
 
 from app.agent.schemas import AnswerOutput, Citation
-from app.schemas.passage import Passage
-from app.verifier.normalize import normalize
-from app.verifier.substring import (
+from app.agent.verifier.normalize import normalize
+from app.agent.verifier.substring import (
     VerificationResult,
     VerifiedCitation,
     verify_answer,
     verify_citation,
 )
+from app.schemas.passage import Passage
 
 # ---- helpers --------------------------------------------------------
 
