@@ -124,7 +124,6 @@ def _resolution_to_chat(entry: CitationResolution) -> ChatCitation | None:
     return ChatCitation(
         passage_id=entry.passage_id,
         document=f"{entry.document_id}.md",
-        document_updated=entry.document_updated,
         heading=heading,
         heading_path=list(entry.heading_path),
         passage_text=entry.passage_text,

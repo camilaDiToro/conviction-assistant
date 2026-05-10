@@ -278,7 +278,6 @@ def _citation_from_dump(dump: dict[str, Any]) -> ChatCitation | None:
     return ChatCitation(
         passage_id=dump.get("passage_id", ""),
         document=f"{document_id}.md",
-        document_updated=dump.get("document_updated"),
         heading=heading,
         heading_path=heading_path,
         passage_text=passage_text,

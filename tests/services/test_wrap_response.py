@@ -1,6 +1,6 @@
 """Tests for app.services.wrap_response — the pure mapping layer."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 from app.agent import (
     AgentResult,
@@ -43,7 +43,6 @@ def _resolution_entry(*, anchored: bool = True) -> CitationResolution:
         document_id="cdbs_quick_guide",
         document_title="CDBs Quick Guide",
         heading_path=["CDBs Quick Guide", "Tributação"],
-        document_updated=date(2026, 4, 1),
         passage_text=text,
         start=start,
         end=end,

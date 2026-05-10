@@ -1,7 +1,6 @@
 """Tests for GET /chat/conversations and /chat/conversations/{id}."""
 
 from collections.abc import Awaitable, Callable
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +27,6 @@ def _passage() -> Passage:
         heading="tributacao",
         heading_path=["CDBs Quick Guide", "Tributação"],
         text="example passage text covering tabela regressiva and position A and position B",
-        document_updated=date(2026, 4, 1),
     )
 
 
@@ -41,7 +39,6 @@ def _hit() -> PassageHit:
         document_title=p.document_title,
         heading_path=p.heading_path,
         snippet=p.text[:80],
-        document_updated=p.document_updated,
     )
 
 

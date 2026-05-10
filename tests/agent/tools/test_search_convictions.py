@@ -190,5 +190,3 @@ async def test_search_convictions_returns_passage_hits_with_metadata(ctx_for_rea
     assert isinstance(h.heading_path, list) and h.heading_path
     assert h.snippet
     assert isinstance(h.score, float)
-    # document_updated may be None for undated docs — just check the field exists.
-    _ = h.document_updated

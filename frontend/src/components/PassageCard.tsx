@@ -11,9 +11,6 @@ export function PassageCard({ passage, highlight, compact }: PassageCardProps) {
     <div className="border border-border bg-surface p-5 rounded-md hover:border-border-strong transition-colors">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
         <code className="font-mono text-[11px] text-ink-1">{passage.id}</code>
-        {passage.document_updated && (
-          <span className="text-ink-3 text-[11px]">· updated {passage.document_updated}</span>
-        )}
       </div>
       <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-1">
         {passage.heading_path.join(' › ')}

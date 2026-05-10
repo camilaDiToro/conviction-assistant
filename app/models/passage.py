@@ -13,7 +13,6 @@ class PassageORM(Base):
     heading: Mapped[str] = mapped_column(Text, nullable=False)
     heading_path: Mapped[str] = mapped_column(Text, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    document_updated: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (Index("ix_passages_doc", "document_id", "ordinal"),)

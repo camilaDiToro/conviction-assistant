@@ -18,8 +18,17 @@ from app.providers import ToolDefinition
 
 LIST_DOCUMENTS_PARAMETERS: dict[str, Any] = {
     "type": "object",
-    "properties": {},
-    "required": [],
+    "properties": {
+        "k": {
+            "type": "integer",
+            "description": (
+                "Maximum number of documents to return, ordered by "
+                "document_id. Pass a value large enough to cover the "
+                "corpus (e.g. 30) when you want the full table of contents."
+            ),
+        },
+    },
+    "required": ["k"],
     "additionalProperties": False,
 }
 
@@ -80,8 +89,8 @@ SEARCH_CONVICTIONS_PARAMETERS: dict[str, Any] = {
 LIST_DOCUMENTS_DEF = ToolDefinition(
     name="list_documents",
     description=(
-        "Return all conviction documents with their titles, last-updated "
-        "dates (if known), and passage counts. Use this once early in a "
+        "Return up to k conviction documents with their titles and passage "
+        "counts, ordered by document_id. Use this once early in a "
         "conversation to discover what documents are available."
     ),
     parameters=LIST_DOCUMENTS_PARAMETERS,
@@ -90,10 +99,9 @@ LIST_DOCUMENTS_DEF = ToolDefinition(
 READ_DOCUMENT_OUTLINE_DEF = ToolDefinition(
     name="read_document_outline",
     description=(
-        "Return one document's outline: its title, last-updated date, "
-        "passage count, and the ordered list of headings (each with its "
-        "passage_id). Use this to find which passage in a document covers a "
-        "topic before reading it."
+        "Return one document's outline: its title, passage count, and the "
+        "ordered list of headings (each with its passage_id). Use this to "
+        "find which passage in a document covers a topic before reading it."
     ),
     parameters=READ_DOCUMENT_OUTLINE_PARAMETERS,
 )
@@ -102,10 +110,10 @@ READ_PASSAGE_DEF = ToolDefinition(
     name="read_passage",
     description=(
         "Return the full text of one or more passages by ID, each with its "
-        "document title, heading path, and last-updated date. Pass every ID "
-        "you intend to cite in a single call — the result is a list aligned "
-        "to the input order. This is the only tool that returns full passage "
-        "text; other tools return identifiers and outlines."
+        "document title and heading path. Pass every ID you intend to cite "
+        "in a single call — the result is a list aligned to the input "
+        "order. This is the only tool that returns full passage text; "
+        "other tools return identifiers and outlines."
     ),
     parameters=READ_PASSAGE_PARAMETERS,
 )
@@ -115,9 +123,9 @@ SEARCH_CONVICTIONS_DEF = ToolDefinition(
     description=(
         "Search the conviction corpus by free-text query and return the "
         "top-k matching passages, each with a short snippet, document "
-        "title, heading path, last-updated date, and BM25 score. Call this "
-        "first to find relevant evidence; then call read_passage for the "
-        "full text of any hit you want to cite."
+        "title, heading path, and BM25 score. Call this first to find "
+        "relevant evidence; then call read_passage for the full text of "
+        "any hit you want to cite."
     ),
     parameters=SEARCH_CONVICTIONS_PARAMETERS,
 )

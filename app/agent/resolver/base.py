@@ -20,7 +20,6 @@ Invariants enforced by :func:`resolve_answer`:
 - ``passage_text`` is ``None`` only for ``failure_reason='passage_not_found'``.
 """
 
-from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -45,7 +44,6 @@ class CitationResolution(BaseModel):
     document_id: str | None
     document_title: str | None
     heading_path: list[str]
-    document_updated: date | None
     passage_text: str | None
     start: int | None = None
     end: int | None = None

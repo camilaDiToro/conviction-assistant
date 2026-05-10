@@ -13,7 +13,6 @@ patches its own ``passages_repo.get``) can still override locally —
 pytest's monkeypatch resolves last-applied-wins.
 """
 
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +35,6 @@ def _make_passage(passage_id: str) -> Passage:
         heading=passage_id.split("#", 1)[-1] if "#" in passage_id else "sec",
         heading_path=[passage_id.split("#", 1)[-1] if "#" in passage_id else "sec"],
         text=_DEFAULT_TEXT,
-        document_updated=date(2026, 4, 1),
     )
 
 

@@ -12,7 +12,6 @@ Two scenarios:
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import date
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -53,7 +52,6 @@ def _passage(passage_id: str = "cdbs_quick_guide#tributacao") -> Passage:
         heading=passage_id.split("#", 1)[-1],
         heading_path=["Tributação"],
         text=PASSAGE_TEXT,
-        document_updated=date(2026, 4, 1),
     )
 
 
@@ -66,7 +64,6 @@ def _hit(passage_id: str = "cdbs_quick_guide#tributacao") -> PassageHit:
         document_title=p.document_title,
         heading_path=p.heading_path,
         snippet=p.text[:80],
-        document_updated=p.document_updated,
     )
 
 
@@ -120,7 +117,6 @@ async def test_resolver_anchors_verbatim_quote(monkeypatch: pytest.MonkeyPatch) 
     assert e.document_id == "cdbs_quick_guide"
     assert e.document_title == "CDBs Quick Guide"
     assert e.heading_path == ["Tributação"]
-    assert e.document_updated == date(2026, 4, 1)
     assert e.passage_text == PASSAGE_TEXT
     assert e.start is not None and e.end is not None
     assert PASSAGE_TEXT[e.start : e.end] == "tabela regressiva"

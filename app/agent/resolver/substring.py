@@ -62,7 +62,6 @@ def resolve_answer(
                     document_id=passage.document_id if passage else None,
                     document_title=passage.document_title if passage else None,
                     heading_path=list(passage.heading_path) if passage else [],
-                    document_updated=passage.document_updated if passage else None,
                     passage_text=passage.text if passage else None,
                     failure_reason="empty_quote",
                 )
@@ -76,7 +75,6 @@ def resolve_answer(
                     document_id=None,
                     document_title=None,
                     heading_path=[],
-                    document_updated=None,
                     passage_text=None,
                     failure_reason="passage_not_found",
                 )
@@ -91,7 +89,6 @@ def resolve_answer(
                     document_id=passage.document_id,
                     document_title=passage.document_title,
                     heading_path=list(passage.heading_path),
-                    document_updated=passage.document_updated,
                     passage_text=passage.text,
                     failure_reason="offset_not_found",
                 )
@@ -105,7 +102,6 @@ def resolve_answer(
                 document_id=passage.document_id,
                 document_title=passage.document_title,
                 heading_path=list(passage.heading_path),
-                document_updated=passage.document_updated,
                 passage_text=passage.text,
                 start=start,
                 end=end,

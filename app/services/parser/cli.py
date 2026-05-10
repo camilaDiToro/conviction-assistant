@@ -27,19 +27,11 @@ def main(argv: list[str]) -> int:
         print(f"no passages found under {directory}")
         return 0
 
-    doc_dates = {p.document_id: p.document_updated for p in passages}
-    dated = sum(1 for d in doc_dates.values() if d is not None)
-    undated_docs = sorted(d for d, dt in doc_dates.items() if dt is None)
+    doc_ids = {p.document_id for p in passages}
     longest = sorted(passages, key=lambda p: len(p.text), reverse=True)[:5]
 
-    print(f"documents:           {len(doc_dates)}")
-    print(f"  dated:             {dated}")
-    print(f"  undated:           {len(undated_docs)}")
+    print(f"documents:           {len(doc_ids)}")
     print(f"passages:            {len(passages)}")
-    print()
-    print("undated documents:")
-    for d in undated_docs:
-        print(f"  - {d}")
     print()
     print("top-5 longest passages:")
     for p in longest:

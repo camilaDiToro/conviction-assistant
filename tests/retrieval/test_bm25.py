@@ -1,7 +1,5 @@
 """Unit tests for app/services/search.py — normalization, snippet, BM25Retriever lifecycle."""
 
-from datetime import date
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +20,7 @@ async def session(tmp_path):
     await engine.dispose()
 
 
-def _passage(slug: str, doc: str, head: str, *, text: str, updated=None) -> Passage:
+def _passage(slug: str, doc: str, head: str, *, text: str) -> Passage:
     title = doc.replace("_", " ").title()
     return Passage(
         id=f"{doc}#{slug}",
@@ -31,7 +29,6 @@ def _passage(slug: str, doc: str, head: str, *, text: str, updated=None) -> Pass
         heading=head,
         heading_path=[title, head],
         text=text,
-        document_updated=updated,
     )
 
 
@@ -114,7 +111,6 @@ async def test_index_accent_strip_recall(session: AsyncSession):
             "cdb",
             "Tributação",
             text="A tributação dos CDBs segue a tabela regressiva do IR.",
-            updated=date(2026, 4, 1),
         ),
     ]
     async with session.begin():

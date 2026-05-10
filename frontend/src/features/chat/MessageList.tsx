@@ -207,7 +207,6 @@ function CitationRow({
           <code className="font-mono text-[11px] text-ink-1 truncate block">{citation.passage_id}</code>
           <div className="text-ink-3 text-[11px] mt-0.5 truncate">
             {citation.heading_path.join(' › ')}
-            {citation.document_updated && ` · updated ${citation.document_updated}`}
           </div>
         </div>
       </div>

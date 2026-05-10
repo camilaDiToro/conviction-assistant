@@ -12,13 +12,7 @@ export default function ToolsPage() {
       <PageHeader
         eyebrow="Pipeline · Tools"
         title="Read-only tool surface."
-        lead={
-          <>
-            Four pure-function tools over the repository contract. The agent calls them; the
-            tools never see the database directly. Schemas are hand-written and OpenAI
-            strict-mode compatible.
-          </>
-        }
+        lead={<>Four pure-function tools over the repository contract.</>}
       />
 
       <Section eyebrow="Problem">
@@ -29,13 +23,14 @@ export default function ToolsPage() {
         </p>
       </Section>
 
-      <Section eyebrow="Constraints">
-        <SpecList>
-          <SpecItem term="Read-only">No tool mutates corpus state. Ingest is a separate admin path; the agent never reaches it.</SpecItem>
-          <SpecItem term="Strict-mode JSON">Every property in <code className="font-mono text-[13px] text-ink-1">required</code>; <code className="font-mono text-[13px] text-ink-1">additionalProperties: false</code>; no <code className="font-mono text-[13px] text-ink-1">default</code> fields. Required for OpenAI's <code className="font-mono text-[13px] text-ink-1">response_format=json_schema strict</code> path.</SpecItem>
-          <SpecItem term="Pure">Each tool is an async function of <code className="font-mono text-[13px] text-ink-1">(ctx, **kwargs)</code>. No module state, no globals beyond <code className="font-mono text-[13px] text-ink-1">ToolContext</code>.</SpecItem>
-          <SpecItem term="Storage-agnostic">Tools call repository functions, never the ORM directly. Swapping SQLite for Postgres is a repository change; tools are unaffected.</SpecItem>
-        </SpecList>
+      <Section eyebrow="ToolContext">
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
+          The single dependency container every tool receives. A frozen dataclass holding the
+          <code className="font-mono text-[13px] text-ink-1"> AsyncSession</code> used by
+          repository calls and the <code className="font-mono text-[13px] text-ink-1">BM25Index</code>{' '}
+          used by <code className="font-mono text-[13px] text-ink-1">search_convictions</code>.
+          Nothing else is reachable from inside a tool.
+        </p>
       </Section>
 
       <Section eyebrow="Approach">
@@ -124,7 +119,7 @@ class ToolEntry:
     func: Callable[..., Awaitable[Any]]
 
 # Tool function signatures (verbatim):
-async def list_documents(ctx: ToolContext) -> list[DocSummary]: ...
+async def list_documents(ctx: ToolContext, *, k: int) -> list[DocSummary]: ...
 async def read_document_outline(ctx: ToolContext, *, document_id: str) -> DocumentOutline: ...
 async def search_convictions(ctx: ToolContext, *, query: str, k: int = 5) -> list[PassageHit]: ...
 async def read_passage(ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]: ...`}

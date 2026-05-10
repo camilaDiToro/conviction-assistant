@@ -1,6 +1,5 @@
 """Async integration tests for the passage repository over a per-test SQLite."""
 
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -26,7 +25,7 @@ async def session(tmp_path):
     await engine.dispose()
 
 
-def _passage(slug, doc, head, text="...", updated=None, title=None):
+def _passage(slug, doc, head, text="...", title=None):
     title = title or doc.replace("_", " ").title()
     return Passage(
         id=f"{doc}#{slug}",
@@ -35,7 +34,6 @@ def _passage(slug, doc, head, text="...", updated=None, title=None):
         heading=head,
         heading_path=[title, head],
         text=text,
-        document_updated=updated,
     )
 
 
@@ -43,7 +41,7 @@ def _passage(slug, doc, head, text="...", updated=None, title=None):
 
 
 async def test_upsert_then_get_round_trip(session: AsyncSession):
-    p = _passage("intro", "cdb_guide", "Intro", "what is a CDB", date(2026, 1, 1))
+    p = _passage("intro", "cdb_guide", "Intro", "what is a CDB")
     async with session.begin():
         n = await passages_repo.upsert_many(session, [p])
     assert n == 1
@@ -65,22 +63,20 @@ async def test_list_documents_groups_per_document(session: AsyncSession):
     items = [
         _passage("a", "doc1", "A"),
         _passage("b", "doc1", "B"),
-        _passage("c", "doc2", "C", updated=date(2026, 4, 1)),
+        _passage("c", "doc2", "C"),
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
-    docs = {d.id: d for d in await passages_repo.list_documents(session)}
+    docs = {d.id: d for d in await passages_repo.list_documents(session, limit=30)}
     assert docs["doc1"].passage_count == 2
-    assert docs["doc1"].document_updated is None
     assert docs["doc2"].passage_count == 1
-    assert docs["doc2"].document_updated == date(2026, 4, 1)
 
 
 async def test_get_document_summary_returns_one_doc(session: AsyncSession):
     items = [
         _passage("a", "doc1", "A"),
         _passage("b", "doc1", "B"),
-        _passage("c", "doc2", "C", updated=date(2026, 4, 1)),
+        _passage("c", "doc2", "C"),
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
@@ -88,7 +84,6 @@ async def test_get_document_summary_returns_one_doc(session: AsyncSession):
     assert summary is not None
     assert summary.id == "doc2"
     assert summary.passage_count == 1
-    assert summary.document_updated == date(2026, 4, 1)
 
 
 async def test_get_document_summary_returns_none_for_unknown(session: AsyncSession):
@@ -114,7 +109,7 @@ async def test_idempotent_reingest(session: AsyncSession):
         await passages_repo.upsert_many(session, items)
     async with session.begin():
         await passages_repo.upsert_many(session, items)
-    docs = await passages_repo.list_documents(session)
+    docs = await passages_repo.list_documents(session, limit=30)
     assert {d.passage_count for d in docs} == {2}
 
 
@@ -149,7 +144,6 @@ async def test_heading_path_round_trips_unicode(session: AsyncSession):
         heading="Tributação",
         heading_path=["Doc", "Tributação", "Tabela Regressiva — IR"],
         text="...",
-        document_updated=None,
     )
     async with session.begin():
         await passages_repo.upsert_many(session, [p])
@@ -197,7 +191,7 @@ async def test_end_to_end_real_corpus(tmp_path):
             async with s.begin():
                 n = await passages_repo.upsert_many(s, parsed)
             assert n == len(parsed)
-            docs = await passages_repo.list_documents(s)
+            docs = await passages_repo.list_documents(s, limit=100)
             assert len(docs) == 30
             cdb = await passages_repo.get(s, "cdbs_quick_guide#o-que-e-um-cdb")
             assert cdb is not None

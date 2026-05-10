@@ -9,13 +9,11 @@ export interface Passage {
   heading: string
   heading_path: string[]
   text: string
-  document_updated: string | null // ISO date
 }
 
 export interface DocSummary {
   id: string
   title: string
-  document_updated: string | null
   passage_count: number
 }
 
@@ -28,7 +26,6 @@ export interface Heading {
 export interface DocumentOutline {
   document_id: string
   document_title: string
-  document_updated: string | null
   passage_count: number
   headings: Heading[]
 }
@@ -40,7 +37,6 @@ export interface PassageHit {
   document_title: string
   heading_path: string[]
   snippet: string
-  document_updated: string | null
 }
 
 // ----- Chat contract (B9) -----
@@ -48,7 +44,6 @@ export interface PassageHit {
 export interface Citation {
   passage_id: string
   document: string
-  document_updated: string | null
   heading: string
   heading_path: string[]
   passage_text: string

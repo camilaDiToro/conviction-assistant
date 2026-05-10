@@ -14,7 +14,6 @@ content from the matching path.
 """
 
 import random
-from datetime import date
 
 from app.agent.resolver import (
     CitationResolution,
@@ -37,7 +36,6 @@ def _passage(
         heading=passage_id.split("#", 1)[-1],
         heading_path=[passage_id.split("#", 1)[-1]],
         text=text,
-        document_updated=date(2026, 4, 1),
     )
 
 
@@ -99,7 +97,6 @@ def test_resolve_answer_pass_emits_anchored_entry() -> None:
     assert e.document_id == p.document_id
     assert e.document_title == p.document_title
     assert e.heading_path == p.heading_path
-    assert e.document_updated == p.document_updated
     assert e.passage_text == p.text
     assert e.start == 6
     assert e.end == 11

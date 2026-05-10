@@ -7,7 +7,7 @@ these by hand. Adding a non-nullable field here is a breaking change for
 the frontend; nullable additions are non-breaking.
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,7 +53,6 @@ class ChatCitation(BaseModel):
 
     passage_id: str
     document: str
-    document_updated: date | None
     heading: str
     heading_path: list[str]
     passage_text: str

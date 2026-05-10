@@ -40,7 +40,6 @@ export function CitationModal({ citation, onClose }: CitationModalProps) {
             </code>
             <div className="text-ink-3 text-[11px] mt-1 truncate">
               {citation.heading_path.join(' › ')}
-              {citation.document_updated && ` · updated ${citation.document_updated}`}
             </div>
           </div>
           <button
