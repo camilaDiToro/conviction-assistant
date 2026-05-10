@@ -89,6 +89,63 @@ export default function OverviewPage() {
           below names the file path that owns each step.
         </p>
         <LifecycleDiagram />
+        <div className="max-w-prose space-y-3 text-ink-2 text-[14px] leading-relaxed mt-6">
+          <p>
+            The Router parses the request and hands the question to the agent. Inside the loop,
+            the agent calls <code className="font-mono text-[12px] text-ink-1">search_convictions</code>{' '}
+            to find candidate passages and <code className="font-mono text-[12px] text-ink-1">read_passage</code>{' '}
+            to load full text — repeating until it has enough evidence or hits the tool-call
+            budget.
+          </p>
+          <p>
+            With evidence in hand, the agent asks the LLM for a final structured answer. Each
+            citation's verbatim quote is then passed to the Offset resolver, which anchors it
+            to a <code className="font-mono text-[12px] text-ink-1">(start, end)</code> region
+            of the cited passage and drops the literal text from the response.
+          </p>
+          <p>
+            Every step — LLM calls, tool calls, the resolver pass — is appended to{' '}
+            <code className="font-mono text-[12px] text-ink-1">audit_log</code> with its
+            duration, token usage and cost. The Router formats the resolved citations,
+            disclaimer and usage summary into the JSON body sent back to the caller.
+          </p>
+        </div>
+
+        <div className="max-w-prose mt-8">
+          <div className="text-ink-3 text-[11px] uppercase tracking-tight font-medium mb-3">
+            How the loop bounds work
+          </div>
+          <dl className="grid grid-cols-[12rem_1fr] gap-x-6 gap-y-3 text-[14px] leading-relaxed">
+            <dt className="text-ink-1 font-mono text-[12px]">agent_max_tool_calls</dt>
+            <dd className="text-ink-2">
+              Hard cap on executed tool calls (default <code className="font-mono text-[12px] text-ink-1">5</code>).
+              If the next batch would push the count over the cap, the loop refuses to execute it,
+              hides the tools from the next LLM call, and forces a final structured answer using
+              the evidence already gathered.
+            </dd>
+            <dt className="text-ink-1 font-mono text-[12px]">agent_max_iterations</dt>
+            <dd className="text-ink-2">
+              Hard cap on loop turns (default <code className="font-mono text-[12px] text-ink-1">12</code>).
+              One iteration = one LLM call. Hitting this limit raises{' '}
+              <code className="font-mono text-[12px] text-ink-1">AgentError</code> — it should
+              never trigger in practice; it's a safety net against runaway loops.
+            </dd>
+            <dt className="text-ink-1 font-medium">Grounded-answer rule</dt>
+            <dd className="text-ink-2">
+              If the model emits an <code className="font-mono text-[12px] text-ink-1">AnswerOutput</code>{' '}
+              with no prior <code className="font-mono text-[12px] text-ink-1">search_convictions</code>{' '}
+              call, the loop rejects it and replays the turn with a system reminder.
+              Clarifying questions and out-of-scope replies bypass the rule.
+            </dd>
+            <dt className="text-ink-1 font-medium">Configurable via .env</dt>
+            <dd className="text-ink-2">
+              All four settings — tool-call cap, iteration cap, reasoning effort, max output
+              tokens — are read from <code className="font-mono text-[12px] text-ink-1">settings</code>{' '}
+              on every call, so an <code className="font-mono text-[12px] text-ink-1">.env</code>{' '}
+              tweak takes effect without restart.
+            </dd>
+          </dl>
+        </div>
       </Section>
 
       <Section eyebrow="Reading guide">
@@ -243,13 +300,14 @@ function ArchitectureDiagram() {
           <text x="180" y="136" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600" fontFamily="Inter">Agent loop</text>
           <text x="180" y="154" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">app/agent/loop.py</text>
           <line x1="40" y1="170" x2="320" y2="170" stroke="#262626" />
-          <text x="180" y="196" textAnchor="middle" fill="#B5B5B5" fontSize="12" fontFamily="Inter">Gather → Act → Answer</text>
-          <text x="180" y="224" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">list_documents · read_document_outline</text>
-          <text x="180" y="240" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">search_convictions · read_passage</text>
-          <text x="180" y="276" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≤ 5 tool calls · configurable (.env)</text>
-          <text x="180" y="296" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≥ 1 search before a grounded answer</text>
-          <text x="180" y="316" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">strict JSON output</text>
-          <text x="180" y="336" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">no prior assistant text</text>
+          <text x="180" y="196" textAnchor="middle" fill="#B5B5B5" fontSize="12" fontFamily="Inter">Rewrite → Gather → Act → Answer</text>
+          <text x="180" y="214" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">rewrite consumes history · loop never sees it</text>
+          <text x="180" y="242" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">list_documents · read_document_outline</text>
+          <text x="180" y="258" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">search_convictions · read_passage</text>
+          <text x="180" y="290" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≤ 5 tool calls · configurable (.env)</text>
+          <text x="180" y="310" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">≥ 1 search before a grounded answer</text>
+          <text x="180" y="330" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">strict JSON output</text>
+          <text x="180" y="350" textAnchor="middle" fill="#6B6B6B" fontSize="11" fontFamily="Inter">no prior assistant text in loop</text>
         </g>
 
         {/* Agent ↔ Tools */}
