@@ -1,28 +1,41 @@
-// Demo gate for the chat surface. Anyone with bundle access can read
-// VITE_CHAT_ACCESS_CODE — this is friction, not security. Real auth is
-// deliberately out of scope for v1.
+// Chat access token, paste-and-store flow.
+//
+// B9 changed the model: the token is no longer bundled into the SPA via
+// VITE_CHAT_ACCESS_CODE — that's trivially extractable from the deployed
+// JS. The user pastes the token at runtime; we keep it in localStorage
+// and send it as `X-Chat-Token` on every /chat request.
+//
+// The token is validated server-side. Real auth (JWT/OAuth/sessions) is
+// still out of scope for v1; this gives us a server-enforced bearer
+// without a real auth flow.
 
-const STORAGE_KEY = 'decade-chat-unlocked'
+const STORAGE_KEY = 'decade-chat-token'
 
-export function readUnlocked(): boolean {
+export function readToken(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'true'
+    const v = localStorage.getItem(STORAGE_KEY)
+    return v && v.trim() ? v : null
   } catch {
-    return false
+    return null
   }
 }
 
-export function setUnlocked(unlocked: boolean): void {
+export function saveToken(token: string): void {
   try {
-    if (unlocked) localStorage.setItem(STORAGE_KEY, 'true')
-    else localStorage.removeItem(STORAGE_KEY)
+    localStorage.setItem(STORAGE_KEY, token.trim())
   } catch {
     /* localStorage disabled — gate becomes session-only */
   }
 }
 
-export function checkCode(input: string): boolean {
-  const expected = (import.meta.env.VITE_CHAT_ACCESS_CODE ?? '').trim()
-  if (!expected) return false
-  return input.trim() === expected
+export function clearToken(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function hasToken(): boolean {
+  return readToken() !== null
 }

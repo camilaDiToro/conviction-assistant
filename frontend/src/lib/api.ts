@@ -1,30 +1,87 @@
 // *** SINGLE POINT OF BACKEND INTERACTION ***
 // No fetch() calls anywhere else in the frontend. ESLint rule enforces this.
 //
-// Today: chat returns from the local mock (real /chat lands in B9).
-// When B9 lands: flip USE_MOCK_CHAT to false. The mock keeps the contract
-// faithful, so no other code changes.
+// B9: real /chat is live. The chat token is read from localStorage (set
+// by the gate UI) and sent as `X-Chat-Token` on every request. On 401
+// the token is cleared and an UnauthorizedError is thrown so the UI can
+// re-prompt for it.
 
-import type { ChatResponse } from './types'
-import { mockChat } from './mock-chat'
+import type {
+  ChatResponse,
+  ConversationListResponse,
+  ConversationMessagesResponse,
+} from './types'
+import { clearToken, readToken } from './access-gate'
 
-const USE_MOCK_CHAT = true
+export class UnauthorizedError extends Error {
+  constructor(message = 'unauthorized') {
+    super(message)
+    this.name = 'UnauthorizedError'
+  }
+}
 
 export interface SendChatArgs {
   question: string
-  conversationId: string
+  conversationId?: string
   history: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
 export async function sendChatMessage(args: SendChatArgs): Promise<ChatResponse> {
-  if (USE_MOCK_CHAT) {
-    return mockChat(args)
-  }
+  const token = readToken()
+  if (!token) throw new UnauthorizedError('no chat token configured')
+
   const res = await fetch('/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(args),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Chat-Token': token,
+    },
+    body: JSON.stringify({
+      question: args.question,
+      conversation_id: args.conversationId,
+      history: args.history,
+    }),
   })
-  if (!res.ok) throw new Error(`/chat failed: ${res.status}`)
+
+  if (res.status === 401) {
+    clearToken()
+    throw new UnauthorizedError(`/chat rejected token (${res.status})`)
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`/chat failed: ${res.status} ${detail}`)
+  }
   return (await res.json()) as ChatResponse
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const token = readToken()
+  if (!token) throw new UnauthorizedError('no chat token configured')
+  const res = await fetch(path, { headers: { 'X-Chat-Token': token } })
+  if (res.status === 401) {
+    clearToken()
+    throw new UnauthorizedError(`${path} rejected token (${res.status})`)
+  }
+  if (res.status === 404) {
+    const err = new Error(`${path}: not found`) as Error & { status?: number }
+    err.status = 404
+    throw err
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`${path} failed: ${res.status} ${detail}`)
+  }
+  return (await res.json()) as T
+}
+
+export async function listConversations(): Promise<ConversationListResponse> {
+  return getJson<ConversationListResponse>('/chat/conversations')
+}
+
+export async function loadConversation(
+  conversationId: string,
+): Promise<ConversationMessagesResponse> {
+  return getJson<ConversationMessagesResponse>(
+    `/chat/conversations/${encodeURIComponent(conversationId)}`,
+  )
 }

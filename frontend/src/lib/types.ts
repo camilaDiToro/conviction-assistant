@@ -88,6 +88,8 @@ export interface ChatAnswerResponse {
   disclaimer: string
   usage_summary: UsageSummary
   debug: { tool_calls: DebugStep[]; verification_passed: boolean; steps: DebugStep[] }
+  conversation_id: string
+  question_id: string
 }
 
 export interface ChatClarifyResponse {
@@ -97,6 +99,8 @@ export interface ChatClarifyResponse {
   disclaimer: string
   usage_summary: UsageSummary
   debug: { tool_calls: DebugStep[]; verification_passed: boolean; steps: DebugStep[] }
+  conversation_id: string
+  question_id: string
 }
 
 export type ChatResponse = ChatAnswerResponse | ChatClarifyResponse
@@ -114,3 +118,38 @@ export interface ChatMessageAssistant {
 }
 
 export type ChatMessage = ChatMessageUser | ChatMessageAssistant
+
+// ----- Conversation history (sidebar) -----
+
+export interface ConversationListItem {
+  conversation_id: string
+  title: string
+  first_ts: string // ISO datetime
+  last_ts: string
+  question_count: number
+}
+
+export interface ConversationListResponse {
+  conversations: ConversationListItem[]
+}
+
+export interface ConversationMessage {
+  question_id: string
+  timestamp: string
+  user_question: string
+  language: 'pt' | 'en' | 'es'
+  kind: 'answer' | 'clarifying_question'
+  answer: string | null
+  citations: Citation[]
+  general_knowledge_used: boolean | null
+  general_knowledge_section: string | null
+  out_of_scope: boolean | null
+  clarifying_question: string | null
+  clarifying_options: string[]
+  verifier_passed: boolean
+}
+
+export interface ConversationMessagesResponse {
+  conversation_id: string
+  messages: ConversationMessage[]
+}
