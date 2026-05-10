@@ -1,3 +1,13 @@
+---
+title: Decade AI Challenge
+emoji: 📚
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Decade AI Challenge
 
 Conversational AI assistant grounded on Decade's investment conviction documents.

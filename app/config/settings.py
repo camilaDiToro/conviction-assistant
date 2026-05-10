@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     chat_access_token: str | None = None
     admin_token: str | None = None
 
+    # Deploy. On Hugging Face Spaces' free tier the filesystem is ephemeral,
+    # so the SQLite DB is empty after every cold start and the corpus must be
+    # re-ingested. When this is true the lifespan calls ingest_corpus() if the
+    # passages table is empty. Default off keeps tests and local dev unchanged.
+    auto_ingest_on_startup: bool = False
+
     @property
     def async_database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"

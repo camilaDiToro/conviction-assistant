@@ -1,0 +1,43 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.egg-info/
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+
+# Local DB / data
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Editor / OS / git
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+frontend/.env
+frontend/.env.local
+
+# Docs (not needed in image)
+docs/
+*.md
+!README.md
+AI_CHALLENGE.md

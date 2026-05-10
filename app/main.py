@@ -6,9 +6,11 @@ HTTP responses (services and repositories never reference HTTP).
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.agent.verifier import get_verifier
 from app.api.admin import router as admin_router
@@ -18,7 +20,11 @@ from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.config import db, settings
 from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
+from app.repositories import passages as passages_repo
 from app.retrieval import get_retriever
+from app.services import ingest as ingest_service
+
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -29,6 +35,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db.set_session_factory(factory)
     retriever = get_retriever(settings.retrieval_strategy)
     async with factory() as session:
+        if settings.auto_ingest_on_startup:
+            existing = await passages_repo.all_ids(session)
+            if not existing:
+                await ingest_service.ingest_corpus(session, settings.convictions_dir)
         await retriever.build(session)
     app.state.retriever = retriever
     app.state.verifier = get_verifier(settings.verifier_strategy)
@@ -67,3 +77,24 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(chat_history_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
+
+
+# Serve the built React frontend at /. Only mounts if the dist/ exists,
+# so local backend-only dev (`uv run uvicorn …` without a frontend build)
+# still works. Registered after API routers so /api/* never falls through.
+if _FRONTEND_DIST.is_dir():
+    _ASSETS_DIR = _FRONTEND_DIST / "assets"
+    if _ASSETS_DIR.is_dir():
+        app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_fallback(full_path: str) -> FileResponse:
+        # /api/* is owned by the routers above; FastAPI's /docs and
+        # /openapi.json are registered before this catch-all and win on match.
+        candidate = _FRONTEND_DIST / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        index = _FRONTEND_DIST / "index.html"
+        if not index.is_file():
+            raise HTTPException(status_code=404, detail="frontend not built")
+        return FileResponse(index)
