@@ -34,11 +34,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     factory = db.make_session_factory(engine)
     db.set_session_factory(factory)
     retriever = get_retriever(settings.retrieval_strategy)
-    async with factory() as session:
-        if settings.auto_ingest_on_startup:
+    if settings.auto_ingest_on_startup:
+        async with factory() as session:
             existing = await passages_repo.all_ids(session)
-            if not existing:
+        # Fresh session for ingest — `all_ids` already auto-began a tx on the
+        # previous one, and `ingest_corpus` opens its own `session.begin()`.
+        if not existing:
+            async with factory() as session:
                 await ingest_service.ingest_corpus(session, settings.convictions_dir)
+    async with factory() as session:
         await retriever.build(session)
     app.state.retriever = retriever
     app.state.verifier = get_verifier(settings.verifier_strategy)
