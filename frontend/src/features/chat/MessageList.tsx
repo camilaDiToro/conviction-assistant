@@ -45,7 +45,7 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
             <span key={o} className="pill">{o}</span>
           ))}
         </div>
-        <Footer onOpenDebug={onOpenDebug} cost={r.usage_summary.question_total_cost_usd} disclaimer={r.disclaimer} />
+        <Footer onOpenDebug={onOpenDebug} disclaimer={r.disclaimer} />
       </div>
     )
   }
@@ -85,7 +85,7 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
         </div>
       )}
 
-      <Footer onOpenDebug={onOpenDebug} cost={r.usage_summary.question_total_cost_usd} disclaimer={r.disclaimer} />
+      <Footer onOpenDebug={onOpenDebug} disclaimer={r.disclaimer} />
     </div>
   )
 }
@@ -125,7 +125,7 @@ function CitationRow({ citation }: { citation: Citation }) {
   )
 }
 
-function Footer({ onOpenDebug, cost, disclaimer }: { onOpenDebug: () => void; cost: number; disclaimer: string }) {
+function Footer({ onOpenDebug, disclaimer }: { onOpenDebug: () => void; disclaimer: string }) {
   return (
     <div className="mt-6 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
       <p className="text-ink-3 text-xs italic leading-relaxed max-w-prose">{disclaimer}</p>
@@ -133,7 +133,7 @@ function Footer({ onOpenDebug, cost, disclaimer }: { onOpenDebug: () => void; co
         onClick={onOpenDebug}
         className="text-ink-3 hover:text-ink-1 text-xs flex items-center gap-1.5 transition-colors"
       >
-        <Bug size={12} /> debug · ${cost.toFixed(5)}
+        <Bug size={12} /> view steps
       </button>
     </div>
   )
