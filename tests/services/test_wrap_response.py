@@ -82,7 +82,11 @@ def test_wrap_answer_maps_citation_document_to_filename() -> None:
     assert response.citations[0].heading == "Tributação"  # leaf of heading_path
     assert response.citations[0].quote == "tabela regressiva"
     assert response.disclaimer.startswith("This response is informational")
-    assert response.usage_summary.step_count == 2
+    # Two raw StepRecords + one synthetic response step appended for the drawer.
+    assert response.usage_summary.step_count == 3
+    assert response.debug.steps[-1].kind == "response"
+    assert response.debug.steps[-1].result is not None
+    assert response.debug.steps[-1].result["output"]["answer"] == "The answer."
     assert response.usage_summary.question_total_cost_usd > 0
     assert response.debug.verification_passed is True
     assert summary["language"] == "en"

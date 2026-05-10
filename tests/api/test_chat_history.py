@@ -114,7 +114,7 @@ async def _send_chat(
     if conversation_id:
         body["conversation_id"] = conversation_id
     response = await client.post(
-        "/chat",
+        "/api/chat",
         headers={"X-Chat-Token": "test-chat-token"},
         json=body,
     )
@@ -127,7 +127,7 @@ async def _send_chat(
 
 async def test_list_conversations_empty_returns_empty(client) -> None:
     response = await client.get(
-        "/chat/conversations",
+        "/api/chat/conversations",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     assert response.status_code == 200
@@ -139,7 +139,7 @@ async def test_list_conversations_returns_one_after_chat(
 ) -> None:
     res = await _send_chat(client, monkeypatch, question="What is a CDB?")
     response = await client.get(
-        "/chat/conversations",
+        "/api/chat/conversations",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     assert response.status_code == 200
@@ -158,7 +158,7 @@ async def test_list_conversations_orders_by_recency(
     res_a = await _send_chat(client, monkeypatch, question="Older question")
     res_b = await _send_chat(client, monkeypatch, question="Newer question")
     response = await client.get(
-        "/chat/conversations",
+        "/api/chat/conversations",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     body = response.json()
@@ -168,7 +168,7 @@ async def test_list_conversations_orders_by_recency(
 
 
 async def test_list_conversations_requires_token(client) -> None:
-    response = await client.get("/chat/conversations")
+    response = await client.get("/api/chat/conversations")
     assert response.status_code == 401
 
 
@@ -180,7 +180,7 @@ async def test_load_conversation_returns_messages(client, monkeypatch: pytest.Mo
     conv_id = sent["conversation_id"]
 
     response = await client.get(
-        f"/chat/conversations/{conv_id}",
+        f"/api/chat/conversations/{conv_id}",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     assert response.status_code == 200, response.text
@@ -199,14 +199,68 @@ async def test_load_conversation_returns_messages(client, monkeypatch: pytest.Mo
 
 async def test_load_conversation_unknown_id_returns_404(client) -> None:
     response = await client.get(
-        "/chat/conversations/does-not-exist",
+        "/api/chat/conversations/does-not-exist",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     assert response.status_code == 404
 
 
 async def test_load_conversation_requires_token(client) -> None:
-    response = await client.get("/chat/conversations/anything")
+    response = await client.get("/api/chat/conversations/anything")
+    assert response.status_code == 401
+
+
+# ---- per-question steps --------------------------------------------
+
+
+async def test_question_steps_returns_reconstructed_trace(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = await _send_chat(client, monkeypatch, question="What is a CDB?")
+    conv_id = sent["conversation_id"]
+    qid = sent["question_id"]
+    live_steps = sent["debug"]["steps"]
+
+    response = await client.get(
+        f"/api/chat/conversations/{conv_id}/questions/{qid}/steps",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["conversation_id"] == conv_id
+    assert body["question_id"] == qid
+    # Reconstruction reproduces every kind from the live trace, in order.
+    assert [s["kind"] for s in body["steps"]] == [s["kind"] for s in live_steps]
+    assert [s["name"] for s in body["steps"]] == [s["name"] for s in live_steps]
+    # step_ids match for the persisted steps; the synthetic trailing
+    # ``kind="response"`` step is regenerated server-side per request,
+    # so its id doesn't have to match the live one.
+    persisted_count = sum(1 for s in live_steps if s["kind"] != "response")
+    assert [s["step_id"] for s in body["steps"][:persisted_count]] == [
+        s["step_id"] for s in live_steps[:persisted_count]
+    ]
+    assert body["usage_summary"]["step_count"] == len(live_steps)
+    assert body["verifier_passed"] is True
+    assert body["steps"][-1]["kind"] == "response"
+    assert body["steps"][-1]["result"]["output"]["answer"].startswith("CDBs follow")
+
+
+async def test_question_steps_unknown_question_returns_404(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = await _send_chat(client, monkeypatch, question="What is a CDB?")
+    conv_id = sent["conversation_id"]
+    response = await client.get(
+        f"/api/chat/conversations/{conv_id}/questions/does-not-exist/steps",
+        headers={"X-Chat-Token": "test-chat-token"},
+    )
+    assert response.status_code == 404
+
+
+async def test_question_steps_requires_token(client) -> None:
+    response = await client.get(
+        "/api/chat/conversations/x/questions/y/steps",
+    )
     assert response.status_code == 401
 
 
@@ -224,7 +278,7 @@ async def test_load_conversation_preserves_order_across_turns(
     )
 
     response = await client.get(
-        f"/chat/conversations/{conv_id}",
+        f"/api/chat/conversations/{conv_id}",
         headers={"X-Chat-Token": "test-chat-token"},
     )
     body = response.json()

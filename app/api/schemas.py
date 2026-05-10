@@ -57,7 +57,14 @@ class ChatCitation(BaseModel):
 
 
 class DebugStep(BaseModel):
-    """One observable step the orchestrator took, in wire form."""
+    """One observable step the orchestrator took, in wire form.
+
+    ``result`` carries a step-kind-specific summary of what the step
+    *produced* — tool return values, the LLM's tool-call list or parsed
+    output, the verifier's verified/failures lists, the final answer
+    text. The shape varies by ``kind`` (it's a free-form JSON object on
+    the wire); rendering lives in the frontend ``DebugDrawer``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -68,6 +75,7 @@ class DebugStep(BaseModel):
     duration_ms: int = 0
     usage: TokenUsage | None = None
     cost_usd: float | None = None
+    result: dict[str, Any] | None = None
 
 
 class UsageSummary(BaseModel):
@@ -219,6 +227,23 @@ class ConversationMessagesResponse(BaseModel):
     messages: list[ConversationMessage]
 
 
+class QuestionStepsResponse(BaseModel):
+    """Per-question reconstructed debug trace, served from audit_log.
+
+    Drives the per-message debug drawer when the user opens it on a
+    historical message (re-loaded from the sidebar) — the live response
+    already carries this shape inline as ``ChatAnswerResponse.debug``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    conversation_id: str
+    question_id: str
+    steps: list[DebugStep]
+    usage_summary: UsageSummary
+    verifier_passed: bool
+
+
 __all__ = [
     "ChatAnswerResponse",
     "ChatCitation",
@@ -236,5 +261,6 @@ __all__ = [
     "ConversationTraceResponse",
     "DebugBlock",
     "DebugStep",
+    "QuestionStepsResponse",
     "UsageSummary",
 ]

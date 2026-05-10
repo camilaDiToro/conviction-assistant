@@ -1,13 +1,15 @@
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
-import type { ChatMessage } from '@/lib/types'
+import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronRight, Loader2, X } from 'lucide-react'
+import type { ChatMessage, DebugStep } from '@/lib/types'
 
 interface DebugDrawerProps {
   message: Extract<ChatMessage, { role: 'assistant' }>
   onClose: () => void
+  loading?: boolean
+  loadError?: string | null
 }
 
-export function DebugDrawer({ message, onClose }: DebugDrawerProps) {
+export function DebugDrawer({ message, onClose, loading = false, loadError = null }: DebugDrawerProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -51,30 +53,23 @@ export function DebugDrawer({ message, onClose }: DebugDrawerProps) {
 
           <section>
             <h4 className="text-ink-3 text-[11px] uppercase tracking-tight mb-3">Step timeline</h4>
+            {loading && r.debug.steps.length === 0 && (
+              <div className="flex items-center gap-2 text-ink-3 text-xs px-1 py-2">
+                <Loader2 size={12} className="animate-spin" /> Loading steps from audit log…
+              </div>
+            )}
+            {loadError && (
+              <div className="text-ink-2 text-xs border border-border bg-surface rounded-md p-3 mb-3">
+                <strong className="text-ink-1 font-medium block mb-1">Failed to load steps.</strong>
+                {loadError}
+              </div>
+            )}
+            {!loading && !loadError && r.debug.steps.length === 0 && (
+              <div className="text-ink-3 text-xs px-1 py-2">No steps recorded for this message.</div>
+            )}
             <ol className="space-y-3">
               {r.debug.steps.map((s, i) => (
-                <li key={s.step_id} className="border border-border bg-surface rounded-md p-4">
-                  <div className="flex items-baseline justify-between gap-3 mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-ink-3 font-mono text-[10px]">#{i + 1}</span>
-                      <span className="pill !py-0.5">{s.kind}</span>
-                      <code className="font-mono text-[12px] text-ink-1 truncate">{s.name}</code>
-                    </div>
-                    <span className="text-ink-3 text-[11px] shrink-0 font-mono">
-                      {s.duration_ms}ms{s.cost_usd !== undefined ? ` · $${s.cost_usd.toFixed(5)}` : ''}
-                    </span>
-                  </div>
-                  <div className="text-ink-2 text-sm leading-relaxed">{s.detail}</div>
-                  {s.usage && (
-                    <div className="mt-3 pt-3 border-t border-border text-[11px] font-mono text-ink-3 grid grid-cols-2 gap-x-6 gap-y-1">
-                      <span>model: <span className="text-ink-1">{s.usage.model}</span></span>
-                      <span>prompt: <span className="text-ink-1">{s.usage.prompt_tokens}</span></span>
-                      <span>cached: <span className="text-ink-1">{s.usage.cached_tokens}</span></span>
-                      <span>completion: <span className="text-ink-1">{s.usage.completion_tokens}</span></span>
-                      <span>reasoning: <span className="text-ink-1">{s.usage.reasoning_tokens}</span></span>
-                    </div>
-                  )}
-                </li>
+                <StepItem key={s.step_id} step={s} index={i} />
               ))}
             </ol>
           </section>
@@ -98,5 +93,262 @@ export function DebugDrawer({ message, onClose }: DebugDrawerProps) {
         </div>
       </aside>
     </div>
+  )
+}
+
+function StepItem({ step, index }: { step: DebugStep; index: number }) {
+  const [open, setOpen] = useState(step.kind === 'response')
+  const hasResult = step.result !== null && step.result !== undefined
+  return (
+    <li className="border border-border bg-surface rounded-md p-4">
+      <div className="flex items-baseline justify-between gap-3 mb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-ink-3 font-mono text-[10px]">#{index + 1}</span>
+          <span className="pill !py-0.5">{step.kind}</span>
+          <code className="font-mono text-[12px] text-ink-1 truncate">{step.name}</code>
+        </div>
+        <span className="text-ink-3 text-[11px] shrink-0 font-mono">
+          {step.duration_ms}ms
+          {typeof step.cost_usd === 'number' ? ` · $${step.cost_usd.toFixed(5)}` : ''}
+        </span>
+      </div>
+      <div className="text-ink-2 text-sm leading-relaxed">{step.detail}</div>
+      {step.usage && (
+        <div className="mt-3 pt-3 border-t border-border text-[11px] font-mono text-ink-3 grid grid-cols-2 gap-x-6 gap-y-1">
+          <span>model: <span className="text-ink-1">{step.usage.model}</span></span>
+          <span>prompt: <span className="text-ink-1">{step.usage.prompt_tokens}</span></span>
+          <span>cached: <span className="text-ink-1">{step.usage.cached_tokens}</span></span>
+          <span>completion: <span className="text-ink-1">{step.usage.completion_tokens}</span></span>
+          <span>reasoning: <span className="text-ink-1">{step.usage.reasoning_tokens}</span></span>
+        </div>
+      )}
+      {hasResult && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="flex items-center gap-1.5 text-ink-3 hover:text-ink-1 text-[11px] uppercase tracking-tight transition-colors"
+          >
+            {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            {step.kind === 'response' ? 'Model response' : step.kind === 'tool_call' ? 'Tool result' : step.kind === 'verifier' ? 'Verifier detail' : 'LLM detail'}
+          </button>
+          {open && <ResultBlock step={step} />}
+        </div>
+      )}
+    </li>
+  )
+}
+
+function ResultBlock({ step }: { step: DebugStep }) {
+  const result = step.result as Record<string, unknown> | null
+  if (!result) return null
+
+  if (step.kind === 'response') {
+    const output = (result.output ?? {}) as Record<string, unknown>
+    const kind = String(output.kind ?? 'answer')
+    if (kind === 'clarifying_question') {
+      const question = String(output.question ?? '')
+      const options = (output.options as string[] | undefined) ?? []
+      return (
+        <div className="mt-3 space-y-2">
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight">Clarifying question</div>
+          <div className="text-ink-1 text-sm leading-relaxed whitespace-pre-wrap">{question}</div>
+          {options.length > 0 && (
+            <ul className="flex flex-wrap gap-2 mt-2">
+              {options.map(o => (
+                <li key={o} className="pill !py-0.5">{o}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )
+    }
+    const answer = String(output.answer ?? '')
+    const outOfScope = Boolean(output.out_of_scope)
+    const generalKnowledge = Boolean(output.general_knowledge_used)
+    const generalSection = output.general_knowledge_section as string | null | undefined
+    const verified = (result.verified_citations as Array<Record<string, unknown>> | undefined) ?? []
+    return (
+      <div className="mt-3 space-y-3">
+        <div>
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Answer</div>
+          <div className="text-ink-1 text-sm leading-relaxed whitespace-pre-wrap">{answer || '(empty)'}</div>
+        </div>
+        {(outOfScope || generalKnowledge) && (
+          <div className="flex gap-2 flex-wrap">
+            {outOfScope && <span className="pill !py-0.5">out_of_scope</span>}
+            {generalKnowledge && <span className="pill !py-0.5">general_knowledge_used</span>}
+          </div>
+        )}
+        {generalKnowledge && generalSection && (
+          <div className="border-l-2 border-dashed border-ink-2 pl-3">
+            <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">General knowledge section</div>
+            <div className="text-ink-2 text-sm leading-relaxed whitespace-pre-wrap">{generalSection}</div>
+          </div>
+        )}
+        <div>
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
+            Verified citations ({verified.length})
+          </div>
+          {verified.length === 0 ? (
+            <div className="text-ink-3 text-xs italic">No citations in this response.</div>
+          ) : (
+            <ul className="space-y-2">
+              {verified.map((c, i) => (
+                <li key={i} className="border border-border bg-bg rounded-md p-2.5 text-[12px]">
+                  <code className="font-mono text-ink-1">{String(c.passage_id ?? '')}</code>
+                  <div className="text-ink-3 text-[11px] mt-0.5">
+                    {((c.heading_path as string[] | undefined) ?? []).join(' › ')}
+                  </div>
+                  <blockquote className="text-ink-2 italic mt-1.5 leading-relaxed">
+                    "{String(c.quote ?? '')}"
+                  </blockquote>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (step.kind === 'tool_call') {
+    const value = result.result
+    return (
+      <div className="mt-3">
+        <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Returned</div>
+        <ToolResultRender value={value} />
+      </div>
+    )
+  }
+
+  if (step.kind === 'verifier') {
+    const verified = (result.verified as Array<Record<string, unknown>> | undefined) ?? []
+    const failures = (result.failures as Array<Record<string, unknown>> | undefined) ?? []
+    return (
+      <div className="mt-3 space-y-2 text-[12px]">
+        <div className="text-ink-2">
+          attempt {String(result.attempt ?? 0)} · all_passed{' '}
+          <span className="text-ink-1 font-medium">{String(Boolean(result.all_passed))}</span>
+        </div>
+        {verified.length > 0 && (
+          <div>
+            <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
+              Verified ({verified.length})
+            </div>
+            <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto">
+              {JSON.stringify(verified, null, 2)}
+            </pre>
+          </div>
+        )}
+        {failures.length > 0 && (
+          <div>
+            <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
+              Failures ({failures.length})
+            </div>
+            <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto">
+              {JSON.stringify(failures, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // llm_call: show tool_calls or parsed/content
+  const toolCalls = result.tool_calls as Array<Record<string, unknown>> | undefined
+  return (
+    <div className="mt-3 space-y-2 text-[12px]">
+      {toolCalls && toolCalls.length > 0 && (
+        <div>
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">
+            Tool calls ({toolCalls.length})
+          </div>
+          <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto whitespace-pre-wrap">
+            {JSON.stringify(toolCalls, null, 2)}
+          </pre>
+        </div>
+      )}
+      {result.parsed !== undefined && (
+        <div>
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Parsed output</div>
+          <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto whitespace-pre-wrap">
+            {JSON.stringify(result.parsed, null, 2)}
+          </pre>
+        </div>
+      )}
+      {typeof result.content === 'string' && (
+        <div>
+          <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Content</div>
+          <div className="text-ink-2 leading-relaxed whitespace-pre-wrap">{result.content}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolResultRender({ value }: { value: unknown }) {
+  // search_convictions returns a list of PassageHits.
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+    const first = value[0] as Record<string, unknown>
+    if ('passage_id' in first && 'score' in first) {
+      return (
+        <ul className="space-y-2">
+          {(value as Array<Record<string, unknown>>).map((hit, i) => (
+            <li key={i} className="border border-border bg-bg rounded-md p-2.5 text-[12px]">
+              <div className="flex items-baseline justify-between gap-2">
+                <code className="font-mono text-ink-1 truncate">{String(hit.passage_id ?? '')}</code>
+                <span className="text-ink-3 font-mono text-[10px] shrink-0">
+                  score {Number(hit.score ?? 0).toFixed(3)}
+                </span>
+              </div>
+              <div className="text-ink-3 text-[11px] mt-0.5">
+                {((hit.heading_path as string[] | undefined) ?? []).join(' › ')}
+              </div>
+              {typeof hit.snippet === 'string' && hit.snippet && (
+                <div className="text-ink-2 text-[12px] mt-1.5 leading-relaxed">
+                  {hit.snippet}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    // list_documents returns a list of DocSummaries.
+    if ('id' in first && 'title' in first) {
+      return (
+        <ul className="text-[12px] space-y-1">
+          {(value as Array<Record<string, unknown>>).map((doc, i) => (
+            <li key={i} className="flex items-baseline justify-between gap-2 border-b border-border/50 pb-1">
+              <code className="font-mono text-ink-1 truncate">{String(doc.id ?? '')}</code>
+              <span className="text-ink-3 truncate">{String(doc.title ?? '')}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  }
+  // read_passage returns one Passage object.
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>
+    if ('id' in obj && 'text' in obj) {
+      return (
+        <div className="text-[12px] space-y-1.5">
+          <code className="font-mono text-ink-1 block">{String(obj.id ?? '')}</code>
+          <div className="text-ink-3 text-[11px]">
+            {((obj.heading_path as string[] | undefined) ?? []).join(' › ')}
+          </div>
+          <div className="text-ink-2 leading-relaxed whitespace-pre-wrap mt-1">
+            {String(obj.text ?? '')}
+          </div>
+        </div>
+      )
+    }
+  }
+  // Fallback: pretty-print JSON.
+  return (
+    <pre className="text-[11px] text-ink-2 bg-bg p-2 rounded-md overflow-x-auto whitespace-pre-wrap">
+      {JSON.stringify(value, null, 2)}
+    </pre>
   )
 }

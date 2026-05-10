@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GridMark } from '@/components/GridMark'
-import { loadConversation, sendChatMessage, UnauthorizedError } from '@/lib/api'
+import {
+  loadConversation,
+  loadQuestionSteps,
+  sendChatMessage,
+  UnauthorizedError,
+} from '@/lib/api'
 import type {
   ChatAnswerResponse,
   ChatClarifyResponse,
@@ -26,6 +31,8 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [debugFor, setDebugFor] = useState<ChatMessage | null>(null)
+  const [debugLoading, setDebugLoading] = useState(false)
+  const [debugError, setDebugError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sidebarRefresh, setSidebarRefresh] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
@@ -36,6 +43,70 @@ export default function ChatPage() {
 
   const handleUnauthorized = useCallback(() => {
     window.location.reload()
+  }, [])
+
+  const openDebug = useCallback(
+    async (m: ChatMessage) => {
+      setDebugFor(m)
+      setDebugError(null)
+      if (m.role !== 'assistant') return
+      const r = m.response
+      // Live messages already carry steps inline. Historical messages
+      // (rebuilt via synthesizeResponse) come back with steps=[]; lazy-fetch.
+      if (r.debug.steps.length > 0) return
+      const cid = activeConversationId ?? r.conversation_id
+      const qid = r.question_id
+      if (!cid || !qid) return
+      setDebugLoading(true)
+      try {
+        const fetched = await loadQuestionSteps(cid, qid)
+        setMessages(prev =>
+          prev.map(prevMsg => {
+            if (prevMsg.id !== m.id || prevMsg.role !== 'assistant') return prevMsg
+            const hydrated = {
+              ...prevMsg.response,
+              debug: {
+                tool_calls: fetched.steps.filter(s => s.kind === 'tool_call'),
+                verification_passed: fetched.verifier_passed,
+                steps: fetched.steps,
+              },
+              usage_summary: fetched.usage_summary,
+            }
+            return { ...prevMsg, response: hydrated }
+          }),
+        )
+        setDebugFor(curr => {
+          if (!curr || curr.id !== m.id || curr.role !== 'assistant') return curr
+          return {
+            ...curr,
+            response: {
+              ...curr.response,
+              debug: {
+                tool_calls: fetched.steps.filter(s => s.kind === 'tool_call'),
+                verification_passed: fetched.verifier_passed,
+                steps: fetched.steps,
+              },
+              usage_summary: fetched.usage_summary,
+            },
+          }
+        })
+      } catch (e) {
+        if (e instanceof UnauthorizedError) {
+          handleUnauthorized()
+          return
+        }
+        setDebugError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setDebugLoading(false)
+      }
+    },
+    [activeConversationId, handleUnauthorized],
+  )
+
+  const closeDebug = useCallback(() => {
+    setDebugFor(null)
+    setDebugError(null)
+    setDebugLoading(false)
   }, [])
 
   const loadPriorConversation = useCallback(
@@ -132,7 +203,7 @@ export default function ChatPage() {
               {messages.length === 0 ? (
                 <EmptyState onPick={ask} />
               ) : (
-                <MessageList messages={messages} onOpenDebug={setDebugFor} busy={busy} />
+                <MessageList messages={messages} onOpenDebug={openDebug} busy={busy} />
               )}
               {error && (
                 <div className="mt-6 border border-border bg-surface px-5 py-4 rounded-md text-ink-2 text-sm">
@@ -185,7 +256,12 @@ export default function ChatPage() {
       </div>
 
       {debugFor && debugFor.role === 'assistant' && (
-        <DebugDrawer message={debugFor} onClose={() => setDebugFor(null)} />
+        <DebugDrawer
+          message={debugFor}
+          onClose={closeDebug}
+          loading={debugLoading}
+          loadError={debugError}
+        />
       )}
     </div>
   )

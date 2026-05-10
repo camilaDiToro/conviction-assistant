@@ -57,6 +57,55 @@ async def fetch_by_conversation(session: AsyncSession, conversation_id: str) -> 
     return [_orm_to_row(row) for row in result.scalars().all()]
 
 
+async def fetch_steps_by_question(
+    session: AsyncSession, conversation_id: str, question_id: str
+) -> list[AuditRow]:
+    """Read non-response rows for one (conversation_id, question_id),
+    ordered by SQLite ``rowid`` (insertion order). Drives the per-question
+    step drawer for historical messages.
+
+    ``rowid`` (not ``timestamp``) is the right key here: agent steps are
+    emitted in fast succession and ``datetime.now()`` resolution on
+    Windows is coarse enough to tie, after which a step_id-UUID tiebreak
+    randomizes the ordering. Insertion order is what the live trace
+    reflects, so use it on read too.
+    """
+    stmt = (
+        select(AuditLogORM)
+        .where(
+            AuditLogORM.conversation_id == conversation_id,
+            AuditLogORM.question_id == question_id,
+            AuditLogORM.kind != "response",
+        )
+        .order_by(text("rowid"))
+    )
+    result = await session.execute(stmt)
+    return [_orm_to_row(row) for row in result.scalars().all()]
+
+
+async def fetch_response_row_by_question(
+    session: AsyncSession, conversation_id: str, question_id: str
+) -> AuditRow | None:
+    """Fetch the single ``kind='response'`` row for one (cid, qid). The
+    payload carries the ``retriever`` and ``verifier_strategy`` used —
+    needed to regenerate ``DebugStep.name``/``detail`` for the historical
+    drawer.
+    """
+    stmt = (
+        select(AuditLogORM)
+        .where(
+            AuditLogORM.conversation_id == conversation_id,
+            AuditLogORM.question_id == question_id,
+            AuditLogORM.kind == "response",
+        )
+        .order_by(AuditLogORM.timestamp, AuditLogORM.step_id)
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    row = result.scalars().first()
+    return _orm_to_row(row) if row is not None else None
+
+
 async def fetch_response_rows_by_conversation(
     session: AsyncSession, conversation_id: str
 ) -> list[AuditRow]:

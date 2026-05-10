@@ -10,6 +10,7 @@ import type {
   ChatResponse,
   ConversationListResponse,
   ConversationMessagesResponse,
+  QuestionStepsResponse,
 } from './types'
 import { clearToken, readToken } from './access-gate'
 
@@ -30,7 +31,7 @@ export async function sendChatMessage(args: SendChatArgs): Promise<ChatResponse>
   const token = readToken()
   if (!token) throw new UnauthorizedError('no chat token configured')
 
-  const res = await fetch('/chat', {
+  const res = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -75,13 +76,22 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export async function listConversations(): Promise<ConversationListResponse> {
-  return getJson<ConversationListResponse>('/chat/conversations')
+  return getJson<ConversationListResponse>('/api/chat/conversations')
 }
 
 export async function loadConversation(
   conversationId: string,
 ): Promise<ConversationMessagesResponse> {
   return getJson<ConversationMessagesResponse>(
-    `/chat/conversations/${encodeURIComponent(conversationId)}`,
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}`,
+  )
+}
+
+export async function loadQuestionSteps(
+  conversationId: string,
+  questionId: string,
+): Promise<QuestionStepsResponse> {
+  return getJson<QuestionStepsResponse>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/steps`,
   )
 }

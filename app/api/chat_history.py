@@ -31,9 +31,12 @@ from app.api.schemas import (
     ConversationListResponse,
     ConversationMessage,
     ConversationMessagesResponse,
+    QuestionStepsResponse,
+    UsageSummary,
 )
 from app.config.db import get_session
 from app.repositories import audit as audit_repo
+from app.services.wrap_response import build_response_debug_step, reconstruct_steps_from_audit
 
 router = APIRouter(
     prefix="/chat/conversations",
@@ -91,6 +94,95 @@ async def load_conversation(
         conversation_id=conversation_id,
         messages=messages,
     )
+
+
+@router.get(
+    "/{conversation_id}/questions/{question_id}/steps",
+    response_model=QuestionStepsResponse,
+)
+async def question_steps(
+    conversation_id: str,
+    question_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> QuestionStepsResponse:
+    """Reconstruct the per-step debug trace for one historical question.
+
+    The live ``POST /api/chat`` response inlines this as ``debug.steps``;
+    when the user opens the debug drawer on a message reloaded from the
+    sidebar (where ``debug.steps`` was empty), the frontend lazy-fetches
+    this endpoint and hydrates the drawer with the persisted trace.
+    """
+    response_row = await audit_repo.fetch_response_row_by_question(
+        session, conversation_id, question_id
+    )
+    if response_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"question {question_id!r} in conversation {conversation_id!r} not found",
+        )
+
+    try:
+        summary = cast(dict[str, Any], json.loads(response_row["payload"]))
+    except (ValueError, TypeError):
+        summary = {}
+    retriever_name = str(summary.get("retriever") or "")
+    verifier_name = str(summary.get("verifier_strategy") or "")
+
+    rows = await audit_repo.fetch_steps_by_question(session, conversation_id, question_id)
+    steps, verifier_passed = reconstruct_steps_from_audit(
+        rows, retriever_name=retriever_name, verifier_name=verifier_name
+    )
+
+    output_dump = summary.get("output") if isinstance(summary.get("output"), dict) else None
+    if output_dump is not None:
+        verified_citations = summary.get("verified_citations")
+        if not isinstance(verified_citations, list):
+            verified_citations = None
+        steps.append(
+            build_response_debug_step(
+                output_dump,
+                verified_citations=verified_citations,
+                step_id=response_row["step_id"],
+            )
+        )
+
+    question_cost = round(sum(s.cost_usd or 0.0 for s in steps), 8)
+    conversation_rows = await audit_repo.fetch_cost_rows_by_conversation(session, conversation_id)
+    conversation_cost = _conversation_cost(conversation_rows)
+
+    return QuestionStepsResponse(
+        conversation_id=conversation_id,
+        question_id=question_id,
+        steps=steps,
+        usage_summary=UsageSummary(
+            question_total_cost_usd=question_cost,
+            conversation_total_cost_usd=conversation_cost,
+            step_count=len(steps),
+        ),
+        verifier_passed=verifier_passed,
+    )
+
+
+def _conversation_cost(rows: list[audit_repo.AuditRow]) -> float:
+    """Sum priced LLM-call costs across a conversation. Mirrors
+    :func:`app.api.chat._prior_conversation_cost` but the live handler is
+    request-coupled; this helper is reused at read time."""
+    from app.providers import ProviderError, TokenUsage  # local import: keep top thin
+    from app.services.cost import compute_call_cost_usd
+
+    total = 0.0
+    for row in rows:
+        if not row["usage"]:
+            continue
+        try:
+            usage = TokenUsage.model_validate(json.loads(row["usage"]))
+        except (ValueError, TypeError):
+            continue
+        try:
+            total += compute_call_cost_usd(usage)
+        except ProviderError:
+            continue
+    return round(total, 8)
 
 
 def _make_title(text: str) -> str:

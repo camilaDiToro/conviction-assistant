@@ -68,8 +68,14 @@ export interface DebugStep {
   name: string
   detail: string
   duration_ms: number
-  usage?: TokenUsage
-  cost_usd?: number
+  usage: TokenUsage | null
+  cost_usd: number | null
+  // Step-kind-specific JSON summary of what the step produced.
+  // tool_call → { result: <tool return value> }
+  // llm_call  → { tool_calls?, parsed?, content? }
+  // verifier  → { attempt, all_passed, verified, failures }
+  // response  → { output: AnswerOutput | ClarifyingQuestionOutput, verified_citations? }
+  result: Record<string, unknown> | null
 }
 
 export interface UsageSummary {
@@ -152,4 +158,12 @@ export interface ConversationMessage {
 export interface ConversationMessagesResponse {
   conversation_id: string
   messages: ConversationMessage[]
+}
+
+export interface QuestionStepsResponse {
+  conversation_id: string
+  question_id: string
+  steps: DebugStep[]
+  usage_summary: UsageSummary
+  verifier_passed: boolean
 }

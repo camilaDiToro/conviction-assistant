@@ -12,6 +12,8 @@ already produced — no extra DB hits at response time. Cost is computed
 per LLM-call step via :func:`app.services.cost.compute_call_cost_usd`.
 """
 
+import json
+from datetime import datetime
 from typing import Any
 
 from app.agent import AgentResult, AnswerOutput, ClarifyingQuestionOutput, StepRecord
@@ -24,7 +26,8 @@ from app.api.schemas import (
     DebugStep,
     UsageSummary,
 )
-from app.providers import ProviderError
+from app.providers import ProviderError, TokenUsage
+from app.repositories import audit as audit_repo
 from app.services.cost import compute_call_cost_usd
 from app.services.disclaimer import Language, disclaimer_for
 
@@ -52,6 +55,15 @@ def wrap(
     question_cost = round(sum(d.cost_usd or 0.0 for d in debug_steps), 8)
     conversation_cost = round(prior_conversation_cost_usd + question_cost, 8)
     verifier_passed = _all_verifiers_passed(result.steps)
+
+    debug_steps.append(
+        _response_debug_step(
+            result.output.model_dump(mode="json"),
+            verified_citations=[
+                vc.model_dump(mode="json") for vc in (result.verified_citations or [])
+            ],
+        )
+    )
 
     usage_summary = UsageSummary(
         question_total_cost_usd=question_cost,
@@ -131,7 +143,81 @@ def _step_to_debug(step: StepRecord, retriever_name: str, verifier_name: str) ->
         duration_ms=0,
         usage=step.usage,
         cost_usd=cost_usd,
+        result=_step_result_summary(step),
     )
+
+
+def _step_result_summary(step: StepRecord) -> dict[str, Any] | None:
+    """Step-kind-specific JSON summary of what the step produced.
+
+    Surfaces the data the audit_log already persists (tool return values,
+    LLM parsed output, verifier verified/failures lists) so the debug
+    drawer can show *what came back*, not just *what was called*.
+    """
+    p = step.payload or {}
+    if step.kind == "tool_call":
+        result = p.get("result")
+        return {"result": result} if result is not None else None
+    if step.kind == "llm_call":
+        out: dict[str, Any] = {}
+        tool_calls = p.get("tool_calls") or []
+        if tool_calls:
+            out["tool_calls"] = tool_calls
+        if p.get("parsed") is not None:
+            out["parsed"] = p["parsed"]
+        if p.get("content") is not None:
+            out["content"] = p["content"]
+        return out or None
+    if step.kind == "verifier":
+        return {
+            "attempt": p.get("attempt", 0),
+            "all_passed": p.get("all_passed", False),
+            "verified": p.get("verified") or [],
+            "failures": p.get("failures") or [],
+        }
+    return None
+
+
+def _response_debug_step(
+    output_dump: dict[str, Any],
+    *,
+    verified_citations: list[dict[str, Any]] | None = None,
+    step_id: str | None = None,
+) -> DebugStep:
+    """Synthetic ``kind='response'`` step appended at the end of the trace.
+
+    Lets the debug drawer show the model's final answer (or clarifying
+    question) inline with the rest of the steps, instead of forcing the
+    reviewer to look at the message bubble for the text and the drawer
+    for everything else.
+    """
+    import uuid as _uuid
+
+    kind = output_dump.get("kind", "answer")
+    if kind == "clarifying_question":
+        question = output_dump.get("question", "")
+        detail = f"clarifying_question: {_truncate(question, 80)}"
+    else:
+        answer = output_dump.get("answer", "")
+        detail = f"answer ({len(answer)} chars): {_truncate(answer, 80)}"
+    result: dict[str, Any] = {"output": output_dump}
+    if verified_citations:
+        result["verified_citations"] = verified_citations
+    return DebugStep(
+        step_id=step_id or str(_uuid.uuid4()),
+        kind="response",
+        name=f"response.{kind}",
+        detail=detail,
+        duration_ms=0,
+        usage=None,
+        cost_usd=None,
+        result=result,
+    )
+
+
+def _truncate(s: str, n: int) -> str:
+    s = s.replace("\n", " ").strip()
+    return s if len(s) <= n else s[: n - 1] + "…"
 
 
 def _name_and_detail(step: StepRecord, retriever_name: str, verifier_name: str) -> tuple[str, str]:
@@ -207,4 +293,74 @@ def _audit_summary(
     return summary
 
 
-__all__ = ["wrap"]
+def reconstruct_steps_from_audit(
+    rows: list[audit_repo.AuditRow],
+    *,
+    retriever_name: str,
+    verifier_name: str,
+) -> tuple[list[DebugStep], bool]:
+    """Rebuild ``DebugStep``s from persisted audit rows.
+
+    The live request emits ``StepRecord``s through :func:`_step_to_debug`.
+    Historical requests are read back as :class:`audit_repo.AuditRow` —
+    this function deserializes the JSON columns into a transient
+    :class:`StepRecord` and reuses the same name/detail/cost logic so the
+    historical drawer renders identically to the live one.
+
+    Returns ``(steps, verifier_passed)``. Rows whose ``kind`` is not one
+    of ``llm_call|tool_call|verifier`` are skipped — the response row is
+    expected to be filtered out by the caller, but defending here makes
+    the function safe regardless.
+    """
+    transient: list[StepRecord] = []
+    for row in rows:
+        kind = row["kind"]
+        if kind not in ("llm_call", "tool_call", "verifier"):
+            continue
+        try:
+            payload = json.loads(row["payload"]) if row["payload"] else {}
+        except (ValueError, TypeError):
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        tool_name = payload.pop("tool_name", None) if isinstance(payload, dict) else None
+        usage: TokenUsage | None = None
+        if row["usage"]:
+            try:
+                usage = TokenUsage.model_validate(json.loads(row["usage"]))
+            except (ValueError, TypeError):
+                usage = None
+        try:
+            ts = datetime.fromisoformat(row["timestamp"])
+        except ValueError:
+            ts = datetime.fromtimestamp(0)
+        transient.append(
+            StepRecord(
+                step_id=row["step_id"],
+                kind=kind,  # type: ignore[arg-type]
+                timestamp=ts,
+                payload=payload,
+                usage=usage,
+                tool_name=tool_name if isinstance(tool_name, str) else None,
+            )
+        )
+    debug_steps = [_step_to_debug(s, retriever_name, verifier_name) for s in transient]
+    return debug_steps, _all_verifiers_passed(transient)
+
+
+__all__ = ["build_response_debug_step", "reconstruct_steps_from_audit", "wrap"]
+
+
+def build_response_debug_step(
+    output_dump: dict[str, Any],
+    *,
+    verified_citations: list[dict[str, Any]] | None = None,
+    step_id: str | None = None,
+) -> DebugStep:
+    """Public wrapper for :func:`_response_debug_step` so the historical
+    steps endpoint can append the same synthetic response step the live
+    path emits.
+    """
+    return _response_debug_step(
+        output_dump, verified_citations=verified_citations, step_id=step_id
+    )
