@@ -27,6 +27,7 @@ from app.providers.base import (
     ToolDefinition,
     Verbosity,
 )
+from app.providers.text_repair import repair_strings_in
 
 
 class OpenAILLM:
@@ -194,7 +195,13 @@ def _completion_to_response(
             raise ProviderError(
                 f"tool call {raw.function.name!r} returned invalid JSON arguments"
             ) from exc
-        tool_calls.append(ToolCall(id=raw.id, name=raw.function.name, arguments=arguments))
+        tool_calls.append(
+            ToolCall(
+                id=raw.id,
+                name=raw.function.name,
+                arguments=repair_strings_in(arguments),
+            )
+        )
 
     content: str | None = message.content
     parsed: dict[str, Any] | None = None
@@ -206,6 +213,7 @@ def _completion_to_response(
             raise ProviderError(
                 "OpenAI returned content that did not match the requested JSON schema"
             ) from exc
+        parsed = repair_strings_in(parsed)
 
     usage_obj = completion.usage
     prompt_tokens = getattr(usage_obj, "prompt_tokens", 0) or 0
