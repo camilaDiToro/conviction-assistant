@@ -27,7 +27,8 @@ frontend/dist/
 frontend/.vite/
 
 # Local data — Postgres in docker compose, OpenAI vector caches, etc.
-data/
+# Anchored to repo root so frontend/src/data/ (TS data modules) is NOT ignored.
+/data/
 postgres-data/
 
 # Editor / OS / agent harness
