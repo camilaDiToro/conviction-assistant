@@ -158,9 +158,28 @@ async def question_steps(
             question_total_cost_usd=question_cost,
             conversation_total_cost_usd=conversation_cost,
             step_count=len(steps),
+            duration_ms=_audit_duration_ms(rows),
         ),
         verifier_passed=verifier_passed,
     )
+
+
+def _audit_duration_ms(rows: list[audit_repo.AuditRow]) -> int:
+    """Wall-clock span between first and last audit row for a question."""
+    from datetime import datetime
+
+    if not rows:
+        return 0
+    parsed: list[datetime] = []
+    for r in rows:
+        try:
+            parsed.append(datetime.fromisoformat(r["timestamp"]))
+        except (ValueError, TypeError):
+            continue
+    if not parsed:
+        return 0
+    delta = max(parsed) - min(parsed)
+    return int(delta.total_seconds() * 1000)
 
 
 def _conversation_cost(rows: list[audit_repo.AuditRow]) -> float:
@@ -197,10 +216,13 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
     kind = output.get("kind", "answer")
     citations = [_citation_from_dump(c) for c in (payload.get("verified_citations") or [])]
 
+    user_question_raw = (
+        payload.get("user_question") or payload.get("rewritten_question") or ""
+    )
     common = {
         "question_id": row["question_id"],
         "timestamp": row["timestamp"],  # parsed by Pydantic
-        "user_question": payload.get("user_question") or payload.get("rewritten_question") or "",
+        "user_question": _repair(user_question_raw) or "",
         "language": payload.get("language", "en"),
         "verifier_passed": bool(payload.get("verifier_passed", False)),
     }
@@ -209,19 +231,37 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
         return ConversationMessage(
             **common,
             kind="clarifying_question",
-            clarifying_question=output.get("question"),
-            clarifying_options=list(output.get("options") or []),
+            clarifying_question=_repair(output.get("question")),
+            clarifying_options=[
+                repaired
+                for o in (output.get("options") or [])
+                if (repaired := _repair(o)) is not None
+            ],
         )
 
     return ConversationMessage(
         **common,
         kind="answer",
-        answer=output.get("answer"),
+        answer=_repair(output.get("answer")),
         citations=citations,
         general_knowledge_used=output.get("general_knowledge_used"),
-        general_knowledge_section=output.get("general_knowledge_section"),
+        general_knowledge_section=_repair(output.get("general_knowledge_section")),
         out_of_scope=output.get("out_of_scope"),
     )
+
+
+def _repair(s: str | None) -> str | None:
+    """Apply the broken-escape repair to historical text persisted before
+    the OpenAI adapter started repairing on parse. Idempotent — strings
+    that were stored cleanly are returned unchanged.
+
+    See :func:`app.providers.text_repair.repair_broken_unicode_escapes`.
+    """
+    if s is None:
+        return None
+    from app.providers.text_repair import repair_broken_unicode_escapes
+
+    return repair_broken_unicode_escapes(s)
 
 
 def _citation_from_dump(dump: dict[str, Any]) -> ChatCitation:

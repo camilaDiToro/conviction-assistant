@@ -82,6 +82,7 @@ export interface UsageSummary {
   question_total_cost_usd: number
   conversation_total_cost_usd: number
   step_count: number
+  duration_ms: number
 }
 
 export interface ChatAnswerResponse {

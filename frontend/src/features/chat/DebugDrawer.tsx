@@ -34,8 +34,8 @@ export function DebugDrawer({ message, onClose, loading = false, loadError = nul
 
         <div className="p-6 space-y-8">
           <section>
-            <h4 className="text-ink-3 text-[11px] uppercase tracking-tight mb-3">Cost summary</h4>
-            <dl className="grid grid-cols-3 gap-px bg-border border border-border">
+            <h4 className="text-ink-3 text-[11px] uppercase tracking-tight mb-3">Summary</h4>
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border">
               <div className="bg-bg p-4">
                 <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Question</dt>
                 <dd className="text-ink-1 font-mono mt-1">${r.usage_summary.question_total_cost_usd.toFixed(5)}</dd>
@@ -47,6 +47,10 @@ export function DebugDrawer({ message, onClose, loading = false, loadError = nul
               <div className="bg-bg p-4">
                 <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Steps</dt>
                 <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.step_count}</dd>
+              </div>
+              <div className="bg-bg p-4">
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Time</dt>
+                <dd className="text-ink-1 font-mono mt-1">{formatDuration(r.usage_summary.duration_ms)}</dd>
               </div>
             </dl>
           </section>
@@ -94,6 +98,16 @@ export function DebugDrawer({ message, onClose, loading = false, loadError = nul
       </aside>
     </div>
   )
+}
+
+function formatDuration(ms: number): string {
+  if (!ms || ms < 0) return '0ms'
+  if (ms < 1000) return `${ms}ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 2 : 1)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds - minutes * 60
+  return `${minutes}m ${remainder.toFixed(0)}s`
 }
 
 function StepItem({ step, index }: { step: DebugStep; index: number }) {

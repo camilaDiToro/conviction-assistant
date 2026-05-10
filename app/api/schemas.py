@@ -84,6 +84,7 @@ class UsageSummary(BaseModel):
     question_total_cost_usd: float
     conversation_total_cost_usd: float
     step_count: int
+    duration_ms: int = 0
 
 
 class DebugBlock(BaseModel):

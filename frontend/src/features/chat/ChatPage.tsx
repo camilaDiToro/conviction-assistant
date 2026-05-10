@@ -299,6 +299,7 @@ function synthesizeResponse(msg: ConversationMessage): ChatAnswerResponse | Chat
     question_total_cost_usd: 0,
     conversation_total_cost_usd: 0,
     step_count: 0,
+    duration_ms: 0,
   }
   if (msg.kind === 'clarifying_question') {
     return {

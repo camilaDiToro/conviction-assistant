@@ -69,6 +69,7 @@ def wrap(
         question_total_cost_usd=question_cost,
         conversation_total_cost_usd=conversation_cost,
         step_count=len(debug_steps),
+        duration_ms=_question_duration_ms(result.steps),
     )
     debug = DebugBlock(
         tool_calls=[d for d in debug_steps if d.kind == "tool_call"],
@@ -247,6 +248,20 @@ def _name_and_detail(step: StepRecord, retriever_name: str, verifier_name: str) 
             f"verified={len(verified)} failures={len(failures)}",
         )
     return step.kind, ""
+
+
+def _question_duration_ms(steps: list[StepRecord]) -> int:
+    """Wall-clock span between the first and last persisted step.
+
+    Returns 0 for an empty trace. Drives the ``duration_ms`` field on
+    ``UsageSummary`` — used to render total time-spent in the debug
+    drawer's summary section.
+    """
+    if not steps:
+        return 0
+    timestamps = [s.timestamp for s in steps]
+    delta = max(timestamps) - min(timestamps)
+    return int(delta.total_seconds() * 1000)
 
 
 def _all_verifiers_passed(steps: list[StepRecord]) -> bool:
