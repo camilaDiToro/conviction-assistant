@@ -1,5 +1,5 @@
 import { Bug, FileText, Info, Quote } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChatMessage, Citation } from '@/lib/types'
 
 interface MessageListProps {
@@ -80,7 +80,7 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
         <div className="mt-6 space-y-2">
           <div className="text-ink-3 text-[11px] uppercase tracking-tight">Citations</div>
           {r.citations.map((c, i) => (
-            <CitationRow key={i} citation={c} />
+            <CitationRow key={i} citation={c} index={i + 1} />
           ))}
         </div>
       )}
@@ -90,18 +90,124 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
   )
 }
 
-function RenderAnswer({ text }: { text: string; citations: Citation[] }) {
-  return <p>{text}</p>
+const INLINE_RE = /\*\*(.+?)\*\*|⟦cite:(\d+)⟧/g
+
+function injectCitationTokens(answer: string, citations: Citation[]): string {
+  let out = answer
+  citations.forEach((c, i) => {
+    if (!c.quote) return
+    const token = `⟦cite:${i + 1}⟧`
+    if (out.includes(token)) return
+    const idx = out.indexOf(c.quote)
+    if (idx === -1) return
+    const insertAt = idx + c.quote.length
+    out = out.slice(0, insertAt) + token + out.slice(insertAt)
+  })
+  return out
 }
 
-function CitationRow({ citation }: { citation: Citation }) {
-  const [open, setOpen] = useState(false)
+function jumpToCitation(n: number) {
+  const el = document.getElementById(`cite-${n}`)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  el.classList.add('ring-1', 'ring-ink-1')
+  window.setTimeout(() => el.classList.remove('ring-1', 'ring-ink-1'), 1200)
+}
+
+function renderInline(text: string, key: string): React.ReactNode[] {
+  const out: React.ReactNode[] = []
+  let last = 0
+  let match: RegExpExecArray | null
+  const re = new RegExp(INLINE_RE.source, 'g')
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) out.push(text.slice(last, match.index))
+    if (match[1] !== undefined) {
+      out.push(<strong key={`${key}-b${out.length}`}>{match[1]}</strong>)
+    } else if (match[2] !== undefined) {
+      const n = Number(match[2])
+      out.push(
+        <sup key={`${key}-c${out.length}`}>
+          <a
+            href={`#cite-${n}`}
+            onClick={e => { e.preventDefault(); jumpToCitation(n) }}
+            className="ml-0.5 text-ink-1 no-underline hover:underline font-medium"
+          >
+            [{n}]
+          </a>
+        </sup>,
+      )
+    }
+    last = re.lastIndex
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
+function RenderAnswer({ text, citations }: { text: string; citations: Citation[] }) {
+  const tokenized = injectCitationTokens(text, citations)
+  const blocks = tokenized.split(/\n{2,}/)
   return (
-    <div className="border border-border bg-surface rounded-md">
+    <>
+      {blocks.map((block, bi) => {
+        const lines = block.split('\n')
+        const allBullets = lines.length > 0 && lines.every(l => /^\s*-\s+/.test(l))
+        if (allBullets) {
+          return (
+            <ul key={bi} className="list-disc pl-6 my-3 space-y-1.5">
+              {lines.map((l, li) => (
+                <li key={li}>{renderInline(l.replace(/^\s*-\s+/, ''), `b${bi}-${li}`)}</li>
+              ))}
+            </ul>
+          )
+        }
+        return (
+          <p key={bi} className="my-3">
+            {lines.flatMap((l, li) => {
+              const stripped = l.replace(/^\s*-\s+/, '• ')
+              const nodes = renderInline(stripped, `b${bi}-${li}`)
+              return li === 0 ? nodes : [<br key={`br-${bi}-${li}`} />, ...nodes]
+            })}
+          </p>
+        )
+      })}
+    </>
+  )
+}
+
+function highlightQuote(passage: string, quote: string): React.ReactNode {
+  if (!quote) return passage
+  const idx = passage.indexOf(quote)
+  if (idx === -1) return passage
+  return (
+    <>
+      {passage.slice(0, idx)}
+      <mark className="bg-ink-1/10 text-ink-1 not-italic">{passage.slice(idx, idx + quote.length)}</mark>
+      {passage.slice(idx + quote.length)}
+    </>
+  )
+}
+
+function CitationRow({ citation, index }: { citation: Citation; index: number }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    // Auto-expand on hash navigation so the user lands on the passage text.
+    const onHash = () => {
+      if (window.location.hash === `#cite-${index}`) setOpen(true)
+    }
+    onHash()
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [index])
+  return (
+    <div
+      id={`cite-${index}`}
+      className="border border-border bg-surface rounded-md scroll-mt-24 transition-shadow"
+    >
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-surface-2 transition-colors"
       >
+        <span className="font-mono text-[11px] text-ink-1 mt-0.5 shrink-0 min-w-[1.5rem]">[{index}]</span>
         <FileText size={14} className="text-ink-3 mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <code className="font-mono text-[11px] text-ink-1 truncate block">{citation.passage_id}</code>
@@ -112,13 +218,21 @@ function CitationRow({ citation }: { citation: Citation }) {
         </div>
       </button>
       {open && (
-        <div className="px-4 pb-4 pt-1 border-t border-border">
+        <div className="px-4 pb-4 pt-1 border-t border-border space-y-3">
           <div className="flex items-start gap-2">
             <Quote size={14} className="text-ink-3 mt-1 shrink-0" />
             <blockquote className="text-ink-2 italic leading-relaxed text-[15px]">
               "{citation.quote}"
             </blockquote>
           </div>
+          {citation.passage_text && (
+            <div>
+              <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Source passage</div>
+              <pre className="whitespace-pre-wrap font-sans text-ink-2 text-[14px] leading-relaxed">
+                {highlightQuote(citation.passage_text, citation.quote)}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </div>
