@@ -70,15 +70,16 @@ class BM25Index:
         await self.build(session)
 
     def _reindex(self, passages: list[Passage]) -> None:
-        self._passages = passages
+        # Build the new retriever in locals first; commit both refs in one
+        # statement so a tokenize/index failure leaves the prior index serving.
         if not passages:
-            self._retriever = None
+            self._passages, self._retriever = [], None
             return
         corpus = [_normalize(p.text) for p in passages]
         tokens = bm25s.tokenize(corpus, stopwords=None, show_progress=False)
         retriever = bm25s.BM25()
         retriever.index(tokens, show_progress=False)
-        self._retriever = retriever
+        self._passages, self._retriever = passages, retriever
 
     def search(self, query: str, k: int) -> list[tuple[Passage, float]]:
         """Return the top-`k` (passage, score) pairs for `query`.
