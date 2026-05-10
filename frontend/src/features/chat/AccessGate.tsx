@@ -54,11 +54,6 @@ function Locked({ onUnlock }: { onUnlock: (token: string) => void }) {
             <ShieldAlert size={11} /> Access required
           </div>
           <h1 className="text-display-3 text-ink-1 mb-3 tracking-tight">Paste your chat token.</h1>
-          <p className="text-ink-2 leading-relaxed mb-6">
-            The chat surface is gated by a server-validated token. Paste the token your reviewer
-            shared with you — it stays on your device and is sent on every request to{' '}
-            <code className="text-ink-1">/chat</code>.
-          </p>
 
           <form onSubmit={submit} className="space-y-4">
             <div>
@@ -84,13 +79,6 @@ function Locked({ onUnlock }: { onUnlock: (token: string) => void }) {
               Save and enter <ArrowRight size={14} />
             </button>
           </form>
-
-          <div className="mt-8 pt-6 border-t border-border text-ink-3 text-xs leading-relaxed">
-            <strong className="text-ink-2 font-medium">Note:</strong> the token is validated by the
-            backend on every request. If the server rejects it, you'll be brought back here. The
-            token is never shipped in the SPA bundle — leaking the deploy bundle does not leak the
-            token.
-          </div>
         </div>
       </main>
     </div>
