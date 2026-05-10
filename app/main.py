@@ -19,6 +19,7 @@ from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.config import db, settings
 from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
+from app.providers import ProviderError
 from app.repositories import passages as passages_repo
 from app.retrieval import get_retriever
 from app.services import ingest as ingest_service
@@ -84,6 +85,14 @@ async def _empty_query_error_handler(request: Request, exc: EmptyQueryError) -> 
 @app.exception_handler(AgentError)
 async def _agent_error_handler(request: Request, exc: AgentError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
+@app.exception_handler(ProviderError)
+async def _provider_error_handler(request: Request, exc: ProviderError) -> JSONResponse:
+    # 503 (upstream unusable response) is distinct from 500 (our code
+    # crashed) so the frontend can render an actionable message instead
+    # of a generic Internal Server Error.
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.exception_handler(DomainError)

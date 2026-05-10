@@ -28,7 +28,11 @@ class Settings(BaseSettings):
     # Override from .env without code changes — ALL CAPS variable names.
     agent_max_tool_calls: int = 5
     agent_max_iterations: int = 12
-    agent_max_output_tokens: int = 4096
+    # Bumped from 4096 → 8192: at the default reasoning effort gpt-5
+    # routinely overran 4096 on broad synthesis turns, leaving `content`
+    # empty and triggering a silent 500. See `app/providers/openai.py`
+    # for the empty-content detection.
+    agent_max_output_tokens: int = 8192
     agent_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "medium"
     rewrite_max_output_tokens: int = 200
     rewrite_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
