@@ -4,9 +4,9 @@ Called once at end of a /chat request. The orchestrator already emits
 :class:`StepRecord`s during the agent loop; this service serializes
 them, stamps ``question_id`` + ``conversation_id``, and inserts in one
 transaction. A final ``kind="response"`` summary row carries the per-
-question header (language, retriever name, verifier outcome, output)
-so the read endpoint can render the conversation list without rehydrating
-each step.
+question header (language, retriever name, resolved citation entries,
+output) so the read endpoint can render the conversation list without
+rehydrating each step.
 
 Audit writes are best-effort — if the insert fails the user response
 still goes out, with a warning logged. The user response is the priority.

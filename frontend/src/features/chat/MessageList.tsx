@@ -1,6 +1,7 @@
-import { Bug, FileText, Info, Quote } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Bug, FileText, Info } from 'lucide-react'
+import { useState } from 'react'
 import type { ChatMessage, Citation } from '@/lib/types'
+import { CitationModal } from './CitationModal'
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -34,6 +35,7 @@ function UserBubble({ text }: { text: string }) {
 
 function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage, { role: 'assistant' }>; onOpenDebug: () => void }) {
   const r = message.response
+  const [openCitation, setOpenCitation] = useState<Citation | null>(null)
 
   if (r.kind === 'clarifying_question') {
     return (
@@ -50,21 +52,20 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
     )
   }
 
+  const openByIndex = (n: number) => {
+    if (n < 1 || n > r.citations.length) return
+    setOpenCitation(r.citations[n - 1])
+  }
+
   return (
     <div className="animate-fade-in">
       <div className="flex items-center gap-3 mb-3">
         <span className="text-ink-3 text-[11px] uppercase tracking-tight">Decade AI</span>
         {r.out_of_scope && <span className="pill"><Info size={11} /> Out of scope</span>}
-        {!r.out_of_scope && r.debug.verification_passed && (
-          <span className="pill"><span className="text-ink-1">✓</span> Verified</span>
-        )}
-        {!r.out_of_scope && !r.debug.verification_passed && (
-          <span className="pill"><span className="text-ink-1">✗</span> Verifier failed</span>
-        )}
       </div>
 
       <div className="prose-decade text-ink-1 leading-relaxed text-[17px] mb-6">
-        <RenderAnswer text={r.answer} citations={r.citations} />
+        <RenderAnswer text={r.answer} citations={r.citations} onOpenCitation={openByIndex} />
       </div>
 
       {r.general_knowledge_used && r.general_knowledge_section && (
@@ -80,12 +81,19 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
         <div className="mt-6 space-y-2">
           <div className="text-ink-3 text-[11px] uppercase tracking-tight">Citations</div>
           {r.citations.map((c, i) => (
-            <CitationRow key={i} citation={c} index={i + 1} />
+            <CitationRow
+              key={i}
+              citation={c}
+              index={i + 1}
+              onOpen={() => setOpenCitation(c)}
+            />
           ))}
         </div>
       )}
 
       <Footer onOpenDebug={onOpenDebug} disclaimer={r.disclaimer} />
+
+      <CitationModal citation={openCitation} onClose={() => setOpenCitation(null)} />
     </div>
   )
 }
@@ -93,38 +101,21 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
 const INLINE_RE = /\*\*(.+?)\*\*|⟦cite:(\d+)⟧/g
 
 function injectCitationTokens(answer: string, citations: Citation[]): string {
-  // Primary pass: convert literal [N] markers (1-indexed) typed by the
-  // agent into the internal token. Out-of-range numbers are left alone
-  // (they may be legitimate bracketed numbers in the prose).
-  let out = answer.replace(/\[(\d+)\]/g, (match, n) => {
+  // Convert literal [N] markers (1-indexed) typed by the agent into the
+  // internal token. Out-of-range numbers are left alone (they may be
+  // legitimate bracketed numbers in the prose).
+  return answer.replace(/\[(\d+)\]/g, (match, n) => {
     const idx = Number(n)
     if (idx < 1 || idx > citations.length) return match
     return `⟦cite:${idx}⟧`
   })
-  // Fallback pass: for any citation not yet referenced, try to find its
-  // verbatim quote in the answer and append a token. Protects answers
-  // produced before the [N]-marker convention landed.
-  citations.forEach((c, i) => {
-    if (!c.quote) return
-    const token = `⟦cite:${i + 1}⟧`
-    if (out.includes(token)) return
-    const idx = out.indexOf(c.quote)
-    if (idx === -1) return
-    const insertAt = idx + c.quote.length
-    out = out.slice(0, insertAt) + token + out.slice(insertAt)
-  })
-  return out
 }
 
-function jumpToCitation(n: number) {
-  const el = document.getElementById(`cite-${n}`)
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  el.classList.add('ring-1', 'ring-ink-1')
-  window.setTimeout(() => el.classList.remove('ring-1', 'ring-ink-1'), 1200)
-}
-
-function renderInline(text: string, key: string): React.ReactNode[] {
+function renderInline(
+  text: string,
+  key: string,
+  onOpenCitation: (n: number) => void,
+): React.ReactNode[] {
   const out: React.ReactNode[] = []
   let last = 0
   let match: RegExpExecArray | null
@@ -137,13 +128,13 @@ function renderInline(text: string, key: string): React.ReactNode[] {
       const n = Number(match[2])
       out.push(
         <sup key={`${key}-c${out.length}`}>
-          <a
-            href={`#cite-${n}`}
-            onClick={e => { e.preventDefault(); jumpToCitation(n) }}
-            className="ml-0.5 text-ink-1 no-underline hover:underline font-medium"
+          <button
+            type="button"
+            onClick={() => onOpenCitation(n)}
+            className="ml-0.5 text-ink-1 no-underline hover:underline font-medium bg-transparent border-0 p-0 cursor-pointer"
           >
             [{n}]
-          </a>
+          </button>
         </sup>,
       )
     }
@@ -153,7 +144,15 @@ function renderInline(text: string, key: string): React.ReactNode[] {
   return out
 }
 
-function RenderAnswer({ text, citations }: { text: string; citations: Citation[] }) {
+function RenderAnswer({
+  text,
+  citations,
+  onOpenCitation,
+}: {
+  text: string
+  citations: Citation[]
+  onOpenCitation: (n: number) => void
+}) {
   const tokenized = injectCitationTokens(text, citations)
   const blocks = tokenized.split(/\n{2,}/)
   return (
@@ -165,7 +164,9 @@ function RenderAnswer({ text, citations }: { text: string; citations: Citation[]
           return (
             <ul key={bi} className="list-disc pl-6 my-3 space-y-1.5">
               {lines.map((l, li) => (
-                <li key={li}>{renderInline(l.replace(/^\s*-\s+/, ''), `b${bi}-${li}`)}</li>
+                <li key={li}>
+                  {renderInline(l.replace(/^\s*-\s+/, ''), `b${bi}-${li}`, onOpenCitation)}
+                </li>
               ))}
             </ul>
           )
@@ -174,7 +175,7 @@ function RenderAnswer({ text, citations }: { text: string; citations: Citation[]
           <p key={bi} className="my-3">
             {lines.flatMap((l, li) => {
               const stripped = l.replace(/^\s*-\s+/, '• ')
-              const nodes = renderInline(stripped, `b${bi}-${li}`)
+              const nodes = renderInline(stripped, `b${bi}-${li}`, onOpenCitation)
               return li === 0 ? nodes : [<br key={`br-${bi}-${li}`} />, ...nodes]
             })}
           </p>
@@ -184,68 +185,32 @@ function RenderAnswer({ text, citations }: { text: string; citations: Citation[]
   )
 }
 
-function highlightQuote(passage: string, quote: string): React.ReactNode {
-  if (!quote) return passage
-  const idx = passage.indexOf(quote)
-  if (idx === -1) return passage
+function CitationRow({
+  citation,
+  index,
+  onOpen,
+}: {
+  citation: Citation
+  index: number
+  onOpen: () => void
+}) {
   return (
-    <>
-      {passage.slice(0, idx)}
-      <mark className="bg-ink-1/10 text-ink-1 not-italic">{passage.slice(idx, idx + quote.length)}</mark>
-      {passage.slice(idx + quote.length)}
-    </>
-  )
-}
-
-function CitationRow({ citation, index }: { citation: Citation; index: number }) {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    // Auto-expand on hash navigation so the user lands on the passage text.
-    const onHash = () => {
-      if (window.location.hash === `#cite-${index}`) setOpen(true)
-    }
-    onHash()
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
-  }, [index])
-  return (
-    <div
-      id={`cite-${index}`}
-      className="border border-border bg-surface rounded-md scroll-mt-24 transition-shadow"
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full border border-border bg-surface hover:bg-surface-2 hover:border-border-strong rounded-md transition-colors text-left"
     >
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-surface-2 transition-colors"
-      >
+      <div className="flex items-start gap-3 px-4 py-3">
         <span className="font-mono text-[11px] text-ink-1 mt-0.5 shrink-0 min-w-[1.5rem]">[{index}]</span>
         <FileText size={14} className="text-ink-3 mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <code className="font-mono text-[11px] text-ink-1 truncate block">{citation.passage_id}</code>
           <div className="text-ink-3 text-[11px] mt-0.5 truncate">
             {citation.heading_path.join(' › ')}
-            {citation.document_updated && ` · updated ${citation.document_updated}`}
           </div>
         </div>
-      </button>
-      {open && (
-        <div className="px-4 pb-4 pt-1 border-t border-border space-y-3">
-          <div className="flex items-start gap-2">
-            <Quote size={14} className="text-ink-3 mt-1 shrink-0" />
-            <blockquote className="text-ink-2 italic leading-relaxed text-[15px]">
-              "{citation.quote}"
-            </blockquote>
-          </div>
-          {citation.passage_text && (
-            <div>
-              <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-1">Source passage</div>
-              <pre className="whitespace-pre-wrap font-sans text-ink-2 text-[14px] leading-relaxed">
-                {highlightQuote(citation.passage_text, citation.quote)}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      </div>
+    </button>
   )
 }
 
@@ -271,7 +236,7 @@ function Thinking() {
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink-3 animate-pulse" />
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink-3 animate-pulse [animation-delay:120ms]" />
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink-3 animate-pulse [animation-delay:240ms]" />
-        <span className="ml-2 text-xs">searching · reading · verifying</span>
+        <span className="ml-2 text-xs">searching · reading · grounding</span>
       </div>
     </div>
   )

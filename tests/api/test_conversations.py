@@ -1,7 +1,6 @@
 """Tests for GET /admin/conversations/{id} and /cost (B9)."""
 
 from collections.abc import Awaitable, Callable
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +8,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.agent.tools import TOOLS, ToolContext, ToolEntry
-from app.agent.verifier import SubstringVerifier
 from app.api.deps import get_llm_provider_dep
 from app.config import db, settings
 from app.config.db import get_session
@@ -29,7 +27,6 @@ def _passage() -> Passage:
         heading="tributacao",
         heading_path=["CDBs Quick Guide", "Tributação"],
         text="example passage text covering tabela regressiva and position A and position B",
-        document_updated=date(2026, 4, 1),
     )
 
 
@@ -42,7 +39,6 @@ def _hit() -> PassageHit:
         document_title=p.document_title,
         heading_path=p.heading_path,
         snippet=p.text[:80],
-        document_updated=p.document_updated,
     )
 
 
@@ -62,7 +58,6 @@ def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
         return fake if passage_id == fake.id else None
 
     monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
-    monkeypatch.setattr("app.agent.retry_policy.passages_repo.get", fake_get)
 
 
 @pytest.fixture
@@ -82,7 +77,6 @@ async def client(tmp_path, monkeypatch):
 
     app.dependency_overrides[get_session] = _override_session
     app.state.retriever = BM25Retriever()
-    app.state.verifier = SubstringVerifier()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
@@ -129,9 +123,7 @@ async def test_get_conversation_trace_returns_summary(
     assert body["conversation_id"] == conv_id
     assert len(body["questions"]) == 1
     q = body["questions"][0]
-    assert q["verifier_passed"] is True
     assert q["retriever"] == "bm25"
-    assert q["verifier_strategy"] == "substring"
     assert q["answer_or_question"]["kind"] == "answer"
     assert q["step_kinds"]
 

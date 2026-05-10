@@ -1,4 +1,3 @@
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -22,7 +21,7 @@ def test_slugify(heading: str, expected: str) -> None:
 def test_parse_file_basic_structure(tmp_path: Path) -> None:
     md = tmp_path / "sample.md"
     md.write_text(
-        "# Sample Doc\n\n*Atualizado: Abril 2026*\n\n"
+        "# Sample Doc\n\n"
         "## First Section\n\nbody one\n\n"
         "## Second Section\n\nbody two\n\n### Subheading kept inline\n\nmore\n",
         encoding="utf-8",
@@ -31,7 +30,6 @@ def test_parse_file_basic_structure(tmp_path: Path) -> None:
 
     assert [p.id for p in passages] == ["sample#first-section", "sample#second-section"]
     assert passages[0].document_title == "Sample Doc"
-    assert passages[0].document_updated == date(2026, 4, 1)
     assert "Subheading kept inline" in passages[1].text
 
 

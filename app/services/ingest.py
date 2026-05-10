@@ -42,12 +42,13 @@ async def ingest_corpus(session: AsyncSession, directory: Path) -> IngestReport:
         orphans = sorted(existing - new_ids)
         n_upserted = await passages_repo.upsert_many(session, parsed)
         n_deleted = await passages_repo.delete_ids(session, orphans)
-        # Read the doc count inside the same transaction — reading after
-        # commit would autobegin a new transaction the caller couldn't close.
-        docs = await passages_repo.list_documents(session)
+        # Count distinct documents inside the same transaction — reading
+        # after commit would autobegin a new transaction the caller
+        # couldn't close.
+        doc_count = await passages_repo.count_documents(session)
 
     return IngestReport(
-        documents=len(docs),
+        documents=doc_count,
         passages=n_upserted,
         orphans_deleted=n_deleted,
     )

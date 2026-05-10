@@ -23,7 +23,6 @@ async def search_convictions(
             document_title=p.document_title,
             heading_path=p.heading_path,
             snippet=_make_snippet(p.text),
-            document_updated=p.document_updated,
         )
         for p, score in pairs
     ]

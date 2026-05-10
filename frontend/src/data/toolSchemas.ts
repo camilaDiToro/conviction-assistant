@@ -17,28 +17,34 @@ export const TOOLS: ToolSpec[] = [
     name: 'list_documents',
     oneLine: 'The corpus-level table of contents.',
     description:
-      'Return all conviction documents with their titles, last-updated dates (if known), and passage counts. Use this once early in a conversation to discover what documents are available.',
+      'Return up to k conviction documents with their titles and passage counts, ordered by document_id. Use this once early in a conversation to discover what documents are available.',
     parameters: {
       type: 'object',
-      properties: {},
-      required: [],
+      properties: {
+        k: {
+          type: 'integer',
+          description:
+            'Maximum number of documents to return, ordered by document_id. Pass a value large enough to cover the corpus (e.g. 30) when you want the full table of contents.',
+        },
+      },
+      required: ['k'],
       additionalProperties: false,
     },
     whenToCall:
       'Once at the start when the agent has no idea which documents are even in scope. After that, prefer search_convictions.',
-    sampleInput: {},
+    sampleInput: { k: 5 },
     sampleOutput: [
-      { id: 'lci_lca_investimentos', title: 'LCI e LCA: Guia Completo de Letras de Crédito', document_updated: '2026-04-01', passage_count: 9 },
-      { id: 'cdbs_quick_guide', title: 'CDBs: A Quick Guide', document_updated: '2026-03-15', passage_count: 6 },
-      { id: 'guia_completo_tributacao_investimentos', title: 'Guia Completo de Tributação de Investimentos', document_updated: '2026-04-15', passage_count: 12 },
-      '... 27 more',
+      { id: 'cdbs_quick_guide', title: 'CDBs: A Quick Guide', passage_count: 6 },
+      { id: 'guia_completo_tributacao_investimentos', title: 'Guia Completo de Tributação de Investimentos', passage_count: 12 },
+      { id: 'lci_lca_investimentos', title: 'LCI e LCA: Guia Completo de Letras de Crédito', passage_count: 9 },
+      '... 2 more',
     ],
   },
   {
     name: 'read_document_outline',
     oneLine: 'One document’s table of contents — to pick the right passage to read.',
     description:
-      "Return one document's outline: its title, last-updated date, passage count, and the ordered list of headings (each with its passage_id). Use this to find which passage in a document covers a topic before reading it.",
+      "Return one document's outline: its title, passage count, and the ordered list of headings (each with its passage_id). Use this to find which passage in a document covers a topic before reading it.",
     parameters: {
       type: 'object',
       properties: {
@@ -56,7 +62,6 @@ export const TOOLS: ToolSpec[] = [
     sampleOutput: {
       document_id: 'lci_lca_investimentos',
       document_title: 'LCI e LCA: Guia Completo de Letras de Crédito',
-      document_updated: '2026-04-01',
       passage_count: 9,
       headings: [
         { passage_id: 'lci_lca_investimentos#o-que-sao-lci-e-lca', heading: 'O Que São LCI e LCA', ordinal: 1 },
@@ -70,7 +75,7 @@ export const TOOLS: ToolSpec[] = [
     name: 'search_convictions',
     oneLine: 'BM25 retrieval — call this first.',
     description:
-      'Search the conviction corpus by free-text query and return the top-k matching passages, each with a short snippet, document title, heading path, last-updated date, and BM25 score. Call this first to find relevant evidence; then call read_passage for the full text of any hit you want to cite.',
+      'Search the conviction corpus by free-text query and return the top-k matching passages, each with a short snippet, document title, heading path, and BM25 score. Call this first to find relevant evidence; then call read_passage for the full text of any hit you want to cite.',
     parameters: {
       type: 'object',
       properties: {
@@ -99,7 +104,6 @@ export const TOOLS: ToolSpec[] = [
         heading_path: ['LCI e LCA: Guia Completo de Letras de Crédito', 'Prazo Mínimo, Carência e Tributação'],
         snippet:
           'LCIs e LCAs são isentas de Imposto de Renda para pessoas físicas nos rendimentos. Para manter a isenção, devem ser mantidas pelo prazo mínimo de carência de 120…',
-        document_updated: '2026-04-01',
       },
       '... 4 more',
     ],
@@ -108,7 +112,7 @@ export const TOOLS: ToolSpec[] = [
     name: 'read_passage',
     oneLine: 'Full text for one or more passages — the only tool that returns the full body.',
     description:
-      "Return the full text of one or more passages by ID, each with its document title, heading path, and last-updated date. Pass every ID you intend to cite in a single call — the result is a list aligned to the input order. This is the only tool that returns full passage text; other tools return identifiers and outlines.",
+      "Return the full text of one or more passages by ID, each with its document title and heading path. Pass every ID you intend to cite in a single call — the result is a list aligned to the input order. This is the only tool that returns full passage text; other tools return identifiers and outlines.",
     parameters: {
       type: 'object',
       properties: {
@@ -137,7 +141,6 @@ export const TOOLS: ToolSpec[] = [
         heading: 'Prazo Mínimo, Carência e Tributação',
         heading_path: ['LCI e LCA: Guia Completo de Letras de Crédito', 'Prazo Mínimo, Carência e Tributação'],
         text: 'LCIs e LCAs são isentas de Imposto de Renda para pessoas físicas nos rendimentos. Para manter a isenção, devem ser mantidas pelo prazo mínimo de carência de 120 dias corridos a partir da data de emissão, conforme regulamentação do CMN…',
-        document_updated: '2026-04-01',
       },
       '... 1 more',
     ],

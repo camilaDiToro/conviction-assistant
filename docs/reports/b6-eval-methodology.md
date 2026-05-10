@@ -14,9 +14,6 @@ Verified by running the parser:
 |---------------------------------|------------------------------------------------|
 | Markdown documents              | 30                                             |
 | Total passages (one per `##`)   | 423                                            |
-| Documents with `Updated:` date  | 14 (all "April 2026")                          |
-| Undated documents               | 16                                             |
-| Passages carrying a date        | 202 / 423                                      |
 | Passage length (chars), p10/median/p90 | 750 / 1,536 / 3,507                     |
 
 Document language mix: 13 PT-body, 7 EN-body, 10 mixed (typically EN headings on a PT body, or vice versa). Mixed-heading docs are the cross-language risk surface for BM25.

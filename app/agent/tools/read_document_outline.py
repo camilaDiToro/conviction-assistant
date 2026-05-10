@@ -14,7 +14,6 @@ async def read_document_outline(ctx: ToolContext, *, document_id: str) -> Docume
     return DocumentOutline(
         document_id=document_id,
         document_title=summary.title,
-        document_updated=summary.document_updated,
         passage_count=summary.passage_count,
         headings=headings,
     )

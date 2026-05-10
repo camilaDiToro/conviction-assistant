@@ -17,15 +17,20 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
         expanded ? 'w-[260px]' : 'w-[60px]',
       ].join(' ')}
     >
-      <div className="flex items-center justify-between h-16 px-3 shrink-0 border-b border-border">
-        <Link to="/" className="flex items-center gap-3 text-ink-1 px-1">
-          <GridMark size={26} />
-          {expanded && (
+      <div
+        className={[
+          'flex items-center h-16 shrink-0 border-b border-border',
+          expanded ? 'justify-between px-3' : 'justify-center px-0',
+        ].join(' ')}
+      >
+        {expanded && (
+          <Link to="/" className="flex items-center gap-3 text-ink-1 px-1">
+            <GridMark size={26} />
             <span className="text-sm font-medium tracking-tight whitespace-nowrap">
               Decade AI
             </span>
-          )}
-        </Link>
+          </Link>
+        )}
         <button
           onClick={onToggle}
           aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}

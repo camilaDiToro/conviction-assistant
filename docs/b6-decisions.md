@@ -64,7 +64,6 @@ NFKD-normalize-and-strip is **independent of the verifier's normalization** (B7)
 | `document_title`  | `str`           | For citation rendering (the user-facing footer).                        |
 | `heading_path`    | `list[str]`     | Citation enrichment without an extra round-trip.                        |
 | `snippet`         | `str` (≤ ~200c) | First word-boundary-cut excerpt of `passage.text`. Lets the agent skim before deciding to `read_passage`. |
-| `document_updated`| `date \| None`  | **Required for Rule B** — agent compares dates to surface conflicting convictions. Missing for 16 of 30 docs (verified 2026-05-09); never inferred. |
 
 `PassageHit` is intentionally **richer than `Passage`** (which `read_passage` returns). The two shapes serve different purposes: `read_passage` is the source-of-truth full body; `PassageHit` carries search-only metadata (score, snippet) for the agent's evidence-gathering loop. This was a deliberate departure from b5-decisions.md's expectation that `search_convictions` would return `Passage`.
 
@@ -162,7 +161,6 @@ The agent (or any direct caller) calls the tool. Defined in `app/tools/search_co
            passage_id, score,
            document_id, document_title, heading_path,
            snippet=_make_snippet(passage.text),
-           document_updated,                       ← required for Rule B
        )
 4. return list[PassageHit]
 ```

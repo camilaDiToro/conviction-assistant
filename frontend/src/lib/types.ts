@@ -9,13 +9,11 @@ export interface Passage {
   heading: string
   heading_path: string[]
   text: string
-  document_updated: string | null // ISO date
 }
 
 export interface DocSummary {
   id: string
   title: string
-  document_updated: string | null
   passage_count: number
 }
 
@@ -28,7 +26,6 @@ export interface Heading {
 export interface DocumentOutline {
   document_id: string
   document_title: string
-  document_updated: string | null
   passage_count: number
   headings: Heading[]
 }
@@ -40,7 +37,6 @@ export interface PassageHit {
   document_title: string
   heading_path: string[]
   snippet: string
-  document_updated: string | null
 }
 
 // ----- Chat contract (B9) -----
@@ -48,11 +44,13 @@ export interface PassageHit {
 export interface Citation {
   passage_id: string
   document: string
-  document_updated: string | null
   heading: string
   heading_path: string[]
-  quote: string
-  passage_text?: string | null
+  passage_text: string
+  // Half-open offsets into `passage_text`. Both null when the model's quote
+  // didn't anchor — the popup shows the passage without a highlight.
+  start: number | null
+  end: number | null
 }
 
 export interface TokenUsage {
@@ -65,7 +63,7 @@ export interface TokenUsage {
 
 export interface DebugStep {
   step_id: string
-  kind: 'llm_call' | 'tool_call' | 'verifier' | 'response'
+  kind: 'llm_call' | 'tool_call' | 'resolver' | 'response'
   name: string
   detail: string
   duration_ms: number
@@ -74,8 +72,8 @@ export interface DebugStep {
   // Step-kind-specific JSON summary of what the step produced.
   // tool_call → { result: <tool return value> }
   // llm_call  → { tool_calls?, parsed?, content? }
-  // verifier  → { attempt, all_passed, verified, failures }
-  // response  → { output: AnswerOutput | ClarifyingQuestionOutput, verified_citations? }
+  // resolver  → { entries: CitationResolution[] }
+  // response  → { output: AnswerOutput | ClarifyingQuestionOutput, resolution_entries? }
   result: Record<string, unknown> | null
 }
 
@@ -95,7 +93,7 @@ export interface ChatAnswerResponse {
   out_of_scope: boolean
   disclaimer: string
   usage_summary: UsageSummary
-  debug: { tool_calls: DebugStep[]; verification_passed: boolean; steps: DebugStep[] }
+  debug: { tool_calls: DebugStep[]; steps: DebugStep[] }
   conversation_id: string
   question_id: string
 }
@@ -106,7 +104,7 @@ export interface ChatClarifyResponse {
   options: string[]
   disclaimer: string
   usage_summary: UsageSummary
-  debug: { tool_calls: DebugStep[]; verification_passed: boolean; steps: DebugStep[] }
+  debug: { tool_calls: DebugStep[]; steps: DebugStep[] }
   conversation_id: string
   question_id: string
 }
@@ -154,7 +152,6 @@ export interface ConversationMessage {
   out_of_scope: boolean | null
   clarifying_question: string | null
   clarifying_options: string[]
-  verifier_passed: boolean
 }
 
 export interface ConversationMessagesResponse {
@@ -167,5 +164,4 @@ export interface QuestionStepsResponse {
   question_id: string
   steps: DebugStep[]
   usage_summary: UsageSummary
-  verifier_passed: boolean
 }

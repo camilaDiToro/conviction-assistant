@@ -7,7 +7,6 @@ side; the patched tools drive the *data* side.
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import date
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -47,7 +46,7 @@ def _patch_tools(
         monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
 
 
-def _passage(passage_id: str, *, updated: date | None = date(2026, 4, 1)) -> Passage:
+def _passage(passage_id: str) -> Passage:
     return Passage(
         id=passage_id,
         document_id=passage_id.split("#")[0],
@@ -55,7 +54,6 @@ def _passage(passage_id: str, *, updated: date | None = date(2026, 4, 1)) -> Pas
         heading=passage_id.split("#", 1)[-1],
         heading_path=[passage_id.split("#", 1)[-1]],
         text="example passage text covering tabela regressiva and position A and position B",
-        document_updated=updated,
     )
 
 
@@ -68,7 +66,6 @@ def _hit(passage_id: str) -> PassageHit:
         document_title=p.document_title,
         heading_path=p.heading_path,
         snippet=p.text[:80],
-        document_updated=p.document_updated,
     )
 
 
@@ -102,7 +99,7 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
 
     kinds = [s.kind for s in result.steps]
     # Step 0 = rewrite stage (always runs, doubles as language detector).
-    # B8: a passing verifier step is appended after the final llm_call.
+    # A resolver step is appended after the final llm_call.
     assert kinds == [
         "llm_call",  # rewrite
         "llm_call",  # agent loop turn 1 (tool decision)
@@ -110,7 +107,7 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
         "llm_call",
         "tool_call",
         "llm_call",
-        "verifier",
+        "resolver",
     ]
 
 
@@ -266,69 +263,6 @@ async def test_out_of_scope_answer_exempt_from_lower_bound() -> None:
     assert result.output.citations == []
     assert result.search_count == 0
     assert result.tool_call_count == 0
-
-
-# ---- conflict surfacing (Rule B) ----------------------------------
-
-
-@pytest.mark.asyncio
-async def test_dated_conflict_surfaced(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Two passages with different dates produce a final answer that
-    names both and identifies the newer one."""
-
-    async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
-        return [_hit("doc_a#section"), _hit("doc_b#section")]
-
-    dates = {"doc_a#section": date(2026, 4, 1), "doc_b#section": date(2026, 1, 1)}
-
-    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
-        out: list[Passage] = []
-        for pid in passage_ids:
-            if pid not in dates:
-                raise PassageNotFoundError(pid)
-            out.append(_passage(pid, updated=dates[pid]))
-        return out
-
-    _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
-
-    stub = StubLLM(load_stub_responses(FIXTURES / "dated_conflict.yaml"))
-    result = await run("Quem está certo?", [], tool_ctx=_stub_ctx(), llm=stub)
-
-    assert isinstance(result.output, AnswerOutput)
-    answer = result.output.answer
-    assert "disagree" in answer.lower() or "disagre" in answer.lower()
-    assert "Abril 2026" in answer
-    assert "Janeiro 2026" in answer
-
-
-@pytest.mark.asyncio
-async def test_undated_conflict_says_undated(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Rule B undated clause: when one or both passages are dateless, the
-    answer must say so and not silently pick the dated one as 'newer'."""
-
-    async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
-        return [_hit("doc_a#section"), _hit("doc_b_undated#section")]
-
-    dates: dict[str, date | None] = {
-        "doc_a#section": date(2026, 4, 1),
-        "doc_b_undated#section": None,
-    }
-
-    async def fake_read(_ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]:
-        out: list[Passage] = []
-        for pid in passage_ids:
-            if pid not in dates:
-                raise PassageNotFoundError(pid)
-            out.append(_passage(pid, updated=dates[pid]))
-        return out
-
-    _patch_tools(monkeypatch, {"search_convictions": fake_search, "read_passage": fake_read})
-
-    stub = StubLLM(load_stub_responses(FIXTURES / "undated_conflict.yaml"))
-    result = await run("Quem está certo?", [], tool_ctx=_stub_ctx(), llm=stub)
-
-    assert isinstance(result.output, AnswerOutput)
-    assert "(undated)" in result.output.answer.lower() or "undated" in result.output.answer.lower()
 
 
 # ---- tool-error feedback ------------------------------------------

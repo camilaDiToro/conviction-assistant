@@ -56,7 +56,6 @@ async def chat(
     tool_ctx = ToolContext(
         session=session,
         retriever=request.app.state.retriever,
-        verifier=request.app.state.verifier,
     )
     result = await run_agent(payload.question, history, tool_ctx=tool_ctx, llm=llm)
 
@@ -69,7 +68,6 @@ async def chat(
         question_id=question_id,
         user_question=payload.question,
         retriever_name=settings.retrieval_strategy,
-        verifier_name=settings.verifier_strategy,
         prior_conversation_cost_usd=prior_cost,
     )
 

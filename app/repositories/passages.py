@@ -2,7 +2,6 @@
 
 import json
 from collections.abc import Iterable
-from datetime import date
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, func, select
@@ -33,9 +32,6 @@ async def upsert_many(session: AsyncSession, items: Iterable[Passage]) -> int:
                 "heading": p.heading,
                 "heading_path": json.dumps(p.heading_path, ensure_ascii=False),
                 "text": p.text,
-                "document_updated": (
-                    p.document_updated.isoformat() if p.document_updated else None
-                ),
                 "ordinal": ord_,
             }
         )
@@ -50,7 +46,6 @@ async def upsert_many(session: AsyncSession, items: Iterable[Passage]) -> int:
             "heading": stmt.excluded.heading,
             "heading_path": stmt.excluded.heading_path,
             "text": stmt.excluded.text,
-            "document_updated": stmt.excluded.document_updated,
             "ordinal": stmt.excluded.ordinal,
         },
     )
@@ -73,33 +68,36 @@ async def get_many(session: AsyncSession, ids: Iterable[str]) -> dict[str, Passa
     return {row.id: _orm_to_schema(row) for row in result.scalars().all()}
 
 
-async def list_documents(session: AsyncSession) -> list[DocSummary]:
+async def list_documents(session: AsyncSession, limit: int) -> list[DocSummary]:
     stmt = (
         select(
             PassageORM.document_id,
             PassageORM.document_title,
-            PassageORM.document_updated,
             func.count().label("n"),
         )
         .group_by(
             PassageORM.document_id,
             PassageORM.document_title,
-            PassageORM.document_updated,
         )
         .order_by(PassageORM.document_id)
+        .limit(limit)
     )
     result = await session.execute(stmt)
     return [
         DocSummary(
             id=r.document_id,
             title=r.document_title,
-            document_updated=(
-                date.fromisoformat(r.document_updated) if r.document_updated else None
-            ),
             passage_count=r.n,
         )
         for r in result.all()
     ]
+
+
+async def count_documents(session: AsyncSession) -> int:
+    """Return the number of distinct documents currently in the store."""
+    stmt = select(func.count(func.distinct(PassageORM.document_id)))
+    result = await session.execute(stmt)
+    return int(result.scalar() or 0)
 
 
 async def get_document_summary(session: AsyncSession, document_id: str) -> DocSummary | None:
@@ -112,14 +110,12 @@ async def get_document_summary(session: AsyncSession, document_id: str) -> DocSu
         select(
             PassageORM.document_id,
             PassageORM.document_title,
-            PassageORM.document_updated,
             func.count().label("n"),
         )
         .where(PassageORM.document_id == document_id)
         .group_by(
             PassageORM.document_id,
             PassageORM.document_title,
-            PassageORM.document_updated,
         )
     )
     result = await session.execute(stmt)
@@ -129,9 +125,6 @@ async def get_document_summary(session: AsyncSession, document_id: str) -> DocSu
     return DocSummary(
         id=row.document_id,
         title=row.document_title,
-        document_updated=(
-            date.fromisoformat(row.document_updated) if row.document_updated else None
-        ),
         passage_count=row.n,
     )
 
@@ -180,5 +173,4 @@ def _orm_to_schema(p: PassageORM) -> Passage:
         heading=p.heading,
         heading_path=json.loads(p.heading_path),
         text=p.text,
-        document_updated=(date.fromisoformat(p.document_updated) if p.document_updated else None),
     )

@@ -12,7 +12,6 @@ from pathlib import Path
 
 from app.schemas import Passage
 from app.services.parser import register
-from app.services.parser.dates import extract_updated
 from app.services.parser.text import slugify
 
 _H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
@@ -44,7 +43,6 @@ def parse_markdown(path: Path) -> list[Passage]:
 
     title_match = _H1_RE.search(raw)
     document_title = title_match.group(1).strip() if title_match else document_id
-    document_updated = extract_updated(raw)
 
     seen_slugs: dict[str, int] = {}
     passages: list[Passage] = []
@@ -60,7 +58,6 @@ def parse_markdown(path: Path) -> list[Passage]:
                 heading=heading,
                 heading_path=[document_title, heading],
                 text=text,
-                document_updated=document_updated,
             )
         )
     return passages

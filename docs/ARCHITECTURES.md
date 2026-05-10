@@ -19,10 +19,10 @@ This is not a free-form agent. It is **constrained**: the model's only powers ov
 
 | Requirement | Architectural impact |
 |---|---|
-| Strict grounding on convictions | Every cited claim must be substring-verified against the source passage; refuse or disclaim when out of scope. |
+| Strict grounding on convictions | Every cited claim must resolve to a `(start, end)` region of the cited source passage; the popup shows the user exactly what was cited. Refuse or disclaim when out of scope. |
 | Provider portability | No hard dependency on Anthropic-only or OpenAI-only features. Native APIs sit behind a provider interface. |
 | Same-language responses | System-prompt instruction; no architecture impact. |
-| PDF / Excel uploads (bonus) | **Not implemented in this submission.** Design exists (uploaded files become user-scoped passages and reuse the same retrieval / verifier pipeline); see "Not implemented in this version" below. |
+| PDF / Excel uploads (bonus) | **Not implemented in this submission.** Design exists (uploaded files become user-scoped passages and reuse the same retrieval / resolver pipeline); see "Not implemented in this version" below. |
 
 Provider-native grounding features (Anthropic Citations, OpenAI File Search, Gemini Grounding) might be useful but are not being considered as architecture, because they would break portability.
 
@@ -117,9 +117,10 @@ The structured response is one of two shapes — a regular **answer** (with cita
     {
       "passage_id": "cdbs_quick_guide#tributacao",
       "document": "cdbs_quick_guide.md",
-      "document_updated": "2026-04",
       "heading": "Tributação: Tabela Regressiva",
-      "quote": "..."
+      "passage_text": "...",
+      "start": 16,
+      "end": 33
     }
   ],
   "out_of_scope": false,
@@ -133,7 +134,6 @@ The structured response is one of two shapes — a regular **answer** (with cita
     "tool_calls": [
       { "tool": "search_convictions", "arguments": { "query": "...", "k": 8 }, "returned_passage_ids": ["..."] }
     ],
-    "verification_passed": true,
     "steps": [
       { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0 }, "cost_usd": 0.003 }
     ]
@@ -141,9 +141,7 @@ The structured response is one of two shapes — a regular **answer** (with cita
 }
 ```
 
-The `disclaimer` is appended deterministically by the orchestrator (not the model) so it cannot be paraphrased or omitted. It lives in its own field so the verifier never substring-matches it against a passage. The orchestrator picks the language to mirror the response language (PT / EN / ES).
-
-The `document_updated` field on each citation enables Rule B (conflicting convictions): the agent can name which conviction is newer when it surfaces a conflict.
+The `disclaimer` is appended deterministically by the orchestrator (not the model) so it cannot be paraphrased or omitted. It lives in its own field so the resolver never tries to anchor it against a passage. The orchestrator picks the language to mirror the response language (PT / EN / ES).
 
 ### Tool surface
 
@@ -191,22 +189,22 @@ The agent loop is bounded to keep behavior predictable and debuggable:
 - **`temperature = 0`** for the answer-generation step.
 - **Max 5 tool calls per turn.** Most questions resolve in 1–3.
 - **At least one search must run before the model is allowed to emit a final answer.** Enforced by the orchestrator, not just the prompt.
-- **No claims without citations.** Enforced by schema + verifier.
-- **No citation quotes outside retrieved passages.** Enforced by the verifier.
+- **No claims without citations.** Enforced by schema.
+- **Every cited quote either anchors to passage offsets or surfaces without a highlight.** Enforced by the resolver — the literal quote is never stored or returned.
 
 This gives the "modern models are smart" benefit without letting the model roam.
 
-### The agent loop (gather → act → verify)
+### The agent loop (gather → act → resolve)
 
 1. **Gather context.** The model issues tool calls — typically a `list_documents` or `search_convictions`, then one or more `read_passage`s — under a system prompt that pins down the canonical rules:
-   - **Cite or refuse.** Every claim must cite `passage_id` + verbatim `quote`. No claim ships without a citation, and the verifier will reject any quote that isn't a substring of the cited passage.
+   - **Cite or refuse.** Every claim must cite `passage_id` + verbatim `quote`. No claim ships without a citation, and quotes that aren't a substring of the cited passage lose their highlight in the popup.
    - **Always prefer a real conviction.** If any conviction mentions the topic, even tangentially, cite that conviction rather than fall back to general knowledge.
    - **General knowledge is allowed, but must be marked very, very clearly** in `general_knowledge_section`, never interleaved with cited claims. (Rule A; see `../CLAUDE.md`.)
-   - **Surface conflicting convictions.** If two convictions contradict, cite both, state the disagreement, and name the newer one using `document_updated`. Never silently pick a side. (Rule B; see `../CLAUDE.md`.)
+   - **Surface conflicting convictions.** If two convictions contradict, cite both and state the disagreement explicitly. Never silently pick a side. (Rule B; see `../CLAUDE.md`.)
    - **Clarify only when truly ambiguous.** If the query can be reasonably interpreted, answer; only return `kind: "clarifying_question"` when answering would risk citing the wrong topic.
    - **Mirror the user's language** (PT / EN / ES).
 2. **Take action.** Model emits the structured response (answer or clarifying-question).
-3. **Verify results.** The deterministic verifier runs on every `kind: "answer"` response (clarifying-question responses skip verification — there are no citations to check).
+3. **Resolve offsets.** The deterministic resolver runs on every `kind: "answer"` response (clarifying-question responses skip resolution — there are no citations to anchor). Each citation's quote becomes `(start, end)` offsets in the cited passage; the literal text is dropped before the response is built.
 
 For compound questions like *"compare CDB and LCI from a tax perspective"*, the loop decomposes naturally:
 
@@ -215,24 +213,24 @@ For compound questions like *"compare CDB and LCI from a tax perspective"*, the 
 2. search_convictions("LCI taxation")
 3. read_passage on the strongest hit from each
 4. answer with citations
-5. verifier passes → return
+5. resolver anchors each citation to (start, end) → return
 ```
 
-### The citation verifier
+### The offset resolver
 
 For every citation in the model's response:
 
 ```
-assert citation.quote in get_passage(citation.passage_id).text
+offsets = passage_text.find(citation.quote)
+# (start, end) on success — citation anchors and the popup highlights the region
+# None on failure   — citation still surfaces, popup shows passage without highlight
 ```
 
-- All quotes pass → return the answer.
-- Any quote fails → re-prompt the generator once with feedback (*"your quote `…` is not a substring of `passage_id`; either fix it or remove the claim"*).
-- Second attempt still fails → strip the offending claim or return a safe refusal.
+The literal `quote` is consumed here and never reaches storage or the wire response. Only `(passage_id, start, end)` survives. Non-anchoring citations are not stripped: the analyst still sees the cited passage, just without a visual anchor.
 
-The verifier is **deterministic, provider-agnostic, and the single highest-value piece of code in the project.** It gives a hard grounding guarantee that no provider's native Citations API matches.
+The resolver is **deterministic, provider-agnostic, and the architectural commitment of this project.** It gives a hard provenance guarantee — every claim links to a specific region of a specific passage — that no provider's native Citations API matches.
 
-> **Framing:** the agent is responsible for *finding* evidence; the verifier is responsible for *enforcing* grounding.
+> **Framing:** the agent is responsible for *finding* evidence (it copies verbatim because LLMs copy substrings reliably); the resolver is responsible for *pinning* it to offsets (because LLMs cannot count characters reliably). Two responsibilities, two layers.
 
 ### Conversation memory
 
@@ -240,13 +238,13 @@ Multi-turn handling is deliberately conservative to avoid amplifying hallucinati
 
 - **Recent conversation is used only to rewrite or contextualize the current question** (e.g., resolving "and what about LCAs?" against the prior turn).
 - **Prior assistant answers are never injected into the source-of-truth context.** Each turn runs fresh tool calls against the conviction corpus.
-- **Citations are fresh per turn.** A claim is grounded only if it survives this turn's verifier pass.
+- **Citations are fresh per turn.** A claim's offsets are resolved against the current turn's passages — there is no carry-over of citation provenance across turns.
 
 This prevents the common failure mode where an earlier hallucination becomes part of later turns' context and gets reinforced.
 
 ### Deterministic disclaimer
 
-Every response carries a regulatory disclaimer (*"This response is informational and does not constitute investment advice."* and PT/ES equivalents). The orchestrator appends it deterministically — never the model — so it can never be paraphrased or omitted. It lives in a dedicated `disclaimer` field on the HTTP response, separate from `answer`, so the verifier cannot accidentally match it against a passage. See `ASSUMPTIONS.md` § "Compliance, security, data" for the exact text per language.
+Every response carries a regulatory disclaimer (*"This response is informational and does not constitute investment advice."* and PT/ES equivalents). The orchestrator appends it deterministically — never the model — so it can never be paraphrased or omitted. It lives in a dedicated `disclaimer` field on the HTTP response, separate from `answer`, so the resolver never tries to anchor it against a passage. See `ASSUMPTIONS.md` § "Compliance, security, data" for the exact text per language.
 
 ### Audit log + cost tracking
 
@@ -255,7 +253,7 @@ Every step of every request is persisted. One log, two consumers (audit and cost
 ```
 {
   step_id, question_id, conversation_id, timestamp,
-  kind: "llm_call" | "tool_call" | "verifier" | "response",
+  kind: "llm_call" | "tool_call" | "resolver" | "response",
   payload,        // request/response or tool args/result
   usage           // { model, prompt_tokens, completion_tokens, cached_tokens } for llm_call
                   // (cost_usd is NOT stored — derived on render via app/services/cost.py)
@@ -277,13 +275,13 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 
 - The Anthropic adapter can use the Citations API to get verbatim `cited_text`, deterministic char indices, and free output tokens.
 - The OpenAI adapter falls back to JSON-schema prompt-based citations.
-- The contract above the adapter is identical, so the orchestrator and verifier never know which provider is in use.
+- The contract above the adapter is identical, so the orchestrator and resolver never know which provider is in use.
 
 ### Why this works
 
-1. **Matches the interviewer's stated philosophy.** "Models nowadays tend to work pretty well, so using tools is usually enough." Tool use is the literal interpretation; the verifier turns "usually enough" into "always enough" for grounding.
+1. **Matches the interviewer's stated philosophy.** "Models nowadays tend to work pretty well, so using tools is usually enough." Tool use is the literal interpretation; the offset resolver turns "usually enough" into "every citation links to a specific source region" for grounding.
 2. **Mirrors Claude Code's design (with one deliberate asymmetry).** Claude Code is a constrained tool-using agent over a filesystem (`Glob`, `Grep`, `Read`, ...); this is a constrained tool-using agent over a passage store. Same pattern, different domain. The asymmetry: Claude Code runs grep-in-the-loop with no precomputed index (its corpus is source code, where exact-token search is decisive); we keep a sparse BM25 index because the corpus is natural-language PT/EN prose where grep alone misses paraphrase. See CLAUDE.md § "A note on the Claude Code analogy" for the full reasoning.
-3. **Strongest faithfulness guarantee available.** Provider Citations APIs guarantee the cited text appears in the source. The verifier guarantees that *plus* every claim's quote was actually drawn from a cited passage — and works on every provider.
+3. **Strongest provenance guarantee available.** Provider Citations APIs guarantee the cited text appears in the source. The resolver guarantees that *plus* every claim's quote was anchored to a specific `(start, end)` region of a passage we cited — and works on every provider.
 4. **Scales with the corpus.** No pre-built monolithic index to invalidate. `search_convictions` can be upgraded from BM25 to hybrid to reranked over time with no architectural change.
 5. **PDF/Excel uploads have a low-cost extension path.** Uploads are *not implemented in this version* (see "Not implemented in this version" below), but the design is straightforward: a `search_uploaded_files` and `read_uploaded_passage` pair would mirror the conviction tools, with uploads server-parsed into the same passage shape and scoped to a single conversation.
 6. **Compound questions are first-class.** Multi-step search → multi-passage citation is the natural mode of operation, not a special case.
@@ -303,7 +301,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 - Pre-built index drifts as the corpus is edited — same problem Anthropic cited when removing RAG from Claude Code.
 - Multilingual embedding selection adds risk on a corpus with both PT and EN.
 
-**Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. **v1 ships BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. The choice is justified by two assumptions that hold today and are likely to break later — agent loop, tool surface, citation contract, and verifier are unchanged at every step:
+**Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. **v1 ships BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. The choice is justified by two assumptions that hold today and are likely to break later — agent loop, tool surface, citation contract, and resolver are unchanged at every step:
 
 - **Small corpus (~30 docs).** BM25 stays useful as the corpus grows (best for exact-term matches: tickers, regulation numbers, acronyms like `FGC`, `CVM`, `IR`), but new failure modes appear. *Hundreds of docs:* near-duplicates and topical neighbors crowd the top-K — add a **cross-encoder reranker** (`bge-reranker-v2-m3` or Cohere `rerank-multilingual-v3`) over the top candidates. *Thousands of docs:* chunks pulled out of context lose meaning ("revenue grew 3%" — for which company?) — add **Anthropic-style Contextual Retrieval** (prepend a 50–100 token generated context summary to each chunk before indexing). *Tens of thousands+:* move lexical to OpenSearch / ParadeDB and dense to a dedicated vector store (Qdrant) or HNSW Postgres, plus metadata filtering and tenant sharding.
 - **Internal-analyst audience.** Decade analysts speak the corpus vocabulary (PT/EN, regulatory terms), so on-vocabulary keyword queries work well with BM25. External users break that — Spanish-speaking clients ask `"tributación de CDB"` against `"tributação de CDB"` (BM25 misses on `ó`↔`ã`); English-only users ask `"how is CDB taxed?"` (zero word overlap with the PT passage); juniors paraphrase instead of using regulatory terms. The fix is a second retrieval path: a **multilingual embedding model** (OpenAI `text-embedding-3-large`, Cohere `embed-multilingual-v3`, or local `bge-m3`) over the same `passages` table with vectors in `pgvector`, fused with BM25 via Reciprocal Rank Fusion (k=60). One-time embedding pass costs ~$0.02; per-query cost ~$0.0001. Documented level-up under `ROADMAP.md` § B6.
@@ -327,7 +325,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 - **Direct conflict with provider portability**, which is an explicit requirement. Each provider's grounding feature has a different shape, different guarantees, and different data model. Switching providers means re-uploading, re-indexing, and rewriting the grounding layer.
 - Anthropic Citations is incompatible with strict JSON Structured Outputs, which forces awkward response handling.
 - OpenAI File Search adds per-call charges ($2.50 / 1k calls) on top of token cost.
-- Most importantly: **the verifier we want as the safety layer is more strictly grounding than any provider feature.** Provider citations prove "this text was in the source." The verifier proves "this claim was drawn from a passage we cited," which is a stronger statement.
+- Most importantly: **the offset resolver gives a stronger provenance shape than any provider feature.** Provider citations prove "this text was in the source." The resolver proves "this claim was drawn from a passage we cited, at *these* character offsets" — and the UI shows the user that exact region.
 
 **Where it lives in the chosen design.** Behind provider adapters, as per-provider optimizations. Anthropic's Citations API is excellent and we use it inside the Anthropic adapter; we just don't *depend* on it.
 
@@ -357,7 +355,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 
 The following are designed but **out of scope for this submission**:
 
-- **PDF / Excel uploads.** The bonus item from the challenge brief. Design: server-side parsing (`pypdf` / `pdfplumber` for PDF, `openpyxl` → markdown tables for Excel), parsed content becomes user-scoped passages with stable IDs in a per-conversation namespace, exposed via `search_uploaded_files(query, k)` and `read_uploaded_passage(passage_id)` — same shape as the conviction tools, same retrieval and verifier pipeline. Uploaded passages are explicitly *user context* (lower trust than convictions) and tagged accordingly in the system prompt.
+- **PDF / Excel uploads.** The bonus item from the challenge brief. Design: server-side parsing (`pypdf` / `pdfplumber` for PDF, `openpyxl` → markdown tables for Excel), parsed content becomes user-scoped passages with stable IDs in a per-conversation namespace, exposed via `search_uploaded_files(query, k)` and `read_uploaded_passage(passage_id)` — same shape as the conviction tools, same retrieval and resolver pipeline. Uploaded passages are explicitly *user context* (lower trust than convictions) and tagged accordingly in the system prompt.
 - **Hybrid retrieval (BM25 + multilingual embeddings + RRF).** v1 ships BM25-only; hybrid is the documented level-up under `ROADMAP.md` § B6, gated on a cross-language eval failure plus a conversation with the project owner.
 - **Cross-encoder reranker** inside `search_convictions`. Further level-up beyond hybrid; gated on its own eval failure. See "Classic hybrid retrieval pipeline" above.
 - **Postgres + pgvector.** v1 ships SQLite + a Python BM25 library; Postgres is the documented level-up under `ROADMAP.md` § B3, justified by concurrency or index-size pressure neither of which exists at 30 docs.
@@ -365,11 +363,11 @@ The following are designed but **out of scope for this submission**:
 
 ## Implementation order (eval-driven)
 
-1. **Passage parser + store.** Markdown → passages with stable IDs (incl. `Updated:` date extraction).
+1. **Passage parser + store.** Markdown → passages with stable IDs.
 2. **Provider abstractions.** `LLMProvider` and `EmbeddingProvider` protocols. **OpenAI adapter first** for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`).
 3. **`list_documents` + `read_passage` + `read_document_outline`** tools wired up.
 4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under `ROADMAP.md` § B6, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
-5. **Citation verifier** with retry-once-with-feedback. **Built before the agent loop** so every later step measures verifier pass rate from day one.
+5. **Citation offset resolver.** Pure substring → `(start, end)` mapping; non-anchoring citations survive without a highlight. **Built before the agent loop** so every later step measures anchor rate from day one.
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
 7. **Disclaimer + audit log + cost tracking** wired into the orchestrator. SQLite is the storage; cost tracking is at three granularities (step, question, conversation).
 8. **Eval suite.** See `TESTING.md`. Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.

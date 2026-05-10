@@ -7,7 +7,7 @@ these by hand. Adding a non-nullable field here is a breaking change for
 the frontend; nullable additions are non-breaking.
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,21 +40,24 @@ class ChatRequest(BaseModel):
 class ChatCitation(BaseModel):
     """One citation in the wire response.
 
-    Maps from :class:`app.agent.verifier.VerifiedCitation`. ``document``
-    is the source filename (``<document_id>.md``) — the literal answer to
-    "which file did this quote come from?" — and ``heading`` is the leaf
-    of ``heading_path`` for one-line rendering on a citation chip.
+    Maps from :class:`app.agent.resolver.CitationResolution`. ``document``
+    is the source filename (``<document_id>.md``); ``heading`` is the
+    leaf of ``heading_path``. ``start`` and ``end`` are half-open
+    character offsets into ``passage_text`` — both ``None`` when the
+    model's quote didn't anchor (the popup shows the passage without a
+    highlight). Citations whose passage couldn't be loaded at all are
+    dropped before they reach this shape.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     passage_id: str
     document: str
-    document_updated: date | None
     heading: str
     heading_path: list[str]
-    quote: str
-    passage_text: str | None = None
+    passage_text: str
+    start: int | None = None
+    end: int | None = None
 
 
 class DebugStep(BaseModel):
@@ -62,15 +65,15 @@ class DebugStep(BaseModel):
 
     ``result`` carries a step-kind-specific summary of what the step
     *produced* — tool return values, the LLM's tool-call list or parsed
-    output, the verifier's verified/failures lists, the final answer
-    text. The shape varies by ``kind`` (it's a free-form JSON object on
-    the wire); rendering lives in the frontend ``DebugDrawer``.
+    output, the resolver's per-citation outcomes, the final answer text.
+    The shape varies by ``kind`` (it's a free-form JSON object on the
+    wire); rendering lives in the frontend ``DebugDrawer``.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     step_id: str
-    kind: Literal["llm_call", "tool_call", "verifier", "response"]
+    kind: Literal["llm_call", "tool_call", "resolver", "response"]
     name: str
     detail: str
     duration_ms: int = 0
@@ -92,7 +95,6 @@ class DebugBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tool_calls: list[DebugStep]
-    verification_passed: bool
     steps: list[DebugStep]
 
 
@@ -145,11 +147,9 @@ class ConversationQuestionSummary(BaseModel):
     language: Literal["pt", "en", "es"]
     rewritten_question: str | None
     answer_or_question: dict[str, Any]
-    verifier_passed: bool
     step_count: int
     step_kinds: list[str]
     retriever: str
-    verifier_strategy: str
 
 
 class ConversationTraceResponse(BaseModel):
@@ -219,7 +219,6 @@ class ConversationMessage(BaseModel):
     out_of_scope: bool | None = None
     clarifying_question: str | None = None
     clarifying_options: list[str] = Field(default_factory=list)
-    verifier_passed: bool
 
 
 class ConversationMessagesResponse(BaseModel):
@@ -243,7 +242,6 @@ class QuestionStepsResponse(BaseModel):
     question_id: str
     steps: list[DebugStep]
     usage_summary: UsageSummary
-    verifier_passed: bool
 
 
 __all__ = [

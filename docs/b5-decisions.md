@@ -10,19 +10,17 @@ For the high-level rules (storage-agnosticism, `ToolContext` DI seam, hand-writt
 
 ### `list_documents() -> list[DocSummary]`
 
-Reuses the existing `DocSummary` Pydantic schema (`app/schemas/passage.py`). Fields: `id`, `title`, `document_updated` (`date | None`), `passage_count`.
+Reuses the existing `DocSummary` Pydantic schema (`app/schemas/passage.py`). Fields: `id`, `title`, `passage_count`.
 
-**Sort order:** `document_id` ASC. Matches the existing repository behavior. Deterministic; no recency bias on what the agent sees first.
+**Sort order:** `document_id` ASC. Matches the existing repository behavior. Deterministic.
 
 ### `read_document_outline(document_id) -> DocumentOutline`
 
-New schema added in B5: `DocumentOutline { document_id, document_title, document_updated, passage_count, headings: list[Heading] }`.
-
-**Why a new schema instead of reusing `list[Heading]`?** Surfacing `document_updated` and `passage_count` next to the headings supports CLAUDE.md Rule B (conflicting-conviction surfacing by date) without forcing the agent to call `list_documents` first every time it inspects a document. The shape is the smallest extension that carries that signal.
+New schema added in B5: `DocumentOutline { document_id, document_title, passage_count, headings: list[Heading] }`.
 
 ### `read_passage(passage_ids) -> list[Passage]`
 
-Accepts a list of passage IDs and returns the matching `Passage` rows in the same order (`id`, `document_id`, `document_title`, `heading`, `heading_path`, `text`, `document_updated`). Same `Passage` shape `search_convictions` returns per hit in B6, so the model's mental model of "what a passage looks like" is consistent across tools. **Batching is the contract:** the agent is expected to issue one `read_passage` call per turn carrying every ID it intends to cite, not one call per ID.
+Accepts a list of passage IDs and returns the matching `Passage` rows in the same order (`id`, `document_id`, `document_title`, `heading`, `heading_path`, `text`). Same `Passage` shape `search_convictions` returns per hit in B6, so the model's mental model of "what a passage looks like" is consistent across tools. **Batching is the contract:** the agent is expected to issue one `read_passage` call per turn carrying every ID it intends to cite, not one call per ID.
 
 ---
 

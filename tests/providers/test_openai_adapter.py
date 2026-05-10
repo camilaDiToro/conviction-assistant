@@ -177,6 +177,33 @@ def test_completion_to_response_invalid_json_raises():
         _completion_to_response(completion, model="gpt-5", schema=schema)
 
 
+def test_completion_to_response_empty_content_with_length_finish_reports_truncation():
+    """Reasoning ate the whole output budget — the user-visible error
+    must name `finish_reason=length` + token counts + the actionable knob,
+    not the misleading generic schema-mismatch message."""
+    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
+    completion = _fake_completion(
+        content="",
+        finish_reason="length",
+        completion_tokens=4096,
+        reasoning_tokens=4096,
+    )
+    with pytest.raises(ProviderError) as excinfo:
+        _completion_to_response(completion, model="gpt-5", schema=schema)
+    msg = str(excinfo.value)
+    assert "finish_reason=length" in msg
+    assert "completion_tokens=4096" in msg
+    assert "reasoning_tokens=4096" in msg
+    assert "AGENT_MAX_OUTPUT_TOKENS" in msg
+
+
+def test_completion_to_response_empty_content_other_finish_reports_finish_reason():
+    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
+    completion = _fake_completion(content=None, finish_reason="content_filter")
+    with pytest.raises(ProviderError, match="empty content.*content_filter"):
+        _completion_to_response(completion, model="gpt-5", schema=schema)
+
+
 def test_completion_to_response_extra_data_after_first_object_is_tolerated():
     # gpt-5 occasionally appends a second JSON object or stray text
     # after the first object even with strict=true. raw_decode takes

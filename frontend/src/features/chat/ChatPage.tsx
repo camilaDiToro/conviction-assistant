@@ -67,7 +67,6 @@ export default function ChatPage() {
               ...prevMsg.response,
               debug: {
                 tool_calls: fetched.steps.filter(s => s.kind === 'tool_call'),
-                verification_passed: fetched.verifier_passed,
                 steps: fetched.steps,
               },
               usage_summary: fetched.usage_summary,
@@ -83,7 +82,6 @@ export default function ChatPage() {
               ...curr.response,
               debug: {
                 tool_calls: fetched.steps.filter(s => s.kind === 'tool_call'),
-                verification_passed: fetched.verifier_passed,
                 steps: fetched.steps,
               },
               usage_summary: fetched.usage_summary,
@@ -241,8 +239,8 @@ export default function ChatPage() {
                 </button>
               </div>
               <div className="mt-2 text-ink-4 text-[11px]">
-                Enter sends · Shift+Enter for newline · Every claim is verifier-checked before
-                rendering.
+                Enter sends · Shift+Enter for newline · Every citation links to the exact passage
+                region it was drawn from.
               </div>
             </form>
           </div>
@@ -288,7 +286,7 @@ function synthesizeResponse(msg: ConversationMessage): ChatAnswerResponse | Chat
   // those are visible via the admin trace endpoint. The chat surface
   // shows the answer text + citations, which is what was originally
   // displayed. Disclaimer left empty (already seen at original send time).
-  const baseDebug = { tool_calls: [], verification_passed: msg.verifier_passed, steps: [] }
+  const baseDebug = { tool_calls: [], steps: [] }
   const baseUsage = {
     question_total_cost_usd: 0,
     conversation_total_cost_usd: 0,
@@ -330,8 +328,8 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         Ask the conviction corpus a question.
       </h1>
       <p className="text-ink-2 max-w-prose mb-10 text-balance leading-relaxed">
-        Every claim in the answer must round-trip through the deterministic verifier — quotes
-        substring-match a cited passage after normalization, or they don't make it to your screen.
+        Every claim links to the exact passage region it was drawn from — click a marker to open
+        the passage with that region highlighted.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {SUGGESTIONS.map(s => (

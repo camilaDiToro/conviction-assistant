@@ -45,7 +45,7 @@ The concrete deploy plan: technologies, where things run, the architecture diagr
 │  convictions/ at startup):         │  │  │  • gpt-5                     │  │
 │   • passages                       │  │  │  • text-embedding-3-large    │  │
 │       - text, heading_path,        │  │  └──────────────────────────────┘  │
-│         language, document_updated │  │  ┌──────────────────────────────┐  │
+│         language                   │  │  ┌──────────────────────────────┐  │
 │       - tsv  (Postgres FTS)        │  │  │ Anthropic (second adapter)   │  │
 │       - embedding (pgvector)       │  │  │  • claude-opus-4-7           │  │
 │                                    │  │  │    (portability proof)       │  │
@@ -66,7 +66,7 @@ A single **Postgres database (with `pgvector` and `unaccent` extensions)** holds
 ```
 postgres ←── all schema below ──→
   passages (
-    id, document_id, heading_path[], language, text, document_updated,
+    id, document_id, heading_path[], language, text,
     tsv          tsvector  GENERATED ALWAYS AS (...),  -- BM25-style FTS
     embedding    vector(3072)                          -- pgvector
   )
@@ -172,9 +172,9 @@ Why this shape (still light, but real React):
 What the page renders (unchanged from the previous plan):
 
 - Chat thread (user / assistant turns).
-- **Citations** as expandable cards: click → expand the full passage with heading path + `Updated:` date.
+- **Citations** as expandable cards: click → expand the full passage with heading path.
 - **General-knowledge banner** (Rule A): when `general_knowledge_used: true`, render a visually distinct block above the answer.
-- **Conflict callout** (Rule B): when the response cites contradictory convictions, render them side-by-side with their `Updated:` dates.
+- **Conflict callout** (Rule B): when the response cites contradictory convictions, render them side-by-side.
 - **Disclaimer footer**, always visible.
 - **Debug drawer** (collapsed by default): tool trace + per-step cost + verifier pass/fail. **Single highest-ROI feature — makes the whole architecture visible in 5 seconds during the demo.**
 - **Cost meter** badge: "this conversation cost $0.04" from `usage_summary.conversation_total_cost_usd`.
@@ -247,7 +247,7 @@ decade-ai-challenge/
 │   ├── main.py                        # FastAPI app + static mount + /chat /health
 │   ├── config.py                      # env vars, model picks, prices
 │   ├── parser/
-│   │   ├── markdown.py                # markdown → passages, extracts Updated:
+│   │   ├── markdown.py                # markdown → passages
 │   │   └── interface.py               # DocumentParser protocol
 │   ├── store/
 │   │   ├── passages.py                # SQLAlchemy model + ingestion (sync from convictions/)
@@ -384,7 +384,7 @@ See `docs/SCALING.md` for the full breakdown and `docs/RETRIEVAL_SCALE.md` for t
 - [ ] A simple in-scope question (PT) returns an answer with a verified citation, the disclaimer, and a non-empty `usage_summary`.
 - [ ] An in-scope question in EN over a PT-only document still finds the right passage (cross-language sanity).
 - [ ] An out-of-scope question returns a `general_knowledge_section` with the unambiguous marker.
-- [ ] A constructed conflict question cites both convictions and names the newer one.
+- [ ] A constructed conflict question cites both convictions and states the disagreement.
 - [ ] The debug drawer in the FE shows the tool trace and per-step cost.
 - [ ] `pytest` (no LLM) is green.
 - [ ] `pytest -m eval` (real provider) hits 100% verifier pass rate on the smoke subset.

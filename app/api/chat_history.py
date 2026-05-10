@@ -3,8 +3,8 @@
 Both endpoints are gated by ``X-Chat-Token`` (the same token the user
 already pastes for ``POST /chat``). They reconstruct the user-facing
 chat thread from the ``kind="response"`` rows in ``audit_log``, which
-since B9 carry the verbatim ``user_question`` and the enriched
-``verified_citations``.
+since B9 carry the verbatim ``user_question`` and the resolved
+citation entries (passage provenance + offsets).
 
 Scope notes:
 
@@ -126,22 +126,19 @@ async def question_steps(
     except (ValueError, TypeError):
         summary = {}
     retriever_name = str(summary.get("retriever") or "")
-    verifier_name = str(summary.get("verifier_strategy") or "")
 
     rows = await audit_repo.fetch_steps_by_question(session, conversation_id, question_id)
-    steps, verifier_passed = reconstruct_steps_from_audit(
-        rows, retriever_name=retriever_name, verifier_name=verifier_name
-    )
+    steps = reconstruct_steps_from_audit(rows, retriever_name=retriever_name)
 
     output_dump = summary.get("output") if isinstance(summary.get("output"), dict) else None
     if output_dump is not None:
-        verified_citations = summary.get("verified_citations")
-        if not isinstance(verified_citations, list):
-            verified_citations = None
+        resolution_entries = summary.get("resolution_entries")
+        if not isinstance(resolution_entries, list):
+            resolution_entries = None
         steps.append(
             build_response_debug_step(
                 output_dump,
-                verified_citations=verified_citations,
+                resolution_entries=resolution_entries,
                 step_id=response_row["step_id"],
             )
         )
@@ -160,7 +157,6 @@ async def question_steps(
             step_count=len(steps),
             duration_ms=_audit_duration_ms(rows),
         ),
-        verifier_passed=verifier_passed,
     )
 
 
@@ -214,7 +210,11 @@ def _make_title(text: str) -> str:
 def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> ConversationMessage:
     output = payload.get("output") or {}
     kind = output.get("kind", "answer")
-    citations = [_citation_from_dump(c) for c in (payload.get("verified_citations") or [])]
+    citations = [
+        chat
+        for entry in (payload.get("resolution_entries") or [])
+        if (chat := _citation_from_dump(entry)) is not None
+    ]
 
     user_question_raw = payload.get("user_question") or payload.get("rewritten_question") or ""
     common = {
@@ -222,7 +222,6 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
         "timestamp": row["timestamp"],  # parsed by Pydantic
         "user_question": _repair(user_question_raw) or "",
         "language": payload.get("language", "en"),
-        "verifier_passed": bool(payload.get("verifier_passed", False)),
     }
 
     if kind == "clarifying_question":
@@ -262,18 +261,28 @@ def _repair(s: str | None) -> str | None:
     return repair_broken_unicode_escapes(s)
 
 
-def _citation_from_dump(dump: dict[str, Any]) -> ChatCitation:
-    """Map a serialized ``VerifiedCitation`` payload to the wire shape."""
+def _citation_from_dump(dump: dict[str, Any]) -> ChatCitation | None:
+    """Map a serialized ``CitationResolution`` payload to the wire shape.
+
+    Entries whose passage couldn't be loaded (``passage_not_found``) are
+    dropped — without ``passage_text`` there is nothing to show.
+    """
+    passage_text = dump.get("passage_text")
+    document_id = dump.get("document_id")
+    if not isinstance(passage_text, str) or not document_id:
+        return None
     heading_path = list(dump.get("heading_path") or [])
     heading = heading_path[-1] if heading_path else ""
+    start = dump.get("start")
+    end = dump.get("end")
     return ChatCitation(
         passage_id=dump.get("passage_id", ""),
-        document=f"{dump.get('document_id', '')}.md",
-        document_updated=dump.get("document_updated"),
+        document=f"{document_id}.md",
         heading=heading,
         heading_path=heading_path,
-        quote=dump.get("quote", ""),
-        passage_text=dump.get("passage_text"),
+        passage_text=passage_text,
+        start=int(start) if isinstance(start, int) else None,
+        end=int(end) if isinstance(end, int) else None,
     )
 
 

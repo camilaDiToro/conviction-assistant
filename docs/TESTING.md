@@ -41,7 +41,6 @@ Every layer can be tested without making an LLM call. LLM-in-the-loop tests exis
   - BM25 scores are stable across runs (deterministic).
   - Multilingual queries: "tributação CDB" / "CDB taxation" / "tributación CDB" should all find the right passage (PT, EN, ES are all in scope per `ASSUMPTIONS.md`).
   - Empty query → typed error or empty list, never a 500.
-- **`Updated:` date extraction** — parser correctly extracts the document's `Updated:` date from the markdown header (needed for Rule B / conflict surfacing); `search_convictions` and `read_passage` results carry `document_updated`.
 
 All tool tests run without an LLM — they are pure functions over fixtures.
 
@@ -89,7 +88,7 @@ Integration tests with `FakeProvider` covering:
 
 ### 7. API endpoint
 
-- **Happy path:** `POST /chat` → 200 with the full HTTP response shape from `ARCHITECTURES.md` § "Response contract" — `kind`, `answer` (or `question` + `options` for clarifying), `citations` with `document_updated`, `general_knowledge_used`, `disclaimer`, `usage_summary`, `debug`.
+- **Happy path:** `POST /chat` → 200 with the full HTTP response shape from `ARCHITECTURES.md` § "Response contract" — `kind`, `answer` (or `question` + `options` for clarifying), `citations`, `general_knowledge_used`, `disclaimer`, `usage_summary`, `debug`.
 - **Validation:** missing fields, oversized messages, malformed JSON.
 - **Both response shapes** — at least one test for `kind: "answer"`, one for `kind: "clarifying_question"`.
 
@@ -110,7 +109,7 @@ This is what answers the question *"is this thing actually grounded?"* It runs a
 | **In-scope, thematic** | Open-ended, may require multiple passages from one or several docs | "What's the conviction on Brazilian small caps for 2026?" |
 | **Tangential mention (Rule A)** | Topic only mentioned in passing — assistant must still cite the conviction, not fall back to general knowledge. | A topic touched briefly in one paragraph of one conviction. |
 | **Out-of-scope, general knowledge** | Topic not covered at all — assistant uses general knowledge **with very clear marking** in `general_knowledge_section`. | "What's a covered call?" (if no conviction discusses options strategies) |
-| **Conflicting convictions (Rule B)** | Two convictions contradict on a topic — assistant cites both, names the newer one via `document_updated`. | A constructed pair where one doc says A and a newer doc says ¬A. |
+| **Conflicting convictions (Rule B)** | Two convictions contradict on a topic — assistant cites both and states the disagreement. | A constructed pair where one doc says A and another says ¬A. |
 | **Adversarial / negation** | Hallucination resistance — pushes back on false premises without affirming or refusing. | "The convictions recommend avoiding small caps, correct?" (when they don't) |
 | **Ambiguity → clarifying question** | Genuinely ambiguous query — expected response is `kind: "clarifying_question"`, not an answer. | "How should I handle taxation?" (no asset class implied) |
 | **Multilingual** | Same questions across PT, EN, and Spanish. | Spanish coverage can be lighter than PT/EN since the corpus is currently PT/EN-only. |
@@ -132,7 +131,7 @@ Each entry has:
 | **Answer correctness** | Answer is factually right given cited evidence | LLM-as-judge against the golden-set expected answer pattern (per `ASSUMPTIONS.md` § "Grading strictness"). |
 | **Answer relevancy** | Did it answer the question, or just dump citations? | RAGAS / DeepEval. |
 | **General-knowledge marking precision (Rule A)** | When `general_knowledge_used: true`, the marking is unambiguous and never interleaved with cited claims. Inverse case: when a tangential conviction exists, the model must cite it instead of falling back. | On the "tangential mention" and "out-of-scope, general knowledge" buckets. |
-| **Conflict-surfacing precision (Rule B)** | On the "conflicting convictions" bucket: cites both sides, states the disagreement, names the newer one. | Structured assertions on the response. |
+| **Conflict-surfacing precision (Rule B)** | On the "conflicting convictions" bucket: cites both sides and states the disagreement. | Structured assertions on the response. |
 | **Clarifying-question precision** | On the "ambiguity" bucket: returns `kind: "clarifying_question"`. On all other buckets: does *not* over-clarify. | Response shape check. |
 | **Disclaimer presence** | Every `kind: "answer"` response carries a non-empty `disclaimer`, in the right language. | Trivial schema check; runs across the whole eval. |
 | **Cost tracking accuracy** | `usage_summary.question_total_cost_usd` equals the sum of per-step costs to within a small tolerance. | Audit log replay. |

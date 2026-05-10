@@ -1,6 +1,6 @@
-"""Unit tests for app.agent.retry_policy helpers."""
+"""Unit tests for app.agent.dedupe.dedupe_citations."""
 
-from app.agent.retry_policy import dedupe_citations
+from app.agent.dedupe import dedupe_citations
 from app.agent.schemas import AnswerOutput, Citation
 
 

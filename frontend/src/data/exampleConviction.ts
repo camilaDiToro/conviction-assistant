@@ -43,7 +43,6 @@ Taxa de juros fixa definida no momento da aplicação...
 
 const DOC_ID = 'lci_lca_investimentos'
 const DOC_TITLE = 'LCI e LCA: Guia Completo de Letras de Crédito'
-const DOC_UPDATED = '2026-04-01'
 
 const make = (heading: string, text: string): Passage => ({
   id: `${DOC_ID}#${slugify(heading)}`,
@@ -52,7 +51,6 @@ const make = (heading: string, text: string): Passage => ({
   heading,
   heading_path: [DOC_TITLE, heading],
   text,
-  document_updated: DOC_UPDATED,
 })
 
 export const EXAMPLE_PASSAGES: Passage[] = [

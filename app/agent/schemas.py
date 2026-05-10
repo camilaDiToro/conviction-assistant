@@ -23,12 +23,19 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agent.verifier import VerifiedCitation
+from app.agent.resolver import OffsetResolution
 from app.providers import StructuredOutputSchema, TokenUsage
 
 
 class Citation(BaseModel):
-    """One verbatim quote attributed to a passage in the corpus."""
+    """One verbatim quote attributed to a passage in the corpus.
+
+    The model emits ``{passage_id, quote}``; the orchestrator runs the
+    offset resolver to turn the quote into ``(start, end)`` offsets and
+    drops the literal text before the response is built. The literal
+    ``quote`` therefore lives only in-process — it never reaches the
+    HTTP response or storage.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -92,7 +99,7 @@ class StepRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     step_id: str
-    kind: Literal["llm_call", "tool_call", "verifier"]
+    kind: Literal["llm_call", "tool_call", "resolver"]
     timestamp: datetime
     payload: dict[str, Any]
     usage: TokenUsage | None = None
@@ -103,15 +110,16 @@ class StepRecord(BaseModel):
 class AgentResult(BaseModel):
     """One full agent turn: structured output + the trace that produced it.
 
-    ``verified_citations`` carries provenance for each citation that
-    survived verification — passage_id, document_id, document_title,
-    heading_path, document_updated, quote. B9 reads this to enrich the
-    HTTP response without re-fetching passages. ``None`` when ``output``
-    is a ``ClarifyingQuestionOutput`` (no citations to verify).
+    ``resolution`` carries one :class:`CitationResolution` per citation
+    the model emitted, in original order, with the passage provenance
+    and ``(start, end)`` offsets the wire response needs. B9 reads this
+    to build ``ChatCitation`` rows without re-fetching passages.
+    ``None`` when ``output`` is a ``ClarifyingQuestionOutput`` (no
+    citations to resolve).
 
     ``language`` is the model-detected language from the rewrite stage
-    (PT / ES / EN), used to localize the disclaimer and the safe-refusal
-    text. Single source of truth for the answer-language choice.
+    (PT / ES / EN), used to localize the disclaimer. Single source of
+    truth for the answer-language choice.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -122,7 +130,7 @@ class AgentResult(BaseModel):
     steps: list[StepRecord]
     tool_call_count: int
     search_count: int
-    verified_citations: list[VerifiedCitation] | None = None
+    resolution: OffsetResolution | None = None
 
 
 # --- JSON schemas for the LLM ---------------------------------------------
@@ -153,7 +161,9 @@ AGENT_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
             "description": (
                 "List of verbatim citations. Required when kind='answer'. Every claim "
                 "in 'answer' must be backed by at least one citation. Each quote MUST "
-                "be a verbatim substring of the cited passage's text."
+                "be a verbatim substring of the cited passage's text — the backend "
+                "uses it to anchor the citation to a (start, end) region of the "
+                "passage. Non-verbatim quotes still surface but with no highlight."
             ),
             "items": {
                 "type": "object",

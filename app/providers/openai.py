@@ -203,23 +203,10 @@ def _completion_to_response(
             )
         )
 
-    content: str | None = message.content
-    parsed: dict[str, Any] | None = None
-    if schema is not None and content is not None and not tool_calls:
-        # Strict mode should give us a single JSON object, but gpt-5
-        # occasionally appends a trailing object or stray text after the
-        # first object — json.loads then raises "Extra data". Use
-        # raw_decode to take the first complete JSON value and discard
-        # any tail, falling back to a hard error if even the first value
-        # is unparseable.
-        try:
-            parsed, _ = json.JSONDecoder().raw_decode(content.lstrip())
-        except json.JSONDecodeError as exc:
-            raise ProviderError(
-                "OpenAI returned content that did not match the requested JSON schema"
-            ) from exc
-        parsed = repair_strings_in(parsed)
-
+    # Hoist usage + finish_reason above the parse block so the
+    # empty-output error can name the actual cause (reasoning ate the
+    # max_completion_tokens budget) instead of falling back to the
+    # generic "did not match the requested JSON schema" message.
     usage_obj = completion.usage
     prompt_tokens = getattr(usage_obj, "prompt_tokens", 0) or 0
     completion_tokens = getattr(usage_obj, "completion_tokens", 0) or 0
@@ -239,8 +226,41 @@ def _completion_to_response(
         cached_tokens=cached_tokens,
         reasoning_tokens=reasoning_tokens,
     )
-
     finish_reason = _map_finish_reason(getattr(choice, "finish_reason", None))
+
+    content: str | None = message.content
+    parsed: dict[str, Any] | None = None
+    if schema is not None and not tool_calls:
+        # Empty content with finish_reason=length means reasoning tokens
+        # consumed the whole max_completion_tokens budget — gpt-5 at
+        # medium effort routinely needs 4-5k reasoning tokens on broad
+        # synthesis turns alone. The generic schema error hid this; here
+        # we name the cause and the actionable knob.
+        if content is None or not content.strip():
+            if finish_reason == "length":
+                raise ProviderError(
+                    f"OpenAI truncated output before producing structured JSON "
+                    f"(finish_reason=length, completion_tokens={completion_tokens}, "
+                    f"reasoning_tokens={reasoning_tokens}). Raise "
+                    f"AGENT_MAX_OUTPUT_TOKENS or lower AGENT_REASONING_EFFORT."
+                )
+            raise ProviderError(
+                f"OpenAI returned empty content (finish_reason={finish_reason!r}) "
+                f"and no tool calls; cannot decode against schema {schema.name!r}."
+            )
+        # Strict mode should give us a single JSON object, but gpt-5
+        # occasionally appends a trailing object or stray text after the
+        # first object — json.loads then raises "Extra data". Use
+        # raw_decode to take the first complete JSON value and discard
+        # any tail, falling back to a hard error if even the first value
+        # is unparseable.
+        try:
+            parsed, _ = json.JSONDecoder().raw_decode(content.lstrip())
+        except json.JSONDecodeError as exc:
+            raise ProviderError(
+                "OpenAI returned content that did not match the requested JSON schema"
+            ) from exc
+        parsed = repair_strings_in(parsed)
 
     return LLMResponse(
         content=content,

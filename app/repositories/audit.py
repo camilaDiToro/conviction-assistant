@@ -87,9 +87,8 @@ async def fetch_response_row_by_question(
     session: AsyncSession, conversation_id: str, question_id: str
 ) -> AuditRow | None:
     """Fetch the single ``kind='response'`` row for one (cid, qid). The
-    payload carries the ``retriever`` and ``verifier_strategy`` used —
-    needed to regenerate ``DebugStep.name``/``detail`` for the historical
-    drawer.
+    payload carries the ``retriever`` used — needed to regenerate
+    ``DebugStep.name``/``detail`` for the historical drawer.
     """
     stmt = (
         select(AuditLogORM)
@@ -111,7 +110,7 @@ async def fetch_response_rows_by_conversation(
 ) -> list[AuditRow]:
     """Read only the ``kind='response'`` rows for one conversation,
     ordered by timestamp. Each row carries the per-question summary
-    (user_question, output, verified_citations, language) used to
+    (user_question, output, resolution_entries, language) used to
     rebuild the chat thread.
     """
     stmt = (

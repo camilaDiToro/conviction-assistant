@@ -14,14 +14,12 @@ export default function LandingPage() {
 
       <main className="flex-1 px-6 md:px-10 flex items-center">
         <div className="max-w-page mx-auto w-full py-16 md:py-28">
-          <div className="pill mb-8">Interview deliverable · v0.6 · May 2026</div>
           <h1 className="text-display-1 text-ink-1 mb-6 max-w-[28ch] text-balance">
-            A constrained agentic harness over a conviction corpus.
+            An agentic assistant grounded on Decade's conviction corpus.
           </h1>
           <p className="text-ink-2 text-base md:text-lg leading-relaxed max-w-prose mb-10 text-balance">
-            Inspired by Claude Code's "tools, not embeddings-as-the-retriever" philosophy.
-            A deterministic substring verifier is the grounding guarantee — no provider's
-            Citations API matches it.
+            A bounded agent uses four read-only tools to explore the corpus, gather evidence,
+            and produce a structured answer with exact citations into the source passages.
           </p>
 
           <div className="flex flex-wrap items-center gap-4">

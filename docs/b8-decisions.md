@@ -21,7 +21,7 @@ If a stronger guarantee is ever needed (e.g. "every sentence in the answer must 
 
 ## `VerifiedCitation` provenance is captured at verify time, not lookup time
 
-Each successful verification emits a `VerifiedCitation` carrying `passage_id`, `document_id`, `document_title`, `heading_path`, `document_updated`, and the `quote` string. This is surfaced via `AgentResult.verified_citations` so B9's HTTP response can render the enriched citation row directly, without an extra `read_passage` round-trip per citation in the API layer.
+Each successful verification emits a `VerifiedCitation` carrying `passage_id`, `document_id`, `document_title`, `heading_path`, and the `quote` string. This is surfaced via `AgentResult.verified_citations` so B9's HTTP response can render the enriched citation row directly, without an extra `read_passage` round-trip per citation in the API layer.
 
 The reason this lives in the verifier and not B9 is plumbing pragmatism: the verifier already had to fetch the `Passage` to check the substring. Throwing away that data and re-fetching it in the API layer would duplicate I/O. The verifier is the natural seam.
 

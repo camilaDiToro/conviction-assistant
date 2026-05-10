@@ -1,13 +1,12 @@
-"""Step-record builders + the verifier-side fetch adapter.
+"""Step-record builders + the resolver-side fetch adapter.
 
 Three record builders, one per :class:`StepRecord` kind, plus a thin
-adapter (:func:`verify_output`) that fetches passages from the repo and
-hands them to the pure verifier. B9 will reuse these to populate the
-``audit_log`` table.
+adapter (:func:`resolve_output`) that fetches passages from the repo
+and hands them to the pure offset resolver.
 
-The adapter lives here (not under :mod:`app.verifier`) because the pure
-verifier owns no I/O — see :file:`docs/b8-decisions.md` § "Why
-``app/verifier/`` is its own layer".
+The adapter lives here (not under :mod:`app.agent.resolver`) because
+the pure resolver owns no I/O — :func:`app.agent.resolver.resolve_answer`
+takes a passages dict it does not load.
 """
 
 import json
@@ -15,9 +14,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from app.agent.resolver import OffsetResolution, resolve_answer
 from app.agent.schemas import AnswerOutput, StepRecord
 from app.agent.tools import ToolContext
-from app.agent.verifier import VerificationResult
 from app.errors import VerificationError
 from app.providers import LLMResponse, ToolCall
 from app.repositories import passages as passages_repo
@@ -59,32 +58,26 @@ def record_tool_call(call: ToolCall, result_text: str, *, duration_ms: int = 0) 
     )
 
 
-def record_verifier(
-    result: VerificationResult, *, attempt: int, duration_ms: int = 0
-) -> StepRecord:
+def record_resolver(resolution: OffsetResolution, *, duration_ms: int = 0) -> StepRecord:
     return StepRecord(
         step_id=str(uuid.uuid4()),
-        kind="verifier",
+        kind="resolver",
         timestamp=datetime.now(UTC),
         payload={
-            "attempt": attempt,
-            "all_passed": result.all_passed,
-            "verified": [vc.model_dump(mode="json") for vc in result.verified],
-            "failures": [f.model_dump(mode="json") for f in result.failures],
+            "entries": [e.model_dump(mode="json") for e in resolution.entries],
         },
         duration_ms=duration_ms,
     )
 
 
-async def verify_output(output: AnswerOutput, *, ctx: ToolContext) -> VerificationResult:
-    """Fetch each cited passage and run the configured verifier.
+async def resolve_output(output: AnswerOutput, *, ctx: ToolContext) -> OffsetResolution:
+    """Fetch each cited passage and run the offset resolver.
 
     Each unique ``passage_id`` in ``output.citations`` is loaded via the
     passage repository. ``None`` results (passage_id not in the store)
-    are passed through to the verifier as a missing key, which records a
-    ``passage_not_found`` failure for that citation. Repository errors
-    propagate as :class:`VerificationError`. The verifier itself comes
-    from ``ctx.verifier`` — :class:`SubstringVerifier` by default.
+    are passed through to :func:`resolve_answer` as a missing key, which
+    records a ``passage_not_found`` failure for that citation. Repository
+    errors propagate as :class:`VerificationError`.
     """
     unique_ids = {c.passage_id for c in output.citations}
     passages: dict[str, Passage] = {}
@@ -93,9 +86,9 @@ async def verify_output(output: AnswerOutput, *, ctx: ToolContext) -> Verificati
             passage = await passages_repo.get(ctx.session, pid)
             if passage is not None:
                 passages[pid] = passage
-    except Exception as exc:  # repo errors are bug-class for the verifier
-        raise VerificationError(f"failed to load passages for verification: {exc}") from exc
-    return ctx.verifier.verify(output, passages)
+    except Exception as exc:  # repo errors are bug-class for the resolver
+        raise VerificationError(f"failed to load passages for resolution: {exc}") from exc
+    return resolve_answer(output, passages)
 
 
 def _maybe_parse_json(text: str) -> Any:
@@ -107,7 +100,7 @@ def _maybe_parse_json(text: str) -> Any:
 
 __all__ = [
     "record_llm_call",
+    "record_resolver",
     "record_tool_call",
-    "record_verifier",
-    "verify_output",
+    "resolve_output",
 ]

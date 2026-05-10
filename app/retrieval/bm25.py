@@ -13,10 +13,10 @@ Tokenization (pinned, see `docs/b6-decisions.md`):
 - no stopwords, no stemmer
 
 The same pipeline runs against indexed passages and incoming queries.
-Diacritic-stripping at the search layer is independent of the verifier's
-normalization (B7), which preserves diacritics so cited quotes round-trip:
-search normalization is a recall concern, verifier normalization is a
-fidelity concern.
+Diacritic-stripping at the search layer is independent of the offset
+resolver, which operates on the raw passage text so cited quotes
+round-trip: search normalization is a recall concern, resolver matching
+is a fidelity concern.
 """
 
 from __future__ import annotations

@@ -6,9 +6,9 @@ Index for future Claude sessions working on this project. Read this first; follo
 
 A conversational AI assistant strictly grounded on Decade's investment conviction documents. The challenge brief is in `AI_CHALLENGE.md`. The corpus is in `convictions/` (30 markdown files, mixed Portuguese/English, expected to grow).
 
-**One-line framing for the interview:** *a deterministic substring verifier as the grounding guarantee — paired with a constrained agentic harness (small read-only tool surface + bounded gather→act→verify loop) whose discipline is inspired by Claude Code. No provider's Citations API matches the verifier's guarantee.*
+**One-line framing for the interview:** *deterministic offset-based provenance as the grounding guarantee — every citation resolves to a `(start, end)` region of the source passage, and the UI shows the user exactly what was cited. Paired with a constrained agentic harness (small read-only tool surface + bounded gather→act loop) whose discipline is inspired by Claude Code. No provider's Citations API matches this guarantee.*
 
-The architecture is a **deterministic citation verifier + constrained tool-using agent**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is substring-verified against the source before it reaches the user. Retry-with-feedback on first failure; strip-claim on second.
+The architecture is a **deterministic offset resolver + constrained tool-using agent**: the model gets read-only tools over a passage store and produces structured answers; every cited quote is resolved to character offsets in the cited passage before the response is built. The literal quote is dropped — only `(passage_id, start, end)` survives into the wire response. Citations whose quotes don't anchor still surface; the popup shows the passage without a highlight.
 
 ## Stack
 
@@ -33,7 +33,7 @@ The architecture is a **deterministic citation verifier + constrained tool-using
 |---|---|
 | `AI_CHALLENGE.md` | The challenge brief from Decade. The requirements live here. |
 | `docs/ROADMAP.md` | **Multi-session step-by-step build plan.** Read this at the start of every implementation session. Update between sessions (check off `- [x]`, note deviations). |
-| `docs/ARCHITECTURES.md` | **The chosen architecture.** Tool surface, agent loop, verifier, what's *not* implemented in this version, alternatives that were considered and rejected, eval-driven implementation order. |
+| `docs/ARCHITECTURES.md` | **The chosen architecture.** Tool surface, agent loop, offset resolver, what's *not* implemented in this version, alternatives that were considered and rejected, eval-driven implementation order. |
 ## CRITICAL RULES (these must be obvious in every response)
 
 These are non-negotiable behaviors. They are the "very, very clear" rules — confirmed by the project owner — that must be visible in every answer the assistant produces.
@@ -54,16 +54,13 @@ When two or more convictions contradict each other on a topic:
 
 - **Cite all sides.** Never silently pick one.
 - **State explicitly that the convictions disagree.**
-- **Indicate which conviction is newer**, using each document's `Updated:` date (parsed from the markdown header).
 - The analyst makes the judgment call; the assistant does not pretend consensus exists.
-
-This requires the parser to extract `Updated:` dates from document headers and surface them in tool results (`search_convictions`, `read_passage`).
 
 ---
 
 ## Other design principles (do not violate)
 
-1. **The agent finds evidence; the verifier enforces grounding.** These are separate responsibilities. Don't move grounding logic into the prompt or rely on the model to self-verify.
+1. **The agent finds evidence; the resolver pins it to offsets.** These are separate responsibilities. The model is good at copying substrings, bad at counting characters — let it copy, then resolve to `(start, end)` server-side. Don't move grounding logic into the prompt or rely on the model to emit offsets directly.
 2. **No provider-native grounding feature is the architecture.** They live behind adapters as optimizations only. The contract above the adapter is identical across Anthropic, OpenAI, Gemini.
 3. **BM25-only is the v1 retrieval baseline.** The corpus is 30 docs; plain BM25 (with unicode-fold + accent-strip + lowercase normalization) may be sufficient. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under ROADMAP B6, gated on eval failure *and* a conversation with the project owner — never auto-promoted. See `docs/ARCHITECTURES.md` § "Classic hybrid retrieval pipeline" for the corpus-growth and audience-expansion reasoning.
 4. **No prior assistant answers in the source-of-truth context.** Each turn runs fresh tool calls. Prior conversation is used only to rewrite the current question.
@@ -73,15 +70,15 @@ This requires the parser to extract `Updated:` dates from document headers and s
 
 ## In scope for v1
 
-- Markdown ingestion → SQLite passage store with stable IDs (incl. `Updated:` date extraction). **Triggered via `POST /admin/ingest`**, not a CLI.
+- Markdown ingestion → SQLite passage store with stable IDs. **Triggered via `POST /admin/ingest`**, not a CLI.
 - `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5`; `text-embedding-3-large` ships in the adapter even though B6 doesn't use embeddings — keeps the adapter complete), Anthropic adapter second (portability proof)
 - Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output
-- Deterministic citation verifier with retry-once-with-feedback (built **before** the agent loop so every later step measures verifier pass rate)
+- Deterministic offset resolver: turns each cited quote into `(start, end)` offsets in the passage, drops the literal text; non-anchoring citations survive without a highlight
 - Disclaimer + audit log + cost tracking on every response (PT / EN / **ES** disclaimers — Spanish users may ask in Spanish even though the corpus is PT/EN)
 - `POST /chat` endpoint
-- Lightweight React frontend (Vite + React + TypeScript + Tailwind; built to static files and mounted under FastAPI)
-- Eval suite (~30 hand-written Q/A) with verifier pass rate as headline metric
+- Lightweight React frontend (Vite + React + TypeScript + Tailwind; built to static files and mounted under FastAPI); citation popup with the cited region highlighted in the passage
+- Eval suite (~30 hand-written Q/A) with **anchor rate** (% of citations that resolved) as headline metric
 
 ## Out of scope for v1 (designed, not built)
 
@@ -217,6 +214,6 @@ frontend/src/
 
 - Don't add new dependencies without a reason that holds up to "could a smart reader find this overkill?"
 - Don't add abstraction layers for hypothetical future providers / formats. The provider interface is justified because portability is an explicit requirement; nothing else gets that pass.
-- Don't write comments that restate the code. Reserve comments for non-obvious *why* (a verifier normalization choice, an unusual loop bound, etc.).
-- Pure functions where possible (parser, tools, verifier). Pure functions are testable; mocks are not.
-- The eval suite's headline metric is **verifier pass rate**. Other metrics complement; don't replace it.
+- Don't write comments that restate the code. Reserve comments for non-obvious *why* (a resolver choice, an unusual loop bound, etc.).
+- Pure functions where possible (parser, tools, resolver). Pure functions are testable; mocks are not.
+- The eval suite's headline metric is **anchor rate** (% of citations whose quotes resolved to offsets). Other metrics complement; don't replace it.

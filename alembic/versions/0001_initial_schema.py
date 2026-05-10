@@ -24,7 +24,6 @@ def upgrade() -> None:
         sa.Column("heading", sa.Text, nullable=False),
         sa.Column("heading_path", sa.Text, nullable=False),
         sa.Column("text", sa.Text, nullable=False),
-        sa.Column("document_updated", sa.Text, nullable=True),
         sa.Column("ordinal", sa.Integer, nullable=False),
     )
     op.create_index(

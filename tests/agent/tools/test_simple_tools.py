@@ -1,7 +1,5 @@
 """Pure-function tests for the three B5 read-only tools."""
 
-from datetime import date
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +28,7 @@ async def session(tmp_path):
     await engine.dispose()
 
 
-def _passage(slug: str, doc: str, head: str, *, text: str = "...", updated=None, title=None):
+def _passage(slug: str, doc: str, head: str, *, text: str = "...", title=None):
     title = title or doc.replace("_", " ").title()
     return Passage(
         id=f"{doc}#{slug}",
@@ -39,7 +37,6 @@ def _passage(slug: str, doc: str, head: str, *, text: str = "...", updated=None,
         heading=head,
         heading_path=[title, head],
         text=text,
-        document_updated=updated,
     )
 
 
@@ -50,27 +47,41 @@ async def test_list_documents_returns_doc_summaries(session: AsyncSession):
     items = [
         _passage("a", "doc_a", "A1"),
         _passage("b", "doc_a", "A2"),
-        _passage("c", "doc_b", "B1", updated=date(2026, 4, 1)),
+        _passage("c", "doc_b", "B1"),
         _passage("d", "doc_c", "C1"),
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
     ctx = ToolContext(session=session, retriever=BM25Retriever())
 
-    result = await list_documents(ctx)
+    result = await list_documents(ctx, k=30)
 
     assert all(isinstance(d, DocSummary) for d in result)
     assert [d.id for d in result] == ["doc_a", "doc_b", "doc_c"]
     by_id = {d.id: d for d in result}
     assert by_id["doc_a"].passage_count == 2
-    assert by_id["doc_a"].document_updated is None
-    assert by_id["doc_b"].document_updated == date(2026, 4, 1)
+    assert by_id["doc_b"].passage_count == 1
     assert by_id["doc_c"].passage_count == 1
+
+
+async def test_list_documents_caps_at_k(session: AsyncSession):
+    items = [
+        _passage("a", "doc_a", "A1"),
+        _passage("b", "doc_b", "B1"),
+        _passage("c", "doc_c", "C1"),
+    ]
+    async with session.begin():
+        await passages_repo.upsert_many(session, items)
+    ctx = ToolContext(session=session, retriever=BM25Retriever())
+
+    result = await list_documents(ctx, k=2)
+
+    assert [d.id for d in result] == ["doc_a", "doc_b"]
 
 
 async def test_list_documents_on_empty_corpus_returns_empty(session: AsyncSession):
     ctx = ToolContext(session=session, retriever=BM25Retriever())
-    result = await list_documents(ctx)
+    result = await list_documents(ctx, k=30)
     assert result == []
 
 
@@ -79,9 +90,9 @@ async def test_list_documents_on_empty_corpus_returns_empty(session: AsyncSessio
 
 async def test_read_document_outline_returns_full_outline(session: AsyncSession):
     items = [
-        _passage("intro", "cdb_guide", "Intro", updated=date(2026, 4, 1)),
-        _passage("tax", "cdb_guide", "Tributação", updated=date(2026, 4, 1)),
-        _passage("risk", "cdb_guide", "Risco", updated=date(2026, 4, 1)),
+        _passage("intro", "cdb_guide", "Intro"),
+        _passage("tax", "cdb_guide", "Tributação"),
+        _passage("risk", "cdb_guide", "Risco"),
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)
@@ -92,7 +103,6 @@ async def test_read_document_outline_returns_full_outline(session: AsyncSession)
     assert isinstance(outline, DocumentOutline)
     assert outline.document_id == "cdb_guide"
     assert outline.document_title == "Cdb Guide"
-    assert outline.document_updated == date(2026, 4, 1)
     assert outline.passage_count == 3
     assert [h.heading for h in outline.headings] == ["Intro", "Tributação", "Risco"]
     assert [h.ordinal for h in outline.headings] == [0, 1, 2]
@@ -110,26 +120,13 @@ async def test_read_document_outline_unknown_id_raises(session: AsyncSession):
     assert excinfo.value.document_id == "ghost"
 
 
-async def test_read_document_outline_undated_doc(session: AsyncSession):
-    async with session.begin():
-        await passages_repo.upsert_many(
-            session, [_passage("a", "undated", "A"), _passage("b", "undated", "B")]
-        )
-    ctx = ToolContext(session=session, retriever=BM25Retriever())
-
-    outline = await read_document_outline(ctx, document_id="undated")
-
-    assert outline.document_updated is None
-    assert outline.passage_count == 2
-
-
 # ---- read_passage ----
 
 
 async def test_read_passage_returns_passages_in_input_order(session: AsyncSession):
     items = [
-        _passage("a", "doc_x", "A", text="alpha", updated=date(2026, 4, 1)),
-        _passage("b", "doc_x", "B", text="beta", updated=date(2026, 4, 1)),
+        _passage("a", "doc_x", "A", text="alpha"),
+        _passage("b", "doc_x", "B", text="beta"),
     ]
     async with session.begin():
         await passages_repo.upsert_many(session, items)

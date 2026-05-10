@@ -192,8 +192,7 @@ export default function RetrievalPage() {
     document_id: str
     document_title: str
     heading_path: list[str]
-    snippet: str               # ~200 chars, word-boundary cut, "…" suffix
-    document_updated: date | None`}
+    snippet: str               # ~200 chars, word-boundary cut, "…" suffix`}
         />
       </Section>
 

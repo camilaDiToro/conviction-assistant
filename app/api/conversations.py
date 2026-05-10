@@ -80,11 +80,9 @@ async def get_conversation_trace(
                 language=summary_payload.get("language", "en"),
                 rewritten_question=summary_payload.get("rewritten_question"),
                 answer_or_question=summary_payload.get("output", {}),
-                verifier_passed=bool(summary_payload.get("verifier_passed", False)),
                 step_count=len(non_response_rows),
                 step_kinds=[r["kind"] for r in non_response_rows],
                 retriever=summary_payload.get("retriever", ""),
-                verifier_strategy=summary_payload.get("verifier_strategy", ""),
             )
         )
 
