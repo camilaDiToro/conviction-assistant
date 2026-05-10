@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     rewrite_max_output_tokens: int = 200
     rewrite_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
 
+    # Verifier (B8). Read by app/agent/loop.py.
+    verifier_enabled: bool = True
+    verifier_retry_budget: int = 1  # ROADMAP B8 pins one retry; configurable for tests.
+
     @property
     def async_database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"

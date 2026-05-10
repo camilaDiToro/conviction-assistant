@@ -1,0 +1,41 @@
+# Verifier retry-then-pass: search → AnswerOutput with a paraphrase
+# quote → verifier fails → loop appends feedback → AnswerOutput with
+# a verbatim quote → verifier passes.
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 30 }
+# Turn 1: paraphrase — "regressive IR table" is NOT a substring of the
+# passage text "example passage text covering tabela regressiva ..."
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"regressive IR table"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "regressive IR table"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 540, completion_tokens: 78 }
+  finish_reason: stop
+# Turn 2: verbatim — "tabela regressiva" IS a substring.
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 720, completion_tokens: 70 }
+  finish_reason: stop

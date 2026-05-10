@@ -101,7 +101,15 @@ async def test_basic_search_then_answer(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.rewritten_question is None  # empty history → no rewrite stage
 
     kinds = [s.kind for s in result.steps]
-    assert kinds == ["llm_call", "tool_call", "llm_call", "tool_call", "llm_call"]
+    # B8: a passing verifier step is appended after the final llm_call.
+    assert kinds == [
+        "llm_call",
+        "tool_call",
+        "llm_call",
+        "tool_call",
+        "llm_call",
+        "verifier",
+    ]
 
 
 @pytest.mark.asyncio

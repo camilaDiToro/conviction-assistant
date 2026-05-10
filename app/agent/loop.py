@@ -14,9 +14,12 @@ The architecture (``docs/ARCHITECTURES.md`` § "Loop bounds") commits to:
 - **No prior assistant text in the loop.** History is consumed only by
   the rewrite stage; the loop sees ``[system, user(rewritten)]``
   initially. This is the conversation-memory quarantine.
-
-The verifier and retry-once-with-feedback path are **not** wired here
-— they land in B8, which retrofits this module.
+- **Deterministic citation verifier (B8).** Every ``AnswerOutput`` is
+  substring-verified against the cited passages. On the first failure,
+  the loop appends per-citation feedback and re-prompts. On the
+  second failure, the offending Citation rows are dropped; if zero
+  grounded citations remain, ``answer`` is replaced with a localized
+  safe refusal. Skipped for ``ClarifyingQuestionOutput`` (no citations).
 """
 
 import asyncio
@@ -38,9 +41,12 @@ from app.agent.schemas import (
     StepRecord,
 )
 from app.config import settings
-from app.errors import AgentError, DomainError
+from app.errors import AgentError, DomainError, VerificationError
 from app.providers import LLMProvider, LLMResponse, Message, ToolCall
+from app.repositories import passages as passages_repo
+from app.schemas.passage import Passage
 from app.tools import TOOLS, ToolContext
+from app.verifier import VerificationResult, verify_answer
 
 SYSTEM_PROMPT: str = (Path(__file__).parent / "prompts" / "system.md").read_text(encoding="utf-8")
 
@@ -71,10 +77,16 @@ async def run(
     else:
         loop_input = user_message
 
-    output, loop_steps, tool_count, search_count = await _agent_loop(
+    output, loop_steps, tool_count, search_count, verify_result = await _agent_loop(
         loop_input, tool_ctx=tool_ctx, llm=llm
     )
     steps.extend(loop_steps)
+
+    verified_citations = (
+        list(verify_result.verified)
+        if isinstance(output, AnswerOutput) and verify_result is not None
+        else None
+    )
 
     return AgentResult(
         output=output,
@@ -82,6 +94,7 @@ async def run(
         steps=steps,
         tool_call_count=tool_count,
         search_count=search_count,
+        verified_citations=verified_citations,
     )
 
 
@@ -90,11 +103,13 @@ async def _agent_loop(
     *,
     tool_ctx: ToolContext,
     llm: LLMProvider,
-) -> tuple[AgentOutput, list[StepRecord], int, int]:
+) -> tuple[AgentOutput, list[StepRecord], int, int, VerificationResult | None]:
     # All loop bounds are read from settings at call time so .env overrides
     # apply without restarting tests; see app/config/settings.py.
     max_tool_calls = settings.agent_max_tool_calls
     max_iterations = settings.agent_max_iterations
+    verifier_enabled = settings.verifier_enabled
+    verifier_retry_budget = settings.verifier_retry_budget
 
     messages: list[Message] = [
         Message(role="system", content=SYSTEM_PROMPT),
@@ -104,6 +119,7 @@ async def _agent_loop(
     steps: list[StepRecord] = []
     tool_call_count = 0  # invariant: equals the number of *executed* tool calls
     search_count = 0
+    verify_attempts = 0  # number of failed verify cycles already consumed
     budget_exhausted = False
 
     for _ in range(max_iterations):
@@ -171,7 +187,36 @@ async def _agent_loop(
                 )
                 continue
 
-            return output, steps, tool_call_count, search_count
+            # ---- Verifier hook (B8) ---------------------------------
+            # Skipped for ClarifyingQuestionOutput (no citations) and
+            # when the operator disables it via settings.
+            if isinstance(output, AnswerOutput) and verifier_enabled:
+                verify = await _verify_output(output, ctx=tool_ctx)
+                steps.append(_record_verifier(verify, attempt=verify_attempts))
+
+                if not verify.all_passed:
+                    if verify_attempts < verifier_retry_budget:
+                        verify_attempts += 1
+                        content = response.content or json.dumps(response.parsed)
+                        messages.append(Message(role="assistant", content=content))
+                        messages.append(
+                            Message(
+                                role="user",
+                                content=await _verifier_feedback(verify, ctx=tool_ctx),
+                            )
+                        )
+                        continue
+                    # Second failure → strip the offending Citation rows.
+                    # If zero grounded citations remain, fall through to a
+                    # safe localized refusal (see ROADMAP B8).
+                    output = _strip_failed_citations(output, verify)
+                    if not output.citations:
+                        output = _localized_refusal(question)
+                        verify = VerificationResult(verified=[], failures=[])
+
+                return output, steps, tool_call_count, search_count, verify
+
+            return output, steps, tool_call_count, search_count, None
 
         # Defensive — schema attached but neither tool_calls nor parsed.
         # Strict mode should make this unreachable.
@@ -256,6 +301,131 @@ def _record_llm_call(response: LLMResponse, *, stage: str) -> StepRecord:
         payload=payload,
         usage=response.usage,
     )
+
+
+async def _verify_output(output: AnswerOutput, *, ctx: ToolContext) -> VerificationResult:
+    """Fetch each cited passage and run the deterministic verifier.
+
+    Each unique ``passage_id`` in ``output.citations`` is loaded via
+    the passage repository. ``None`` results (passage_id not in the
+    store) are passed through to ``verify_answer`` as a missing key,
+    which records a ``passage_not_found`` failure for that citation.
+    Repository errors propagate as ``VerificationError``.
+    """
+    unique_ids = {c.passage_id for c in output.citations}
+    passages: dict[str, Passage] = {}
+    try:
+        for pid in unique_ids:
+            passage = await passages_repo.get(ctx.session, pid)
+            if passage is not None:
+                passages[pid] = passage
+    except Exception as exc:  # repo errors are bug-class for the verifier
+        raise VerificationError(f"failed to load passages for verification: {exc}") from exc
+    return verify_answer(output, passages)
+
+
+def _record_verifier(result: VerificationResult, *, attempt: int) -> StepRecord:
+    payload: dict[str, Any] = {
+        "attempt": attempt,
+        "all_passed": result.all_passed,
+        "verified": [vc.model_dump(mode="json") for vc in result.verified],
+        "failures": [f.model_dump(mode="json") for f in result.failures],
+    }
+    return StepRecord(
+        step_id=str(uuid.uuid4()),
+        kind="verifier",
+        timestamp=datetime.now(UTC),
+        payload=payload,
+    )
+
+
+async def _verifier_feedback(result: VerificationResult, *, ctx: ToolContext) -> str:
+    """Compose the user-role retry prompt sent on first verification failure.
+
+    For each failed citation, name the passage_id, echo the model's
+    quote, the failure reason, and (when the passage exists) the
+    first ~200 chars of the passage's actual text so the model can
+    produce a verbatim quote on the retry.
+    """
+    lines = [
+        "The deterministic citation verifier rejected your previous answer. "
+        "The following citation(s) failed verification:",
+    ]
+    for failure in result.failures:
+        lines.append("")
+        lines.append(f"- index {failure.index}, passage_id={failure.passage_id!r}")
+        lines.append(f"  reason: {failure.reason}")
+        lines.append(f"  your quote: {failure.quote!r}")
+        if failure.reason == "substring_not_found":
+            passage = await passages_repo.get(ctx.session, failure.passage_id)
+            if passage is not None:
+                preview = passage.text[:200].replace("\n", " ")
+                lines.append(f"  passage starts with: {preview!r}")
+    lines.append("")
+    lines.append(
+        "Retry: emit the same answer with verbatim quotes from the cited "
+        "passages. If you cannot find a verbatim substring that supports a "
+        "claim, remove the claim. Do not paraphrase inside a quote."
+    )
+    return "\n".join(lines)
+
+
+def _strip_failed_citations(output: AnswerOutput, result: VerificationResult) -> AnswerOutput:
+    """Return a copy of ``output`` with the failed citations dropped."""
+    failed = {f.index for f in result.failures}
+    surviving = [c for i, c in enumerate(output.citations) if i not in failed]
+    return output.model_copy(update={"citations": surviving})
+
+
+def _localized_refusal(question: str) -> AnswerOutput:
+    """Build a safe-refusal AnswerOutput in the user's language.
+
+    Heuristic PT/ES/EN detection over the rewritten question. B9 ships
+    a proper detector at ``app/agent/language.py``; this inline
+    detector is the seam to be replaced (one-line swap).
+    """
+    lang = _detect_language(question)
+    refusals = {
+        "pt": (
+            "Não consegui localizar uma citação verbatim nas convicções da Decade "
+            "para fundamentar uma resposta a esta pergunta. Reformule a pergunta "
+            "ou consulte um analista."
+        ),
+        "es": (
+            "No pude localizar una cita literal en las convicciones de Decade que "
+            "respalde una respuesta a esta pregunta. Por favor, reformule la "
+            "pregunta o consulte a un analista."
+        ),
+        "en": (
+            "I could not locate a verbatim quote in Decade's convictions to ground "
+            "an answer to this question. Please rephrase or consult an analyst."
+        ),
+    }
+    return AnswerOutput(
+        answer=refusals[lang],
+        citations=[],
+        general_knowledge_used=False,
+        general_knowledge_section=None,
+        out_of_scope=False,
+    )
+
+
+def _detect_language(text: str) -> str:
+    """Tiny PT / ES / EN classifier — replaced by app/agent/language.py in B9.
+
+    Uses a small set of language-distinctive markers (function words +
+    diacritic patterns) on lowercased text. Defaults to ``"en"``.
+    """
+    lower = f" {text.lower()} "
+    pt_markers = (" não ", " você ", " está ", " são ", " é ", " da ", " do ", "ção", "ões")
+    es_markers = (" no ", " usted ", " está ", " son ", " es ", " del ", "ción", " ¿", "¡", " ñ")
+    pt_score = sum(m in lower for m in pt_markers)
+    es_score = sum(m in lower for m in es_markers)
+    if pt_score == 0 and es_score == 0:
+        return "en"
+    if pt_score >= es_score:
+        return "pt"
+    return "es"
 
 
 def _record_tool_call(call: ToolCall, result_text: str) -> StepRecord:

@@ -1,0 +1,23 @@
+# Verifier happy path: search → AnswerOutput with a verbatim substring
+# quote → verifier passes on the first try; no retry.
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 30 }
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"tabela regressiva"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "tabela regressiva"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 540, completion_tokens: 78 }
+  finish_reason: stop

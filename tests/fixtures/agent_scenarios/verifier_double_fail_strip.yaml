@@ -1,0 +1,45 @@
+# Verifier double-failure with surviving citation: two citations, one
+# verbatim ("position A") and one paraphrase ("regressive IR table").
+# After retry, the paraphrase is still wrong → strip just that citation;
+# the verbatim one survives. AnswerOutput keeps len(citations) == 1.
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 30 }
+# Turn 1: one good, one bad.
+- content: '{"kind":"answer","answer":"Two-claim answer.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"position A"},{"passage_id":"cdbs_quick_guide#tributacao","quote":"regressive IR table"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Two-claim answer."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "position A"
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "regressive IR table"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 540, completion_tokens: 78 }
+  finish_reason: stop
+# Turn 2: still paraphrasing the second one → strip it.
+- content: '{"kind":"answer","answer":"Two-claim answer.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"position A"},{"passage_id":"cdbs_quick_guide#tributacao","quote":"regressive IR table"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "Two-claim answer."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "position A"
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "regressive IR table"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 720, completion_tokens: 78 }
+  finish_reason: stop

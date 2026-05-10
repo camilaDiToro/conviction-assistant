@@ -1,0 +1,41 @@
+# Verifier double-failure with no surviving citations: the only
+# citation is a paraphrase, fails twice → strip leaves zero citations
+# → loop replaces `answer` with a localized refusal. The user asked
+# in English, so the refusal is in English.
+- tool_calls:
+    - id: call_search
+      name: search_convictions
+      arguments:
+        query: "CDB"
+        k: 5
+  usage: { model: stub-llm, prompt_tokens: 200, completion_tokens: 30 }
+# Turn 1: paraphrase.
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"regressive IR table"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "regressive IR table"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 540, completion_tokens: 78 }
+  finish_reason: stop
+# Turn 2: still paraphrasing.
+- content: '{"kind":"answer","answer":"CDBs follow the regressive IR table.","citations":[{"passage_id":"cdbs_quick_guide#tributacao","quote":"regressive IR table"}],"general_knowledge_used":false,"general_knowledge_section":null,"out_of_scope":false,"question":null,"options":null}'
+  parsed:
+    kind: answer
+    answer: "CDBs follow the regressive IR table."
+    citations:
+      - passage_id: cdbs_quick_guide#tributacao
+        quote: "regressive IR table"
+    general_knowledge_used: false
+    general_knowledge_section: null
+    out_of_scope: false
+    question: null
+    options: null
+  usage: { model: stub-llm, prompt_tokens: 720, completion_tokens: 78 }
+  finish_reason: stop

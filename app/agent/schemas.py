@@ -24,6 +24,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.providers import StructuredOutputSchema, TokenUsage
+from app.verifier import VerifiedCitation
 
 
 class Citation(BaseModel):
@@ -91,7 +92,7 @@ class StepRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     step_id: str
-    kind: Literal["llm_call", "tool_call"]
+    kind: Literal["llm_call", "tool_call", "verifier"]
     timestamp: datetime
     payload: dict[str, Any]
     usage: TokenUsage | None = None
@@ -99,7 +100,14 @@ class StepRecord(BaseModel):
 
 
 class AgentResult(BaseModel):
-    """One full agent turn: structured output + the trace that produced it."""
+    """One full agent turn: structured output + the trace that produced it.
+
+    ``verified_citations`` carries provenance for each citation that
+    survived verification — passage_id, document_id, document_title,
+    heading_path, document_updated, quote. B9 reads this to enrich the
+    HTTP response without re-fetching passages. ``None`` when ``output``
+    is a ``ClarifyingQuestionOutput`` (no citations to verify).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -108,6 +116,7 @@ class AgentResult(BaseModel):
     steps: list[StepRecord]
     tool_call_count: int
     search_count: int
+    verified_citations: list[VerifiedCitation] | None = None
 
 
 # --- JSON schemas for the LLM ---------------------------------------------

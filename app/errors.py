@@ -45,3 +45,13 @@ class AgentError(DomainError):
     safety iteration cap was exceeded. Bug-class errors, not user-facing
     domain conditions.
     """
+
+
+class VerificationError(DomainError):
+    """Raised on internal verifier failures (B8).
+
+    The normal verify-fail-then-retry-then-strip flow is steady-state
+    and does NOT raise — it's how the loop enforces grounding. This
+    exception is reserved for genuine bug-class problems (e.g. the
+    passage repo lookup itself errors during verification).
+    """

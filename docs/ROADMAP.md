@@ -163,7 +163,7 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - **All loop tuning is `.env`-driven.** Six knobs on `Settings` (`agent_max_tool_calls`, `agent_max_iterations`, `agent_max_output_tokens`, `agent_reasoning_effort`, `rewrite_max_output_tokens`, `rewrite_reasoning_effort`) read from `.env` via `pydantic-settings`. `app/agent/loop.py` and `app/agent/rewrite.py` read `settings.X` at call time so per-environment tuning takes effect without code edits. Defaults preserved.
   - **`AgentError` added** to `app/errors.py` and mapped to HTTP 500 in `app/main.py` for the future B9 wiring.
 
-### B8 — Citation verifier + retry-once-with-feedback (retrofit into the agent loop)
+### B8 — Citation verifier + retry-once-with-feedback (retrofit into the agent loop)  - [x]
 - **Goal:** deterministic substring verification of every citation; retry-once-with-feedback path inside the agent loop. **Built after B7** so the retry path is wired into a real agent loop instead of speculated against a stub.
 - **Scope cap:** no LLM-as-judge. Just substring + a *pinned* normalization policy.
 - **Normalization policy (pinned in this step, not "decide later"):**
@@ -185,6 +185,10 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Depends on:** B3, B7.
 - **Deviations from the original step description (intentional):**
   - **Order swap with what was originally B8.** Original sequencing built the verifier first so every later step measured verifier pass rate from day one. After conversation with the project owner, the order was swapped: agent orchestrator first (B7), then verifier+retry (B8). Trade-off accepted: B7's tests don't measure verifier pass rate. Trade-off bought: the retry-once-with-feedback path is wired into a real loop, not a speculative stub. See `docs/b7-decisions.md` § "Why the swap".
+  - **`VerifiedCitation` provenance carrier added.** Each successful verification emits a `VerifiedCitation` carrying `passage_id`, `document_id`, `document_title`, `heading_path`, `document_updated`, `quote` — surfaced via `AgentResult.verified_citations` so B9 can render which document/passage was quoted without re-fetching. Out of original step scope but trivially earned by the substring check; documented in `docs/b8-decisions.md`.
+  - **Inline language detector** in `app/agent/loop.py` (PT/ES/EN heuristic over the rewritten question) for the localized refusal fallback. B9 ships a proper detector at `app/agent/language.py`; this is the seam to be replaced (one-line swap).
+  - **`StepRecord.kind` widened** to include `"verifier"` so the trace records each verification attempt (attempt index, all_passed, verified, failures) for B9's audit log.
+  - **`tests/agent/conftest.py`** added — autouse fixture that patches `app.agent.loop.passages_repo.get` to return a passage whose text covers every fixture quote. Required because B7 tests use `MagicMock` sessions; the verifier hook now runs by default after every `AnswerOutput`. Existing `test_loop_with_stub.py` was updated in only one place (the exact step-kind sequence assertion now expects a trailing `"verifier"` step).
 
 ### B9 — POST /chat endpoint + audit log + response wrapping
 - **Goal:** HTTP-callable chat. Wraps the agent's structured output with enriched citations (document title, heading path, `Updated` date), deterministic disclaimer, `usage_summary`, optional `debug` block. Persists every step to `audit_log` (SQLite); `cost_log` is a SQL view filtering to `kind = 'llm_call'` rows.
