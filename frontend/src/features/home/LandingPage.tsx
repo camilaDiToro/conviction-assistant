@@ -23,11 +23,11 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
-            <Link to="/design/overview" className="btn-line">
-              Read the design <ArrowRight size={14} />
-            </Link>
-            <Link to="/chat" className="btn-ghost">
+            <Link to="/chat" className="btn-line">
               Open chat <ArrowRight size={14} />
+            </Link>
+            <Link to="/design/overview" className="btn-ghost">
+              Read the design <ArrowRight size={14} />
             </Link>
           </div>
         </div>
