@@ -6,12 +6,7 @@ Two layers live here:
    ``Citation``, ``StepRecord``, ``ConversationTurn``, ``AgentResult``)
    — the in-process types the orchestrator and tests use.
 2. **A hand-written JSON schema** (``AGENT_OUTPUT_JSON_SCHEMA``) that is
-   sent to the LLM via ``StructuredOutputSchema``. It is hand-written
-   because OpenAI strict mode does not support ``oneOf`` (only
-   ``anyOf``); the cleanest strict-compatible shape is a flat object
-   with every field nullable, discriminated by ``kind``. The Pydantic
-   discriminated union validates the parsed output back into the
-   correct concrete type after the model returns.
+   sent to the LLM via ``StructuredOutputSchema``.
 
 The flat-schema-with-nullable-fields pattern matches the project
 convention of hand-written tool schemas (see ``app/tools/registry.py``);
@@ -197,8 +192,9 @@ AGENT_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
         "out_of_scope": {
             "type": ["boolean", "null"],
             "description": (
-                "Required when kind='answer'. True if the question falls outside "
-                "Decade's investment-conviction domain entirely."
+                "Required when kind='answer'. True when the user's message is not "
+                "a question about Decade's investment convictions — covers greetings, "
+                "small talk, and unrelated topics. Emit citations=[] in that case."
             ),
         },
         "question": {
