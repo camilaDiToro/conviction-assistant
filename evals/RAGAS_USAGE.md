@@ -1,7 +1,7 @@
 # Ragas usage — what we use, what we skip, and why
 
 This document records the deliberate choices behind how this project uses
-[Ragas](https://github.com/explodinggradients/ragas) for the B10 evaluation
+[Ragas](https://github.com/explodinggradients/ragas) for the evaluation
 suite. It exists because a reviewer should be able to verify, in two minutes,
 that we (a) understand the framework, (b) chose it over alternatives for stated
 reasons, and (c) consciously skipped features that would have cost tokens or
@@ -87,14 +87,13 @@ cross-run comparison trivial. No second framework needed for reports.
 ### Built-in LLM-judge metrics (`Faithfulness`, `AnswerRelevancy`, `ContextPrecision`, `FactualCorrectness`)
 
 Why: each one calls the LLM 1–3 times per question. They are subjectively
-scored, vary between runs at the same temperature, and the
-roadmap explicitly nominates the deterministic anchor rate as the headline
-metric for B10. Activating them would inflate the cost of every eval run by
-roughly the agent's own cost — too high a price to pay for signal we don't
-need at this stage.
+scored, vary between runs at the same temperature, and this project pins
+the deterministic anchor rate as the headline metric. Activating them
+would inflate the cost of every eval run by roughly the agent's own cost
+— too high a price to pay for signal we don't need at this stage.
 
-These are available behind the future `--with-judge` flag (not implemented in
-B10). The runner is structured so that adding them is a one-line change to the
+These are available behind the future `--with-judge` flag (not yet wired).
+The runner is structured so that adding them is a one-line change to the
 metric list.
 
 ### `LangchainLLMWrapper`

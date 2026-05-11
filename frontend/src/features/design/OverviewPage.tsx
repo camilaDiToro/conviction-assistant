@@ -374,8 +374,8 @@ function ArchitectureDiagram() {
 function LifecycleDiagram() {
   // Sequence diagram. Lanes: Router · Agent · Tools · LLMProvider · Verifier · Audit
   const lanes = [
-    { x: 90, label: 'Router', file: 'api/chat.py · B9' },
-    { x: 240, label: 'Agent', file: 'services/agent.py · B8' },
+    { x: 90, label: 'Router', file: 'api/chat.py' },
+    { x: 240, label: 'Agent', file: 'services/agent.py' },
     { x: 390, label: 'Tools', file: 'tools/' },
     { x: 540, label: 'LLM', file: 'providers/' },
     { x: 690, label: 'Resolver', file: 'app/agent/resolver/' },

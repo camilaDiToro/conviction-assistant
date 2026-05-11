@@ -41,7 +41,7 @@ export default function CostPage() {
           <code className="font-mono text-[13px] text-ink-1">TokenUsage</code> from the adapter.
           The orchestrator stamps the response and every intermediate step with the three IDs
           and writes them to <code className="font-mono text-[13px] text-ink-1">audit_log</code>.
-          The HTTP response (B9) includes a per-step <code className="font-mono text-[13px] text-ink-1">debug.steps[]</code> trace
+          The HTTP response includes a per-step <code className="font-mono text-[13px] text-ink-1">debug.steps[]</code> trace
           and a <code className="font-mono text-[13px] text-ink-1">usage_summary</code> roll-up
           for the question and the conversation so far.
         </p>
@@ -81,7 +81,7 @@ CREATE VIEW cost_log AS
         />
       </Section>
 
-      <Section eyebrow="Response contract (B9)">
+      <Section eyebrow="Response contract">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
           The HTTP response wraps the agent's structured answer with a deterministic disclaimer
           and the cost roll-up.

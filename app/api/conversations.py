@@ -1,4 +1,4 @@
-"""Admin review endpoints for B9.
+"""Admin review endpoints.
 
 Two read-only endpoints, both admin-token-gated:
 

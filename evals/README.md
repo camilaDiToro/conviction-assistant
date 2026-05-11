@@ -51,14 +51,14 @@ questions that regressed (passed in A, failing in B) and improvements.
 | **duration_ms** | numeric | wall-clock per question |
 
 LLM-as-judge metrics (Faithfulness, AnswerRelevancy, etc.) are
-deliberately out of scope for B10. The `--with-judge` flag is reserved
-for that future addition.
+deliberately out of scope. The `--with-judge` flag is reserved for
+that future addition.
 
 ## Golden set
 
 `evals/golden_set.yaml` — 30 hand-authored questions, distributed:
 
-- 12 factual (with verified `expected_passage_ids` from the B6 fixture)
+- 12 factual (with verified `expected_passage_ids` from the retrieval fixture)
 - 4 rule_a (tangential mention; general_knowledge_used should fire)
 - 4 rule_b (conflicting convictions; agent must cite both sides)
 - 3 cross_lang (Spanish queries against PT/EN corpus)

@@ -36,7 +36,7 @@ def get_llm_provider(model: str | None = None) -> LLMProvider:
             timeout=settings.openai_timeout_seconds,
         )
     if name == "anthropic":
-        raise ProviderError("anthropic adapter lands in ROADMAP B10")
+        raise ProviderError("anthropic adapter is not yet implemented")
     raise ProviderError(f"unknown LLM provider {name!r}")
 
 

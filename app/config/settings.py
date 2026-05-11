@@ -37,7 +37,7 @@ class Settings(BaseSettings):
         "gpt-4.1",
     ]
 
-    # Agent loop tuning (B7).
+    # Agent loop tuning.
     agent_max_tool_calls: int = 5
     agent_max_iterations: int = 12
     agent_max_output_tokens: int = 8192

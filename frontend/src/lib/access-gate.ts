@@ -1,9 +1,9 @@
 // Chat access token, paste-and-store flow.
 //
-// B9 changed the model: the token is no longer bundled into the SPA via
-// VITE_CHAT_ACCESS_CODE — that's trivially extractable from the deployed
-// JS. The user pastes the token at runtime; we keep it in localStorage
-// and send it as `X-Chat-Token` on every /chat request.
+// The token is no longer bundled into the SPA via VITE_CHAT_ACCESS_CODE
+// — that's trivially extractable from the deployed JS. The user pastes
+// the token at runtime; we keep it in localStorage and send it as
+// `X-Chat-Token` on every /chat request.
 //
 // The token is validated server-side. Real auth (JWT/OAuth/sessions) is
 // still out of scope for v1; this gives us a server-enforced bearer

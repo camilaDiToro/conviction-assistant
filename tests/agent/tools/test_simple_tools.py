@@ -1,4 +1,4 @@
-"""Pure-function tests for the three B5 read-only tools."""
+"""Pure-function tests for the simple read-only tools."""
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -183,7 +183,7 @@ def test_tool_parameter_schemas_satisfy_openai_strict_mode():
 
 def test_tool_definitions_have_nontrivial_descriptions():
     """Tool descriptions are the LLM's only signal for tool choice; bare
-    placeholders would silently degrade B8 prompt behavior.
+    placeholders would silently degrade prompt behavior.
     """
     for name, entry in TOOLS.items():
         assert len(entry.definition.description) >= 40, name

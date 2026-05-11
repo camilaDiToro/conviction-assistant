@@ -88,12 +88,12 @@ TOP 5: multimercado#4-tratamento-tributario                    score=5.43
 
 **Where the problem really is**: **two layers, both real.**
 
-1. **The retriever underweights short well-named passages.** Plain BM25 doesn't reward heading-term matches over body-term frequency. The roadmap's B6 level-up (BM25 + multilingual embeddings + RRF, behind a flag) would likely fix this — embedding similarity gives equal weight to a short, dense, on-topic passage and a long verbose one. Until then, the symptom is that q01-style "narrow factual" questions get noisy retrievals.
+1. **The retriever underweights short well-named passages.** Plain BM25 doesn't reward heading-term matches over body-term frequency. The hybrid-retrieval level-up (BM25 + multilingual embeddings + RRF, behind a flag) would likely fix this — embedding similarity gives equal weight to a short, dense, on-topic passage and a long verbose one. Until then, the symptom is that q01-style "narrow factual" questions get noisy retrievals.
 2. **The golden's `expected_passage_ids` is too narrow.** Even with the current BM25, multiple cited passages are correct answers. Strict-set match is harsh.
 
 **Recommended fix**:
 1. (Cheap) Widen `expected_passage_ids` on q01 to include `guia_completo_tributacao_investimentos#3-1-cdb-e-lc-tributacao-padrao` and `guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros`. Document in the golden YAML that the metric is "at least one match counts".
-2. (Real fix) Move to a hybrid retriever (B6 level-up) so the literal section-heading match wins. Eval-driven — only worth doing if other questions show the same retrieval shadowing.
+2. (Real fix) Move to a hybrid retriever (the documented level-up) so the literal section-heading match wins. Eval-driven — only worth doing if other questions show the same retrieval shadowing.
 
 ### B. q13 `gen_knowledge=incorrect` on every model
 
@@ -167,7 +167,7 @@ I'd take option 1. Substitution is a real failure mode and worth keeping in the 
 2. **Golden patches**: widen `q01.expected_passage_ids`; either rewrite q13 to test substitution-style Rule A or strengthen Rule A in the prompt with the substitution clause (recommended: prompt strengthening).
 3. **Pricing**: confirm gpt-5.5 / gpt-5.4-mini approximate prices against the OpenAI billing page.
 4. **Eval runner**: surface missing-pricing as a warning, not silent $0.
-5. **Retrieval level-up gating**: q01 retrieval bias is a documented motivator for B6 (hybrid BM25+dense+RRF). Don't take it now, but keep it in mind when designing the eval-driven gate for B6.
+5. **Retrieval level-up gating**: q01 retrieval bias is a documented motivator for hybrid retrieval (BM25+dense+RRF). Don't take it now, but keep it in mind when designing the eval-driven gate for that promotion.
 6. **Re-run with 30 questions** comparing gpt-5.5 / low vs gpt-4.1: if gpt-4.1 stays competitive, it's the production default (cheaper, no reasoning surface to tune, identical anchor on this sample).
 
 ## Things that did not need fixing

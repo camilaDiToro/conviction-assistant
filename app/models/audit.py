@@ -1,4 +1,4 @@
-"""ORM model for the audit_log table (B9).
+"""ORM model for the audit_log table.
 
 The schema lives in alembic (``0001_initial_schema.py``); this ORM model
 exists so the repository layer can use ``select()`` style queries

@@ -2,7 +2,7 @@
 
 Three frozen strings, keyed by detected language. Lifted from
 ``frontend/src/lib/mock-chat.ts`` so the mock and backend stay aligned.
-The disclaimer is always appended by the orchestrator (B9), never by
+The disclaimer is always appended by the orchestrator, never by
 the model — this is the only way to guarantee it shows up.
 """
 

@@ -71,13 +71,13 @@ export default function ProvidersPage() {
           />
           <Adapter
             name="anthropic.py"
-            status="B10 · not yet built"
+            status="Not yet built"
             model="claude-opus-4-7"
             notes={[
               'Tool calls via the Messages API tool_use blocks',
               'Same LLMResponse shape returned',
               'Anthropic Citations API ignored at the contract level',
-              'Today factory.py raises ProviderError("anthropic adapter lands in ROADMAP B10")',
+              'Today factory.py raises ProviderError when llm_provider=anthropic',
               'Lands as the portability proof for the protocol',
             ]}
           />
@@ -164,8 +164,8 @@ app/providers/factory.py
 
       <Callout label="Embeddings" tone="note">
         <code className="font-mono text-[13px] text-ink-1">app/providers/openai.py::OpenAIEmbedder</code>{' '}
-        ships in B4 against an <code className="font-mono text-[13px] text-ink-1">EmbeddingProvider</code>{' '}
-        protocol. Today no path uses embeddings — they exist as the seam for the B6 hybrid
+        ships against an <code className="font-mono text-[13px] text-ink-1">EmbeddingProvider</code>{' '}
+        protocol. Today no path uses embeddings — they exist as the seam for the hybrid
         retrieval level-up. <code className="font-mono text-[13px] text-ink-1">StubEmbedder</code>{' '}
         returns unit vectors so tests of an embedding-using path can run without a network.
       </Callout>

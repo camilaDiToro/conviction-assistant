@@ -3,15 +3,15 @@
 Both endpoints are gated by ``X-Chat-Token`` (the same token the user
 already pastes for ``POST /chat``). They reconstruct the user-facing
 chat thread from the ``kind="response"`` rows in ``audit_log``, which
-since B9 carry the verbatim ``user_question`` and the resolved
-citation entries (passage provenance + offsets).
+carry the verbatim ``user_question`` and the resolved citation entries
+(passage provenance + offsets).
 
 Scope notes:
 
 - There is no user/account model in v1. The shared chat token gates
   who can read; with one token, every browser sees every conversation
   ever created. That's the intentional v1 simplification documented in
-  the production-vs-simplified roadmap section.
+  the production-vs-simplified section.
 - The list endpoint caps at 100 conversations; pagination is a future
   step if the corpus of conversations grows.
 """

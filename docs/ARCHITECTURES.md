@@ -158,7 +158,7 @@ search_convictions(query: str, k: int = 8) -> list[PassageHit]
 # accent-strip + lowercase normalization. The corpus is 30 docs
 # and BM25 may be sufficient; the contract supports hybrid as a
 # deferred level-up gated on cross-language eval failure plus a
-# conversation with the project owner. See ROADMAP B6.
+# conversation with the project owner.
 # Returns id, doc_title, heading_path, snippet, score.
 
 read_passage(passage_ids: list[str]) -> list[Passage]
@@ -173,14 +173,12 @@ All four tools are defined once with JSON schemas and reused across every provid
 
 The four tools live under `app/tools/`. The rules below are non-negotiable; they survive every later step.
 
-1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector under ROADMAP B3 level-up) changes only `app/repositories/` and migrations.
-2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/tools/context.py`). At v1 it carries `session: AsyncSession`; B6 adds `bm25_index`. The agent loop's call shape `execute_tool(name, args, ctx)` is therefore stable from B5 onward — adding a new dependency never changes tool signatures.
+1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector) changes only `app/repositories/` and migrations.
+2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/tools/context.py`). It carries `session: AsyncSession` plus the retriever. The agent loop's call shape `execute_tool(name, args, ctx)` is stable — adding a new dependency never changes tool signatures.
 3. **`ToolContext` is the DI seam, not a SQLite holder.** If a future repo backend exposes something other than an `AsyncSession`, `ToolContext` carries that instead. The tools see only what they need.
-4. **Tool input schemas are hand-written JSON-schema dicts** in `app/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema in B8 may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
-5. **Single tool registry.** `app/tools/__init__.py` exports `TOOLS: dict[str, ToolEntry]` where `ToolEntry = (definition: ToolDefinition, func: Callable)`. The agent loop in B8 reads `TOOLS` once to advertise definitions to the LLM and to dispatch tool calls by name. `TOOLS[name].definition.name == name` is enforced by test.
+4. **Tool input schemas are hand-written JSON-schema dicts** in `app/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
+5. **Single tool registry.** `app/tools/__init__.py` exports `TOOLS: dict[str, ToolEntry]` where `ToolEntry = (definition: ToolDefinition, func: Callable)`. The agent loop reads `TOOLS` once to advertise definitions to the LLM and to dispatch tool calls by name. `TOOLS[name].definition.name == name` is enforced by test.
 6. **Tools raise typed `DomainError` subclasses on bad inputs** (`PassageNotFoundError`, `DocumentNotFoundError`). The agent loop catches these and feeds the error back to the LLM as a tool-error message; it never returns `None` from a tool that promised a value.
-
-Per-tool decisions (return shapes, sort orders, descriptions) live in `docs/b5-decisions.md`.
 
 ### Loop bounds (operational discipline)
 
@@ -260,7 +258,7 @@ Every step of every request is persisted. One log, two consumers (audit and cost
 }
 ```
 
-The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `README.md` § "Refreshing model prices".
+The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is a documented level-up if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `README.md` § "Refreshing model prices".
 
 See `ASSUMPTIONS.md` § "Cost tracking — REQUIRED" and § "Audit log".
 
@@ -304,7 +302,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 **Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. **v1 ships BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. The choice is justified by two assumptions that hold today and are likely to break later — agent loop, tool surface, citation contract, and resolver are unchanged at every step:
 
 - **Small corpus (~30 docs).** BM25 stays useful as the corpus grows (best for exact-term matches: tickers, regulation numbers, acronyms like `FGC`, `CVM`, `IR`), but new failure modes appear. *Hundreds of docs:* near-duplicates and topical neighbors crowd the top-K — add a **cross-encoder reranker** (`bge-reranker-v2-m3` or Cohere `rerank-multilingual-v3`) over the top candidates. *Thousands of docs:* chunks pulled out of context lose meaning ("revenue grew 3%" — for which company?) — add **Anthropic-style Contextual Retrieval** (prepend a 50–100 token generated context summary to each chunk before indexing). *Tens of thousands+:* move lexical to OpenSearch / ParadeDB and dense to a dedicated vector store (Qdrant) or HNSW Postgres, plus metadata filtering and tenant sharding.
-- **Internal-analyst audience.** Decade analysts speak the corpus vocabulary (PT/EN, regulatory terms), so on-vocabulary keyword queries work well with BM25. External users break that — Spanish-speaking clients ask `"tributación de CDB"` against `"tributação de CDB"` (BM25 misses on `ó`↔`ã`); English-only users ask `"how is CDB taxed?"` (zero word overlap with the PT passage); juniors paraphrase instead of using regulatory terms. The fix is a second retrieval path: a **multilingual embedding model** (OpenAI `text-embedding-3-large`, Cohere `embed-multilingual-v3`, or local `bge-m3`) over the same `passages` table with vectors in `pgvector`, fused with BM25 via Reciprocal Rank Fusion (k=60). One-time embedding pass costs ~$0.02; per-query cost ~$0.0001. Documented level-up under `ROADMAP.md` § B6.
+- **Internal-analyst audience.** Decade analysts speak the corpus vocabulary (PT/EN, regulatory terms), so on-vocabulary keyword queries work well with BM25. External users break that — Spanish-speaking clients ask `"tributación de CDB"` against `"tributação de CDB"` (BM25 misses on `ó`↔`ã`); English-only users ask `"how is CDB taxed?"` (zero word overlap with the PT passage); juniors paraphrase instead of using regulatory terms. The fix is a second retrieval path: a **multilingual embedding model** (OpenAI `text-embedding-3-large`, Cohere `embed-multilingual-v3`, or local `bge-m3`) over the same `passages` table with vectors in `pgvector`, fused with BM25 via Reciprocal Rank Fusion (k=60). One-time embedding pass costs ~$0.02; per-query cost ~$0.0001. Documented level-up.
 
 ### Hierarchical "table of contents, then zoom"
 
@@ -356,9 +354,9 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 The following are designed but **out of scope for this submission**:
 
 - **PDF / Excel uploads.** The bonus item from the challenge brief. Design: server-side parsing (`pypdf` / `pdfplumber` for PDF, `openpyxl` → markdown tables for Excel), parsed content becomes user-scoped passages with stable IDs in a per-conversation namespace, exposed via `search_uploaded_files(query, k)` and `read_uploaded_passage(passage_id)` — same shape as the conviction tools, same retrieval and resolver pipeline. Uploaded passages are explicitly *user context* (lower trust than convictions) and tagged accordingly in the system prompt.
-- **Hybrid retrieval (BM25 + multilingual embeddings + RRF).** v1 ships BM25-only; hybrid is the documented level-up under `ROADMAP.md` § B6, gated on a cross-language eval failure plus a conversation with the project owner.
+- **Hybrid retrieval (BM25 + multilingual embeddings + RRF).** v1 ships BM25-only; hybrid is a documented level-up, gated on a cross-language eval failure plus a conversation with the project owner.
 - **Cross-encoder reranker** inside `search_convictions`. Further level-up beyond hybrid; gated on its own eval failure. See "Classic hybrid retrieval pipeline" above.
-- **Postgres + pgvector.** v1 ships SQLite + a Python BM25 library; Postgres is the documented level-up under `ROADMAP.md` § B3, justified by concurrency or index-size pressure neither of which exists at 30 docs.
+- **Postgres + pgvector.** v1 ships SQLite + a Python BM25 library; Postgres is a documented level-up, justified by concurrency or index-size pressure neither of which exists at 30 docs.
 - **Anthropic Citations API** inside the Anthropic adapter (per-provider optimization for free `cited_text` and deterministic indices). Adapter slot exists; the optimization is not wired in.
 
 ## Implementation order (eval-driven)
@@ -366,7 +364,7 @@ The following are designed but **out of scope for this submission**:
 1. **Passage parser + store.** Markdown → passages with stable IDs.
 2. **Provider abstractions.** `LLMProvider` and `EmbeddingProvider` protocols. **OpenAI adapter first** for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`).
 3. **`list_documents` + `read_passage` + `read_document_outline`** tools wired up.
-4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is the documented level-up under `ROADMAP.md` § B6, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
+4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is a documented level-up, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
 5. **Citation offset resolver.** Pure substring → `(start, end)` mapping; non-anchoring citations survive without a highlight. **Built before the agent loop** so every later step measures anchor rate from day one.
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
 7. **Disclaimer + audit log + cost tracking** wired into the orchestrator. SQLite is the storage; cost tracking is at three granularities (step, question, conversation).

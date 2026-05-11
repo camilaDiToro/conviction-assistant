@@ -1,4 +1,4 @@
-"""Custom deterministic metrics for the B10 eval suite.
+"""Custom deterministic metrics for the eval suite.
 
 These use Ragas's ``@discrete_metric`` / ``@numeric_metric`` decorators
 so the metric objects own their name + allowed-value contracts and
@@ -31,7 +31,7 @@ from ragas.metrics import MetricResult, discrete_metric, numeric_metric
 
 @numeric_metric(name="anchor_rate", allowed_values=(0.0, 1.0))
 def anchor_rate(citations: list[dict[str, Any]]) -> MetricResult:
-    """Headline B10 metric: fraction of cited quotes that resolved to an
+    """Headline metric: fraction of cited quotes that resolved to an
     offset in the cited passage. ``failure_reason is None`` means anchored.
 
     A question with zero citations gets a 0 — refusal/clarify paths

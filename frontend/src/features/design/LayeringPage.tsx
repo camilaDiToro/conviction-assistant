@@ -115,7 +115,7 @@ async def _domain(...): return JSONResponse(500, ...)`}
           <SpecItem term={<code className="font-mono text-[13px] text-ink-1">LLM_PROVIDER</code>}>Adapter to load. <code className="font-mono text-[13px] text-ink-1">openai</code> | <code className="font-mono text-[13px] text-ink-1">anthropic</code>. Default <code className="font-mono text-[13px] text-ink-1">openai</code>.</SpecItem>
           <SpecItem term={<code className="font-mono text-[13px] text-ink-1">OPENAI_API_KEY</code>}>Required when <code className="font-mono text-[13px] text-ink-1">LLM_PROVIDER=openai</code>. Factory raises at startup if missing.</SpecItem>
           <SpecItem term={<code className="font-mono text-[13px] text-ink-1">OPENAI_MODEL</code>}>Default <code className="font-mono text-[13px] text-ink-1">gpt-5</code>.</SpecItem>
-          <SpecItem term={<code className="font-mono text-[13px] text-ink-1">OPENAI_EMBEDDING_MODEL</code>}>Default <code className="font-mono text-[13px] text-ink-1">text-embedding-3-large</code>. Used at the B6 level-up only.</SpecItem>
+          <SpecItem term={<code className="font-mono text-[13px] text-ink-1">OPENAI_EMBEDDING_MODEL</code>}>Default <code className="font-mono text-[13px] text-ink-1">text-embedding-3-large</code>. Used at the hybrid-retrieval level-up only.</SpecItem>
           <SpecItem term={<code className="font-mono text-[13px] text-ink-1">OPENAI_TIMEOUT_SECONDS</code>}>Per-request bound. Default 60.0.</SpecItem>
         </SpecList>
       </Section>

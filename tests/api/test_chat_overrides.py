@@ -1,4 +1,4 @@
-"""Per-request override tests for POST /chat (B10).
+"""Per-request override tests for POST /chat.
 
 Verifies that ``ChatRequest.overrides`` correctly forwards
 ``reasoning_effort``/``rewrite_reasoning_effort``/``agent_max_*`` knobs

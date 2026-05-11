@@ -1,10 +1,9 @@
 // *** SINGLE POINT OF BACKEND INTERACTION ***
 // No fetch() calls anywhere else in the frontend. ESLint rule enforces this.
 //
-// B9: real /chat is live. The chat token is read from localStorage (set
-// by the gate UI) and sent as `X-Chat-Token` on every request. On 401
-// the token is cleared and an UnauthorizedError is thrown so the UI can
-// re-prompt for it.
+// The chat token is read from localStorage (set by the gate UI) and sent
+// as `X-Chat-Token` on every request. On 401 the token is cleared and an
+// UnauthorizedError is thrown so the UI can re-prompt for it.
 
 import type {
   ChatOverrides,

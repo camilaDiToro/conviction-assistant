@@ -1,4 +1,4 @@
-# B10 golden evaluation set — 30 hand-authored questions.
+# Golden evaluation set — 30 hand-authored questions.
 #
 # Schema (one entry per item):
 #   id, question, language (pt|en|es), bucket
@@ -8,7 +8,7 @@
 #   expected_out_of_scope, expected_general_knowledge,
 #   expected_conflict_mention, notes.
 #
-# All factual passage_ids were verified against the B6 retrieval golden
+# All factual passage_ids were verified against the retrieval golden
 # (tests/fixtures/retrieval_golden.yaml). Rule A / Rule B entries leave
 # expected_passage_ids empty so the metric stays "any anchored passage
 # is fine" — the harder behavior to validate (Rule B citing both sides;
@@ -19,7 +19,7 @@
 # 4 out_of_scope, 3 clarify (= 30).
 # Languages distribution: PT 14, EN 10, ES 6.
 
-# ---- factual (verified passage_ids from B6 fixture) -----------------------
+# ---- factual (verified passage_ids from the retrieval fixture) ------------
 
 - id: q01
   question: "Como funciona a tributação dos CDBs e a tabela regressiva de IR?"

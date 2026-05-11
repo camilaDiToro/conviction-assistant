@@ -161,9 +161,8 @@ class OpenAIResponsesLLM:
 class OpenAIEmbedder:
     """``EmbeddingProvider`` backed by ``client.embeddings.create``.
 
-    Ships in B4 even though B6 doesn't use embeddings — keeping the
-    adapter complete unblocks the hybrid-retrieval level-up (ROADMAP §
-    B6 level-up).
+    Ships even though current retrieval doesn't use embeddings — keeping
+    the adapter complete unblocks the hybrid-retrieval level-up.
     """
 
     def __init__(self, *, api_key: str, model: str, timeout: float) -> None:

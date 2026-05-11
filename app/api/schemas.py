@@ -1,4 +1,4 @@
-"""HTTP request/response schemas for B9.
+"""HTTP request/response schemas.
 
 Mirrors ``frontend/src/lib/types.ts`` (the chat contract section). The
 shapes here are the canonical wire types — Pydantic does the validation

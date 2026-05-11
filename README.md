@@ -22,7 +22,6 @@ guarantee.
 
 - Brief: [`AI_CHALLENGE.md`](AI_CHALLENGE.md)
 - Architecture & design: [`docs/ARCHITECTURES.md`](docs/ARCHITECTURES.md), [`CLAUDE.md`](CLAUDE.md)
-- Build plan: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Eval suite: [`evals/README.md`](evals/README.md), [`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md)
 
 ## Stack
@@ -31,7 +30,7 @@ Python 3.12 · FastAPI · SQLAlchemy 2.x async (aiosqlite) · Pydantic v2 ·
 Alembic · uv · pytest · ruff · mypy. Frontend: Vite + React + TypeScript
 + Tailwind. LLM provider: OpenAI (gpt-5 family) via a provider-agnostic
 adapter (`app/providers/`); Anthropic adapter is documented as future
-work in `docs/ROADMAP.md` and is out of scope for this iteration.
+work and is out of scope for this iteration.
 
 ## Quickstart
 
@@ -96,7 +95,7 @@ uv run ruff check . && uv run mypy . # lint + types
 cd frontend && npm run build        # frontend type-check + bundle
 ```
 
-## Eval suite (B10)
+## Eval suite
 
 Hand-authored 30-question golden set + four deterministic metrics +
 Ragas-decorator-based runner. Headline metric: **anchor rate** — what
@@ -118,7 +117,7 @@ the eval test layer; default `pytest` skips it. See
 [`evals/README.md`](evals/README.md) for metric definitions and golden
 set structure, and [`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md) for
 which Ragas features the suite uses and which it deliberately skips
-(no LLM-as-judge in B10 — deterministic metrics only).
+(no LLM-as-judge — deterministic metrics only).
 
 A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
 (Faithfulness, AnswerRelevancy) later; not wired in this iteration.
@@ -173,7 +172,7 @@ at a glance which one any file belongs to.
 
 **Deliberately simplified — well-known production paths exist; documented as level-up, not built:**
 
-- SQLite + BM25-only retrieval (vs Postgres + pgvector + FTS; the hybrid path is documented in `docs/ROADMAP.md` § B6 level-up)
+- SQLite + BM25-only retrieval (vs Postgres + pgvector + FTS; the hybrid path is documented as a level-up in `docs/ARCHITECTURES.md`)
 - In-process FastAPI (vs Docker / k8s / multi-replica — see `docs/DEPLOYMENT.md`)
 - Two-token auth only (chat + admin); no JWT/OAuth, no per-user identity, no rate limit
 - File-based settings (vs secrets manager)
@@ -213,8 +212,8 @@ app/
   verifier/        # Substring resolution policy (NFC, smart-quote folding, etc.)
 alembic/           # Schema-of-record migrations
 convictions/       # The 30-doc corpus
-docs/              # ROADMAP, ARCHITECTURES, decision logs per step
-evals/             # B10 golden set + runner + metrics + comparator
+docs/              # ARCHITECTURES, scaling notes, deployment, testing
+evals/             # golden set + runner + metrics + comparator
 frontend/          # Vite + React + Tailwind chat UI + architecture explainer
 tests/             # Mirrors app/ + an `eval/` layer (skipped by default)
 ```

@@ -90,10 +90,11 @@ class ConversationTurn(BaseModel):
 class StepRecord(BaseModel):
     """One observable step the orchestrator took.
 
-    The agent emits one record per LLM call and one per tool call; B9
-    wraps these with ``question_id`` / ``conversation_id`` and persists
-    them into ``audit_log``. Cost USD is **not** stored — derived in
-    ``app/services/cost.py`` from ``usage`` at audit-log read time.
+    The agent emits one record per LLM call and one per tool call; the
+    HTTP layer wraps these with ``question_id`` / ``conversation_id`` and
+    persists them into ``audit_log``. Cost USD is **not** stored —
+    derived in ``app/services/cost.py`` from ``usage`` at audit-log read
+    time.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -112,8 +113,9 @@ class AgentResult(BaseModel):
 
     ``resolution`` carries one :class:`CitationResolution` per citation
     the model emitted, in original order, with the passage provenance
-    and ``(start, end)`` offsets the wire response needs. B9 reads this
-    to build ``ChatCitation`` rows without re-fetching passages.
+    and ``(start, end)`` offsets the wire response needs. The HTTP layer
+    reads this to build ``ChatCitation`` rows without re-fetching
+    passages.
     ``None`` when ``output`` is a ``ClarifyingQuestionOutput`` (no
     citations to resolve).
 

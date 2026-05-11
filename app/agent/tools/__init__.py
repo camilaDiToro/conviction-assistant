@@ -5,9 +5,7 @@ The four tools (`list_documents`, `read_document_outline`,
 repository contract. They never import a DB driver; storage swaps don't
 touch this layer.
 
-See `docs/ARCHITECTURES.md` § "Tools layer" for the architectural rules,
-`docs/b5-decisions.md` for the simple-tool decisions, and
-`docs/b6-decisions.md` for `search_convictions` decisions.
+See `docs/ARCHITECTURES.md` § "Tools layer" for the architectural rules.
 """
 
 from app.agent.tools.context import ToolContext, ToolEntry

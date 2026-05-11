@@ -21,10 +21,9 @@ The 2026 RAG community consensus on conversational query rewriting:
   outperforms both — the prompt enforces the "echo unchanged" rule
   whenever the new question is already self-contained.
 
-See ``docs/b7-decisions.md`` for the longer comparison with Claude Code
-(which uses compaction, not rewriting — different trust model) and the
-OpenAI Agents SDK (full-history sessions — same trust model, also wrong
-fit for grounded RAG).
+Claude Code uses compaction, not rewriting (different trust model); the
+OpenAI Agents SDK uses full-history sessions (same trust model, also
+wrong fit for grounded RAG).
 """
 
 import uuid

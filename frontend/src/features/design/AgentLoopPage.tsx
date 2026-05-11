@@ -1,5 +1,4 @@
 import { PageHeader, Section } from '@/components/Section'
-import { Callout } from '@/components/Callout'
 import { CodeBlock } from '@/components/CodeBlock'
 import { SpecItem, SpecList } from '@/components/Spec'
 
@@ -17,13 +16,6 @@ export default function AgentLoopPage() {
           </>
         }
       />
-
-      <Callout label="Designed; ships in B8" tone="pending">
-        Lands in <code className="font-mono text-[13px] text-ink-1">app/services/agent/loop.py</code>.
-        The provider contract (<code className="font-mono text-[13px] text-ink-1">app/providers/base.py</code>),
-        the tool surface (<code className="font-mono text-[13px] text-ink-1">app/tools/</code>), and the verifier
-        (B7) are this loop's dependencies. None of those is sufficient on its own.
-      </Callout>
 
       <Section eyebrow="Problem">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
@@ -127,7 +119,7 @@ export default function AgentLoopPage() {
           <SpecItem term="Higher reasoning_effort">Rejected. The verifier catches the failures reasoning would have caught (misquotes, hallucinated IDs); the cost difference is ~10×.</SpecItem>
           <SpecItem term="Explicit 'I don't know' state">Rejected. Covered by the <code className="font-mono text-[13px] text-ink-1">out_of_scope</code> flag on AnswerResponse; not a separate transition.</SpecItem>
           <SpecItem term="Multiple verifier retries">Rejected. Two retries doubled the worst-case cost without measurable verifier-pass-rate improvement; the gain came from the first retry.</SpecItem>
-          <SpecItem term="Streaming output">Deferred to B9 level-up. The verifier needs the complete citation list before it can ship the answer, so streaming the body adds UX latency only.</SpecItem>
+          <SpecItem term="Streaming output">Deferred level-up. The verifier needs the complete citation list before it can ship the answer, so streaming the body adds UX latency only.</SpecItem>
         </SpecList>
       </Section>
     </article>

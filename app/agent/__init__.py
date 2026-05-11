@@ -5,7 +5,7 @@ Public surface:
 - :func:`run` — orchestrates the rewrite stage (skipped on empty history)
   and the agent loop. Returns an :class:`AgentResult`.
 - :class:`AgentResult` and the structured output Pydantic models that
-  the rest of the project (the future B9 HTTP wrapper) consumes.
+  the rest of the project (the HTTP wrapper) consumes.
 
 Per the architecture (``docs/ARCHITECTURES.md`` § Conversation memory),
 prior assistant text is **never** injected into the agent loop's

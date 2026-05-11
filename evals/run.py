@@ -1,4 +1,4 @@
-"""B10 eval runner CLI.
+"""Eval runner CLI.
 
 Usage:
 
@@ -275,11 +275,11 @@ async def _amain(args: argparse.Namespace) -> int:
         return 0
 
     if args.provider != "openai":
-        raise SystemExit(f"provider {args.provider!r} not supported in B10 (only 'openai')")
+        raise SystemExit(f"provider {args.provider!r} not supported (only 'openai')")
 
     if args.with_judge:
         raise SystemExit(
-            "--with-judge is reserved for future work; B10 ships deterministic metrics only"
+            "--with-judge is reserved for future work; this suite ships deterministic metrics only"
         )
 
     # The LLM provider is the only thing the runner reaches for that needs
@@ -398,7 +398,7 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the B10 eval suite (OpenAI only).")
+    parser = argparse.ArgumentParser(description="Run the eval suite (OpenAI only).")
     parser.add_argument("--provider", default="openai", choices=["openai"])
     parser.add_argument("--model", default=None, help="override openai_model")
     parser.add_argument(
@@ -432,7 +432,7 @@ def main() -> int:
     parser.add_argument(
         "--with-judge",
         action="store_true",
-        help="(future) enable Ragas LLM-as-judge metrics — not wired in B10",
+        help="(future) enable Ragas LLM-as-judge metrics — not yet wired",
     )
     parser.add_argument("--out", default=str(DEFAULT_OUT_DIR), help="output dir for csv/json/md")
     parser.add_argument("--dry-run", action="store_true", help="print selected golden ids and exit")

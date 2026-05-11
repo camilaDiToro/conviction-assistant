@@ -1,4 +1,4 @@
-"""Tests for GET /admin/conversations/{id} and /cost (B9)."""
+"""Tests for GET /admin/conversations/{id} and /cost."""
 
 from collections.abc import Awaitable, Callable
 from pathlib import Path

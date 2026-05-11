@@ -1,6 +1,6 @@
-// Mirrored from app/schemas/passage.py and the planned /chat response.
+// Mirrored from app/schemas/passage.py and the /chat response.
 // Keep in sync with the backend schemas. The chat response shape is the
-// contract documented in CLAUDE.md (lands behind /chat in B9).
+// contract documented in CLAUDE.md.
 
 export interface Passage {
   id: string
@@ -39,7 +39,7 @@ export interface PassageHit {
   snippet: string
 }
 
-// ----- Chat contract (B9) -----
+// ----- Chat contract -----
 
 export interface Citation {
   passage_id: string

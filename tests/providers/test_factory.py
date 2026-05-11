@@ -55,7 +55,7 @@ def test_factory_raises_when_openai_key_missing(reset_settings):
 
 def test_factory_anthropic_not_yet_implemented(reset_settings):
     settings.llm_provider = "anthropic"
-    with pytest.raises(ProviderError, match="B10"):
+    with pytest.raises(ProviderError, match="anthropic"):
         get_llm_provider()
 
 

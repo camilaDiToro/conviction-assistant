@@ -46,5 +46,5 @@ testpaths = ["tests"]
 addopts = "-q -m 'not eval'"
 asyncio_mode = "auto"
 markers = [
-    "eval: B10 eval suite — slow, hits real OpenAI, skipped by default. Run with `pytest -m eval`.",
+    "eval: eval suite — slow, hits real OpenAI, skipped by default. Run with `pytest -m eval`.",
 ]

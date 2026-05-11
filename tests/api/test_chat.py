@@ -1,4 +1,4 @@
-"""End-to-end tests for POST /chat (B9).
+"""End-to-end tests for POST /chat.
 
 Uses StubLLM for the agent loop and a real tmp-path SQLite DB for the
 audit-log writes. Tools are patched at the registry (same pattern as

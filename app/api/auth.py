@@ -1,4 +1,4 @@
-"""B9 access tokens — header-based, constant-time compared.
+"""Access tokens — header-based, constant-time compared.
 
 Two tokens, two FastAPI dependencies. The chat token guards ``/chat``
 (the user pastes it into the frontend gate; it is sent as
