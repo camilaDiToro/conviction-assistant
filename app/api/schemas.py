@@ -117,26 +117,6 @@ class ChatClarifyResponse(StrictModel):
     question_id: str
 
 
-# ---- Admin: conversation review --------------------------------------
-
-
-class ConversationQuestionSummary(StrictModel):
-    question_id: str
-    timestamp: datetime
-    language: Language
-    rewritten_question: str | None
-    answer_or_question: dict[str, Any]
-    step_count: int
-    step_kinds: list[str]
-    retriever: str
-
-
-class ConversationTraceResponse(StrictModel):
-    conversation_id: str
-    questions: list[ConversationQuestionSummary]
-    step_count_total: int
-
-
 ## ---- Chat-side history (frontend sidebar) -----------------------------
 
 
@@ -216,8 +196,6 @@ __all__ = [
     "ConversationMessage",
     "ConversationMessageBase",
     "ConversationMessagesResponse",
-    "ConversationQuestionSummary",
-    "ConversationTraceResponse",
     "DebugBlock",
     "DebugStep",
     "QuestionStepsResponse",

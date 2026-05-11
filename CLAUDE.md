@@ -118,10 +118,9 @@ app/
     db.py             # async engine + session factory + sync alembic migrate (no SQL — engine plumbing)
   api/
     health.py         # GET /health
-    admin.py          # POST /api/admin/ingest, GET /api/admin/conversations/*
+    admin.py          # POST /api/admin/ingest
     chat.py           # POST /api/chat
     chat_history.py   # GET /api/chat/conversations (user-facing list + load)
-    conversations.py  # GET /api/admin/conversations/{id} (admin trace)
     config.py         # GET /api/config — surfaces the server-selected chat model
     auth.py           # X-Chat-Token / X-Admin-Token validation
     deps.py           # FastAPI Depends factories (provider DI; test patch point)
@@ -130,7 +129,7 @@ app/
     ingest.py         # parser → repo orchestration
     audit.py          # persist_question — serialize agent steps into audit_log rows
     chat.py           # one /chat turn: IDs → agent → response wrapping → audit
-    conversations.py  # build_trace — group audit rows by question for admin review
+    chat_history.py   # reconstruct ConversationMessage / ChatCitation / UsageSummary from audit_log rows
     disclaimer.py     # localized disclaimer strings (PT / EN / ES)
     wrap_response.py  # AgentResult → wire response + audit summary
     parser/           # pure: markdown -> passages; dispatch by extension in registry.py

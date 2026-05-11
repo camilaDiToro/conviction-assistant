@@ -19,6 +19,7 @@ from app.config import db, settings
 from app.config.db import get_session
 from app.main import app
 from app.providers.stub import StubLLM, load_stub_responses
+from app.repositories import audit as audit_repo
 from app.retrieval.bm25 import BM25Retriever
 from app.schemas import Passage, PassageHit
 
@@ -219,7 +220,7 @@ async def test_chat_pt_question_gets_pt_disclaimer(client, monkeypatch: pytest.M
 # ---- audit log ------------------------------------------------------
 
 
-async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch) -> None:
     stub = StubLLM(load_stub_responses(FIXTURES / "basic_search.yaml"))
     _wire_basic_search(monkeypatch, stub)
 
@@ -231,21 +232,17 @@ async def test_chat_writes_audit_rows(client, monkeypatch: pytest.MonkeyPatch, t
     assert response.status_code == 200
     conv_id = response.json()["conversation_id"]
 
-    # Read the trace via the admin endpoint — token-gated, so include the header.
-    trace_response = await client.get(
-        f"/api/admin/conversations/{conv_id}",
-        headers={"X-Admin-Token": "test-admin-token"},
-    )
-    assert trace_response.status_code == 200
-    trace = trace_response.json()
-    assert trace["conversation_id"] == conv_id
-    assert len(trace["questions"]) == 1
-    q = trace["questions"][0]
-    assert q["language"] == "en"
-    assert q["retriever"] == "bm25"
-    # Step kinds: llm_call, tool_call, llm_call, tool_call, llm_call, resolver
-    assert "resolver" in q["step_kinds"]
-    assert q["step_kinds"].count("llm_call") >= 1
+    engine = db.make_engine(f"sqlite+aiosqlite:///{settings.sqlite_path.as_posix()}")
+    try:
+        async with db.make_session_factory(engine)() as s:
+            rows = await audit_repo.fetch_by_conversation(s, conv_id)
+    finally:
+        await engine.dispose()
+    assert rows, "expected audit rows for the conversation"
+    kinds = [r["kind"] for r in rows]
+    assert "response" in kinds
+    assert "resolver" in kinds
+    assert kinds.count("llm_call") >= 1
 
 
 # ---- conversation continuation -------------------------------------

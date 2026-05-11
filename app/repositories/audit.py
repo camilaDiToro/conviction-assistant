@@ -2,13 +2,6 @@
 
 The schema lives in ``alembic/versions/0001_initial_schema.py``; this
 module exposes the typed async functions that services call.
-
-Three functions:
-
-- :func:`insert_many` — bulk insert. Used at end of a /chat request.
-- :func:`fetch_by_conversation` — read all rows for one
-  ``conversation_id``, sorted by ``(timestamp, step_id)``. Drives
-  ``GET /admin/conversations/{id}``.
 """
 
 from collections.abc import Iterable

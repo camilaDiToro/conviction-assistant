@@ -128,7 +128,6 @@ A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
 | `POST /api/chat` | `X-Chat-Token` | Run one agent turn |
 | `GET  /api/config` | `X-Chat-Token` | Return the server-selected chat model |
 | `GET  /api/chat/conversations` | `X-Chat-Token` | List the caller's conversations (sidebar) |
-| `GET  /api/admin/conversations/{id}` | `X-Admin-Token` | Full trace of a conversation |
 | `GET  /health` | — | Liveness check |
 
 ## Where things live
