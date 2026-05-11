@@ -71,7 +71,7 @@ Each level-up is documented in the step where it would land, so a reviewer can s
 - **Deviations from the original step description (intentional):**
   - **Stack pivot:** raw `sqlite3` + sync repo → **SQLAlchemy 2.x async** + AsyncSession + `select()` + aiosqlite, to match project stack-conventions (Router→Service→Repository, async-first FastAPI). See CLAUDE.md § Architecture.
   - **Migrations:** Alembic (not "no migrations tool"). `alembic/versions/0001_initial_schema.py` owns the schema; `db.migrate()` applies it; FastAPI lifespan calls migrate on startup.
-  - **Surface:** `python -m app.ingest` CLI replaced with `POST /admin/ingest`. The parser dev CLI at `app/services/parser/cli.py` remains for parser-output inspection.
+  - **Surface:** `python -m app.ingest` CLI replaced with `POST /admin/ingest`.
   - **Folders:** `app/store/` → `app/repositories/`; `app/parser/` → `app/services/parser/`; `app/models.py` (Pydantic) → `app/schemas/passage.py`; new `app/models/passage.py` for the ORM.
 - **Level-up path (deferred, gated on conversation):** Postgres + pgvector if/when we need (a) concurrent writes from multiple replicas, (b) full-text indexes that outgrow SQLite FTS5, (c) a vector search path that benefits from server-side ANN. The repository interface in `app/repositories/passages.py` is the swap point — no caller needs to change.
 

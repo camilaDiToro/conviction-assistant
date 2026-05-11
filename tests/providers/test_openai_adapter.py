@@ -1,9 +1,10 @@
 """Tests for app/providers/openai.py — translators + adapter call shape.
 
-The adapter's HTTP path is exercised manually via
-``scripts/smoke_openai.py``. CI never hits real OpenAI — we mock the
-``AsyncOpenAI`` client's ``create`` methods and assert on the arguments
-passed plus the ``LLMResponse`` we build from a fake completion.
+The adapter's HTTP path is exercised end-to-end by the B10 eval suite
+(``evals/run.py``) against real OpenAI. CI never hits real OpenAI — we
+mock the ``AsyncOpenAI`` client's ``create`` methods and assert on the
+arguments passed plus the ``LLMResponse`` we build from a fake
+completion.
 """
 
 import json

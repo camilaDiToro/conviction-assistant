@@ -23,8 +23,8 @@ export default function App() {
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />
         <Route path="pipeline/corpus" element={<CorpusPage />} />
-        <Route path="pipeline/tools" element={<ToolsPage />} />
         <Route path="pipeline/retrieval" element={<RetrievalPage />} />
+        <Route path="pipeline/tools" element={<ToolsPage />} />
         <Route path="pipeline/resolver" element={<ResolverPage />} />
         <Route path="pipeline/agent-loop" element={<AgentLoopPage />} />
         <Route path="plumbing/providers" element={<ProvidersPage />} />

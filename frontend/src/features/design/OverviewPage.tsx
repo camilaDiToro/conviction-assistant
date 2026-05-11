@@ -198,8 +198,8 @@ const TOOLS = [
 
 const TOUR = [
   { to: '/design/pipeline/corpus', label: 'Corpus & chunking', desc: 'Markdown → Passage[]. Slug algorithm, date extraction, stable IDs.' },
-  { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)', desc: 'BM25Index over normalized tokens. Cross-language is the level-up trigger.' },
+  { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Bounded gather → act → answer with strict loop invariants.' },
   { to: '/design/plumbing/providers', label: 'Provider abstraction', desc: 'LLMProvider protocol, OpenAI + Stub adapters behind a single interface.' },
   { to: '/design/plumbing/cost', label: 'Cost tracking', desc: 'TokenUsage → vendored prices. Three-granularity audit_log.' },
