@@ -35,7 +35,7 @@ decade-ai-challenge/
 │   │   ├── [x] dedupe.py                  — collapse duplicate citations by passage_id, remap inline [N] markers in answer text
 │   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
 │   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
-│   │   ├── [ ] schemas.py
+│   │   ├── [x] schemas.py                 — pydantic models + hand-written JSON schemas (flat+discriminator pattern bc openai strict ≠ oneOf)
 │   │   ├── [ ] tool_dispatch.py
 │   │   ├── prompts/
 │   │   │   ├── [x] rewrite.md
