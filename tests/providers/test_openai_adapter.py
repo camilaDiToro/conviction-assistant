@@ -1,14 +1,14 @@
-"""Tests for app/providers/openai.py — translators + adapter call shape.
+"""Tests for app/providers/openai.py — Responses-API translators + adapter.
 
-The adapter's HTTP path is exercised end-to-end by the eval suite
-(``evals/run.py``) against real OpenAI. CI never hits real OpenAI — we
-mock the ``AsyncOpenAI`` client's ``create`` methods and assert on the
-arguments passed plus the ``LLMResponse`` we build from a fake
-completion.
+The HTTP path is exercised end-to-end by the eval suite (``evals/run.py``)
+against real OpenAI. CI never hits real OpenAI — we mock
+``AsyncOpenAI.responses.create`` and assert on the request kwargs plus
+the ``LLMResponse`` built from a fake response.
 """
 
 import json
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -21,321 +21,213 @@ from app.providers.base import (
     ToolDefinition,
 )
 from app.providers.openai import (
-    OpenAIEmbedder,
     OpenAILLM,
-    _completion_to_response,
-    _message_to_openai,
-    _schema_to_response_format,
-    _tool_to_openai,
+    _messages_to_responses_input,
+    _response_to_llm_response,
 )
 
-
-def test_message_to_openai_system_user():
-    assert _message_to_openai(Message(role="system", content="be terse")) == {
-        "role": "system",
-        "content": "be terse",
-    }
-    assert _message_to_openai(Message(role="user", content="hi")) == {
-        "role": "user",
-        "content": "hi",
-    }
+# ---- Message → Responses-input translator ---------------------------
 
 
-def test_message_to_openai_assistant_text():
-    out = _message_to_openai(Message(role="assistant", content="ok"))
-    assert out == {"role": "assistant", "content": "ok"}
-
-
-def test_message_to_openai_assistant_tool_calls():
-    msg = Message(
-        role="assistant",
-        content=None,
-        tool_calls=[ToolCall(id="c1", name="search", arguments={"q": "x", "k": 5})],
+def test_messages_translator_covers_every_role():
+    """One round-trip covers system hoisting, user/assistant/tool, and the
+    inline path for later system messages."""
+    instructions, items = _messages_to_responses_input(
+        [
+            Message(role="system", content="be terse"),
+            Message(role="user", content="hi"),
+            Message(
+                role="assistant",
+                tool_calls=[ToolCall(id="c1", name="search", arguments={"q": "x"})],
+            ),
+            Message(role="tool", tool_call_id="c1", content="result"),
+            Message(role="system", content="extra"),  # later systems inline as items
+        ]
     )
-    out = _message_to_openai(msg)
-    assert out["role"] == "assistant"
-    assert out["content"] is None
-    assert out["tool_calls"][0]["id"] == "c1"
-    assert out["tool_calls"][0]["type"] == "function"
-    assert json.loads(out["tool_calls"][0]["function"]["arguments"]) == {"q": "x", "k": 5}
+    assert instructions == "be terse"
+    assert items == [
+        {"type": "message", "role": "user", "content": "hi"},
+        {"type": "function_call", "call_id": "c1", "name": "search", "arguments": '{"q": "x"}'},
+        {"type": "function_call_output", "call_id": "c1", "output": "result"},
+        {"type": "message", "role": "system", "content": "extra"},
+    ]
 
 
-def test_message_to_openai_tool_result():
-    out = _message_to_openai(Message(role="tool", tool_call_id="c1", content="result text"))
-    assert out == {"role": "tool", "tool_call_id": "c1", "content": "result text"}
-
-
-def test_message_to_openai_tool_without_id_raises():
+def test_messages_translator_tool_role_without_id_raises():
     with pytest.raises(ProviderError, match="tool_call_id"):
-        _message_to_openai(Message(role="tool", content="x"))
+        _messages_to_responses_input([Message(role="tool", content="x")])
 
 
-def test_tool_to_openai_marks_strict():
-    tool = ToolDefinition(
-        name="search",
-        description="search the corpus",
-        parameters={"type": "object", "properties": {}, "additionalProperties": False},
-    )
-    out = _tool_to_openai(tool)
-    assert out["type"] == "function"
-    assert out["function"]["name"] == "search"
-    assert out["function"]["strict"] is True
-    assert out["function"]["parameters"] == tool.parameters
+# ---- helpers --------------------------------------------------------
 
 
-def test_schema_to_response_format_strict():
-    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    out = _schema_to_response_format(schema)
-    assert out == {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "answer",
-            "strict": True,
-            "schema": {"type": "object"},
-        },
-    }
-
-
-def _fake_completion(
+def _fake_response(
     *,
-    content: str | None,
+    content: str | None = None,
     tool_calls: list[dict] | None = None,
-    finish_reason: str = "stop",
-    prompt_tokens: int = 100,
-    completion_tokens: int = 10,
+    status: str = "completed",
+    incomplete_reason: str | None = None,
+    input_tokens: int = 100,
+    output_tokens: int = 10,
     cached_tokens: int = 0,
     reasoning_tokens: int = 0,
 ):
-    """Build the minimal SDK-shaped object the translator inspects."""
-    raw_tool_calls = []
-    for tc in tool_calls or []:
-        raw_tool_calls.append(
+    """Minimal SDK-shaped Response object the translator inspects."""
+    output: list[Any] = []
+    if content is not None:
+        output.append(
             SimpleNamespace(
-                id=tc["id"],
-                function=SimpleNamespace(name=tc["name"], arguments=json.dumps(tc["arguments"])),
+                type="message",
+                content=[SimpleNamespace(type="output_text", text=content)],
             )
         )
-    message = SimpleNamespace(content=content, tool_calls=raw_tool_calls or None)
-    choice = SimpleNamespace(message=message, finish_reason=finish_reason)
-    usage = SimpleNamespace(
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        prompt_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
-        completion_tokens_details=SimpleNamespace(reasoning_tokens=reasoning_tokens),
+    for tc in tool_calls or []:
+        output.append(
+            SimpleNamespace(
+                type="function_call",
+                call_id=tc["id"],
+                name=tc["name"],
+                arguments=json.dumps(tc["arguments"]),
+            )
+        )
+    return SimpleNamespace(
+        output=output,
+        usage=SimpleNamespace(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            input_tokens_details=SimpleNamespace(cached_tokens=cached_tokens),
+            output_tokens_details=SimpleNamespace(reasoning_tokens=reasoning_tokens),
+        ),
+        status=status,
+        incomplete_details=(
+            SimpleNamespace(reason=incomplete_reason) if incomplete_reason is not None else None
+        ),
     )
-    return SimpleNamespace(choices=[choice], usage=usage)
 
 
-def test_completion_to_response_text_with_schema_parses():
+# ---- Response → LLMResponse ----------------------------------------
+
+
+def test_response_text_with_schema_parses_and_reports_tokens():
     schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    completion = _fake_completion(content='{"kind":"answer","answer":"hi","citations":[]}')
+    response = _fake_response(
+        content='{"kind":"answer","answer":"hi","citations":[]}',
+        input_tokens=1000,
+        output_tokens=500,
+        cached_tokens=300,
+        reasoning_tokens=400,
+    )
 
-    response = _completion_to_response(completion, model="gpt-5", schema=schema)
+    out = _response_to_llm_response(response, model="gpt-5.5", schema=schema)
 
-    assert response.parsed == {"kind": "answer", "answer": "hi", "citations": []}
-    assert response.tool_calls == []
-    assert response.finish_reason == "stop"
-    assert response.usage.model == "gpt-5"
-    assert response.usage.prompt_tokens == 100
-    assert response.usage.completion_tokens == 10
+    assert out.parsed == {"kind": "answer", "answer": "hi", "citations": []}
+    assert out.finish_reason == "stop"
+    assert (out.usage.prompt_tokens, out.usage.completion_tokens) == (1000, 500)
+    assert (out.usage.cached_tokens, out.usage.reasoning_tokens) == (300, 400)
 
 
-def test_completion_to_response_tool_calls_decoded_and_parsed_skipped():
-    completion = _fake_completion(
-        content=None,
+def test_response_tool_calls_decoded_skip_schema_parse():
+    response = _fake_response(
         tool_calls=[{"id": "c1", "name": "search", "arguments": {"q": "x"}}],
-        finish_reason="tool_calls",
     )
-
-    response = _completion_to_response(completion, model="gpt-5", schema=None)
-
-    assert response.parsed is None
-    assert response.tool_calls == [ToolCall(id="c1", name="search", arguments={"q": "x"})]
-    assert response.finish_reason == "tool_calls"
+    out = _response_to_llm_response(response, model="gpt-5.5", schema=None)
+    assert out.tool_calls == [ToolCall(id="c1", name="search", arguments={"q": "x"})]
+    assert out.parsed is None
+    assert out.finish_reason == "tool_calls"
 
 
-def test_completion_to_response_cached_tokens_split_tiers():
-    completion = _fake_completion(
-        content="ok", prompt_tokens=1000, completion_tokens=10, cached_tokens=300
-    )
-    response = _completion_to_response(completion, model="gpt-5", schema=None)
-    assert response.usage.cached_tokens == 300
-
-
-def test_completion_to_response_captures_reasoning_tokens():
-    completion = _fake_completion(
-        content="ok", prompt_tokens=100, completion_tokens=500, reasoning_tokens=400
-    )
-    response = _completion_to_response(completion, model="gpt-5", schema=None)
-    assert response.usage.completion_tokens == 500
-    assert response.usage.reasoning_tokens == 400
-
-
-def test_completion_to_response_invalid_json_raises():
+def test_response_tolerates_extra_data_after_first_json_object():
+    # gpt-5 occasionally trails extra junk after the first JSON object
     schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    completion = _fake_completion(content="not json")
-    with pytest.raises(ProviderError, match="did not match the requested JSON schema"):
-        _completion_to_response(completion, model="gpt-5", schema=schema)
+    response = _fake_response(content='{"answer":"hi"}\n{"trailing":"junk"}')
+    out = _response_to_llm_response(response, model="gpt-5.5", schema=schema)
+    assert out.parsed == {"answer": "hi"}
 
 
-def test_completion_to_response_empty_content_with_length_finish_reports_truncation():
-    """Reasoning ate the whole output budget — the user-visible error
-    must name `finish_reason=length` + token counts + the actionable knob,
-    not the misleading generic schema-mismatch message."""
+@pytest.mark.parametrize(
+    "fake_kwargs, error_match",
+    [
+        ({"content": "not json"}, r"did not match the requested JSON schema"),
+        (
+            {
+                "status": "incomplete",
+                "incomplete_reason": "max_output_tokens",
+                "output_tokens": 4096,
+                "reasoning_tokens": 4096,
+            },
+            r"output_tokens=4096.*reasoning_tokens=4096.*AGENT_MAX_OUTPUT_TOKENS",
+        ),
+        (
+            {"status": "incomplete", "incomplete_reason": "content_filter"},
+            r"empty content.*content_filter",
+        ),
+    ],
+    ids=["invalid_json", "truncated_by_max_tokens", "content_filter"],
+)
+def test_response_schema_decode_errors(fake_kwargs, error_match):
     schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    completion = _fake_completion(
-        content="",
-        finish_reason="length",
-        completion_tokens=4096,
-        reasoning_tokens=4096,
-    )
-    with pytest.raises(ProviderError) as excinfo:
-        _completion_to_response(completion, model="gpt-5", schema=schema)
-    msg = str(excinfo.value)
-    assert "finish_reason=length" in msg
-    assert "completion_tokens=4096" in msg
-    assert "reasoning_tokens=4096" in msg
-    assert "AGENT_MAX_OUTPUT_TOKENS" in msg
+    response = _fake_response(**fake_kwargs)
+    with pytest.raises(ProviderError, match=error_match):
+        _response_to_llm_response(response, model="gpt-5.5", schema=schema)
 
 
-def test_completion_to_response_empty_content_other_finish_reports_finish_reason():
-    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    completion = _fake_completion(content=None, finish_reason="content_filter")
-    with pytest.raises(ProviderError, match="empty content.*content_filter"):
-        _completion_to_response(completion, model="gpt-5", schema=schema)
+# ---- adapter end-to-end with mocked client -------------------------
 
 
-def test_completion_to_response_extra_data_after_first_object_is_tolerated():
-    # gpt-5 occasionally appends a second JSON object or stray text
-    # after the first object even with strict=true. raw_decode takes
-    # the first complete value and discards the tail.
-    schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
-    content = '{"kind":"answer","answer":"hi","citations":[]}\n{"trailing":"junk"}'
-    completion = _fake_completion(content=content)
-
-    response = _completion_to_response(completion, model="gpt-5", schema=schema)
-
-    assert response.parsed == {"kind": "answer", "answer": "hi", "citations": []}
-
-
-def test_completion_to_response_no_choices_raises():
-    completion = SimpleNamespace(choices=[], usage=SimpleNamespace())
-    with pytest.raises(ProviderError, match="no choices"):
-        _completion_to_response(completion, model="gpt-5", schema=None)
-
-
-def test_completion_to_response_unknown_finish_reason_maps_to_other():
-    completion = _fake_completion(content="ok", finish_reason="some_new_reason")
-    response = _completion_to_response(completion, model="gpt-5", schema=None)
-    assert response.finish_reason == "other"
-
-
-# ---- adapter end-to-end with mocked OpenAI client ------------------
-
-
-async def test_openai_llm_default_call_omits_tuning_kwargs():
-    """Default path: no temperature, no reasoning_effort, no verbosity, no max."""
-    llm = OpenAILLM(api_key="sk-test", model="gpt-5", timeout=60.0)
-    fake = _fake_completion(content="ok")
-    mock_create = AsyncMock(return_value=fake)
-    llm._client.chat.completions.create = mock_create
+async def test_openai_llm_default_call_only_passes_model_and_input():
+    llm = OpenAILLM(api_key="sk-test", model="gpt-5.5", timeout=60.0)
+    llm._client.responses.create = AsyncMock(return_value=_fake_response(content="ok"))
 
     await llm.generate([Message(role="user", content="hi")])
 
-    kwargs = mock_create.await_args.kwargs
-    assert kwargs["model"] == "gpt-5"
-    assert kwargs["messages"] == [{"role": "user", "content": "hi"}]
-    assert "temperature" not in kwargs
-    assert "reasoning_effort" not in kwargs
-    assert "verbosity" not in kwargs
-    assert "max_completion_tokens" not in kwargs
+    assert llm._client.responses.create.await_args.kwargs == {
+        "model": "gpt-5.5",
+        "input": [{"type": "message", "role": "user", "content": "hi"}],
+    }
 
 
-async def test_openai_llm_forwards_tools_and_schema():
-    llm = OpenAILLM(api_key="sk-test", model="gpt-5", timeout=60.0)
+async def test_openai_llm_full_request_shape():
+    """system+tools+schema+reasoning+max_output_tokens all land on the wire."""
+    llm = OpenAILLM(api_key="sk-test", model="gpt-5.5", timeout=60.0)
+    llm._client.responses.create = AsyncMock(return_value=_fake_response(content='{"a":1}'))
     schema = StructuredOutputSchema(name="answer", json_schema={"type": "object"})
     tool = ToolDefinition(name="search", description="d", parameters={"type": "object"})
 
-    mock_create = AsyncMock(return_value=_fake_completion(content='{"a": 1}'))
-    llm._client.chat.completions.create = mock_create
-
     await llm.generate(
-        [Message(role="user", content="hi")],
+        [Message(role="system", content="be terse"), Message(role="user", content="hi")],
         tools=[tool],
         schema=schema,
-    )
-
-    kwargs = mock_create.await_args.kwargs
-    assert kwargs["tools"][0]["function"]["name"] == "search"
-    assert kwargs["response_format"]["type"] == "json_schema"
-    assert kwargs["response_format"]["json_schema"]["strict"] is True
-
-
-async def test_openai_llm_forwards_tuning_kwargs_when_set():
-    """Each tuning kwarg lands on the wire under the right OpenAI key name."""
-    llm = OpenAILLM(api_key="sk-test", model="gpt-5", timeout=60.0)
-    mock_create = AsyncMock(return_value=_fake_completion(content="ok"))
-    llm._client.chat.completions.create = mock_create
-
-    await llm.generate(
-        [Message(role="user", content="hi")],
-        temperature=0.7,
         reasoning_effort="low",
-        verbosity="low",
         max_output_tokens=200,
     )
 
-    kwargs = mock_create.await_args.kwargs
-    assert kwargs["temperature"] == 0.7
-    assert kwargs["reasoning_effort"] == "low"
-    assert kwargs["verbosity"] == "low"
-    assert kwargs["max_completion_tokens"] == 200
-    assert "max_tokens" not in kwargs  # gpt-5 renamed it
+    kwargs = llm._client.responses.create.await_args.kwargs
+    assert kwargs["instructions"] == "be terse"
+    assert kwargs["input"] == [{"type": "message", "role": "user", "content": "hi"}]
+    assert kwargs["tools"] == [
+        {
+            "type": "function",
+            "name": "search",
+            "description": "d",
+            "parameters": {"type": "object"},
+            "strict": True,
+        }
+    ]
+    assert kwargs["text"] == {
+        "format": {
+            "type": "json_schema",
+            "name": "answer",
+            "strict": True,
+            "schema": {"type": "object"},
+        }
+    }
+    assert kwargs["reasoning"] == {"effort": "low"}
+    assert kwargs["max_output_tokens"] == 200
 
 
-def test_openai_clients_pass_timeout_to_async_openai():
+def test_openai_client_init_validates_api_key_and_timeout():
+    with pytest.raises(ProviderError, match="api_key"):
+        OpenAILLM(api_key="", model="gpt-5.5", timeout=60.0)
     with patch("app.providers.openai.AsyncOpenAI") as mock_async_openai:
-        OpenAILLM(api_key="sk-test", model="gpt-5", timeout=42.0)
-        OpenAIEmbedder(api_key="sk-test", model="text-embedding-3-large", timeout=15.0)
-        assert mock_async_openai.call_args_list[0].kwargs["timeout"] == 42.0
-        assert mock_async_openai.call_args_list[1].kwargs["timeout"] == 15.0
-
-
-def test_openai_llm_requires_api_key():
-    with pytest.raises(ProviderError, match="api_key"):
-        OpenAILLM(api_key="", model="gpt-5", timeout=60.0)
-
-
-async def test_openai_embedder_calls_sdk_correctly():
-    embedder = OpenAIEmbedder(api_key="sk-test", model="text-embedding-3-large", timeout=60.0)
-    fake_response = SimpleNamespace(
-        data=[
-            SimpleNamespace(embedding=[0.1, 0.2]),
-            SimpleNamespace(embedding=[0.3, 0.4]),
-        ],
-        usage=SimpleNamespace(prompt_tokens=12),
-    )
-    mock_create = AsyncMock(return_value=fake_response)
-    embedder._client.embeddings.create = mock_create
-
-    result = await embedder.embed(["a", "b"])
-
-    kwargs = mock_create.await_args.kwargs
-    assert kwargs["model"] == "text-embedding-3-large"
-    assert kwargs["input"] == ["a", "b"]
-    assert kwargs["encoding_format"] == "float"
-
-    assert result.vectors == [[0.1, 0.2], [0.3, 0.4]]
-    assert result.usage.prompt_tokens == 12
-    assert result.usage.model == "text-embedding-3-large"
-
-
-async def test_openai_embedder_empty_input_raises():
-    embedder = OpenAIEmbedder(api_key="sk-test", model="text-embedding-3-large", timeout=60.0)
-    with pytest.raises(ProviderError, match="at least one"):
-        await embedder.embed([])
-
-
-def test_openai_embedder_requires_api_key():
-    with pytest.raises(ProviderError, match="api_key"):
-        OpenAIEmbedder(api_key="", model="text-embedding-3-large", timeout=60.0)
+        OpenAILLM(api_key="sk-test", model="gpt-5.5", timeout=42.0)
+        assert mock_async_openai.call_args.kwargs["timeout"] == 42.0

@@ -13,7 +13,7 @@ from app.providers.base import (
     ToolCall,
     ToolDefinition,
 )
-from app.providers.stub import StubEmbedder, StubLLM, load_stub_responses
+from app.providers.stub import StubLLM, load_stub_responses
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "stub_responses_example.yaml"
 
@@ -60,16 +60,13 @@ async def test_stub_llm_records_tools_and_schema_per_call():
         tools=[tool],
         schema=schema,
         reasoning_effort="low",
-        verbosity="low",
         max_output_tokens=200,
     )
 
     call = stub.calls[0]
     assert call.tools == [tool]
     assert call.schema == schema
-    assert call.temperature is None
     assert call.reasoning_effort == "low"
-    assert call.verbosity == "low"
     assert call.max_output_tokens == 200
 
 
@@ -102,36 +99,3 @@ def test_load_stub_responses_rejects_non_list(tmp_path: Path):
     bad.write_text("not_a_list: true\n", encoding="utf-8")
     with pytest.raises(ProviderError, match="must be a YAML list"):
         load_stub_responses(bad)
-
-
-async def test_stub_embedder_default_vectors_match_input_count():
-    embedder = StubEmbedder()
-    response = await embedder.embed(["a", "b", "c"])
-    assert len(response.vectors) == 3
-    assert all(len(v) == 3 for v in response.vectors)
-    assert embedder.calls == [["a", "b", "c"]]
-
-
-async def test_stub_embedder_custom_vectors_and_usage():
-    usage = TokenUsage(
-        model="stub-embed",
-        prompt_tokens=42,
-        completion_tokens=0,
-        cached_tokens=0,
-    )
-    embedder = StubEmbedder(vectors=[[0.1, 0.2], [0.3, 0.4]], usage_per_call=usage)
-    response = await embedder.embed(["x", "y"])
-    assert response.vectors == [[0.1, 0.2], [0.3, 0.4]]
-    assert response.usage.prompt_tokens == 42
-
-
-async def test_stub_embedder_empty_input_raises():
-    embedder = StubEmbedder()
-    with pytest.raises(ProviderError):
-        await embedder.embed([])
-
-
-async def test_stub_embedder_vector_count_mismatch_raises():
-    embedder = StubEmbedder(vectors=[[1.0]])
-    with pytest.raises(ProviderError, match="configured 1 vectors"):
-        await embedder.embed(["a", "b"])

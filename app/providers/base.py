@@ -3,7 +3,7 @@
 The contract above provider adapters is identical: every adapter
 (``openai.py``, ``stub.py``, the future ``anthropic.py``) accepts the same
 ``Message`` / ``ToolDefinition`` / ``StructuredOutputSchema`` inputs and
-returns the same ``LLMResponse`` / ``EmbeddingResponse`` shape.
+returns the same ``LLMResponse`` shape.
 
 Adapters return raw token counts in ``TokenUsage``. The app surfaces
 those counts for debugging and audit review.
@@ -99,15 +99,11 @@ class LLMResponse(BaseModel):
     finish_reason: FinishReason = "stop"
 
 
-class EmbeddingResponse(BaseModel):
-    """One batch of embedding vectors + token usage."""
-
-    vectors: list[list[float]]
-    usage: TokenUsage
-
-
-ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
-Verbosity = Literal["low", "medium", "high"]
+# The safe intersection across every model in the factory allowlist
+# (gpt-5.5*, gpt-5.4*, gpt-5-mini, o4-mini). gpt-5.4 supports "minimal"
+# but gpt-5.5 dropped it; gpt-5.5 supports "none" but gpt-5.4 does not;
+# o4-mini supports neither. low/medium/high is what all of them accept.
+ReasoningEffort = Literal["low", "medium", "high"]
 
 
 class LLMProvider(Protocol):
@@ -123,14 +119,6 @@ class LLMProvider(Protocol):
         *,
         tools: list[ToolDefinition] | None = None,
         schema: StructuredOutputSchema | None = None,
-        temperature: float | None = None,
         reasoning_effort: ReasoningEffort | None = None,
-        verbosity: Verbosity | None = None,
         max_output_tokens: int | None = None,
     ) -> LLMResponse: ...
-
-
-class EmbeddingProvider(Protocol):
-    """Embedding contract."""
-
-    async def embed(self, texts: list[str]) -> EmbeddingResponse: ...

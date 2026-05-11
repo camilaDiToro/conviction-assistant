@@ -7,7 +7,7 @@ Legend: `[x]` = reviewed, `[ ]` = pending.
 ```
 decade-ai-challenge/
 ├── [x] .dockerignore
-├── [ ] .env.example
+├── [x] .env.example                    — supported OPENAI_MODEL list (6 entries) + reasoning_effort intersection note
 ├── [x] .github/workflows/sync-to-hf.yml
 ├── [x] .gitignore
 ├── [x] AI_CHALLENGE.md
@@ -75,13 +75,13 @@ decade-ai-challenge/
 │   │   ├── [ ] base.py
 │   │   └── [ ] passage.py
 │   │
-│   ├── providers/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] base.py
-│   │   ├── [ ] factory.py
-│   │   ├── [ ] openai.py
-│   │   ├── [ ] stub.py
-│   │   └── [ ] text_repair.py
+│   ├── providers/                       [x] reviewed (simplified)
+│   │   ├── [x] __init__.py                — re-exports LLMProvider/Message/types + get_llm_provider
+│   │   ├── [x] base.py                     — LLMProvider protocol; ReasoningEffort = low|medium|high (allowlist intersection)
+│   │   ├── [x] factory.py                  — _SUPPORTED_MODEL_PREFIXES allowlist; rejects unknown OPENAI_MODEL up-front
+│   │   ├── [x] openai.py                   — single class targeting Responses API; chat completions path removed
+│   │   ├── [x] stub.py                     — StubLLM mirror of the protocol (StubEmbedder removed)
+│   │   └── [x] text_repair.py              — gpt-5-mini unicode-escape repair (kept; defensive + cheap)
 │   │
 │   ├── repositories/
 │   │   ├── [ ] __init__.py
@@ -189,11 +189,11 @@ decade-ai-challenge/
     │       ├── [ ] rewrite_pt.yaml
     │       └── [ ] tool_error_feedback.yaml
     │
-    ├── providers/
-    │   ├── [ ] __init__.py
-    │   ├── [ ] test_factory.py
-    │   ├── [ ] test_openai_adapter.py
-    │   └── [ ] test_stub.py
+    ├── providers/                       [x] reviewed (simplified)
+    │   ├── [x] __init__.py
+    │   ├── [x] test_factory.py             — parametrized allowlist/rejection cases; one configure_openai fixture
+    │   ├── [x] test_openai_adapter.py      — one round-trip per layer (messages, response, end-to-end), parametrized error cases
+    │   └── [x] test_stub.py                 — protocol mirror + YAML loader
     │
     ├── repositories/
     │   ├── [ ] __init__.py
@@ -224,6 +224,9 @@ decade-ai-challenge/
 - **`app/agent/resolver/substring.py`**: extracted `_resolve_one(citation, passage)` so the four `CitationResolution(...)` branches share one provenance dict — cuts the function from ~60 lines of duplicated constructors to ~25.
 - **`tests/agent/resolver/test_substring.py`**: collapsed 11 tests → 7 by removing direct `resolve_citation` tests (covered transitively by `resolve_answer`) and the no-citations edge case (trivial empty-comprehension path).
 - **`app/agent/loop.py`**: split `_agent_loop` into short helpers (`_build_initial_messages`, `_llm_turn`, `_handle_tool_branch`, `_parse_output`, `_needs_search_first`, `_append_search_reminder`, `_resolve_answer`); orchestrator is now a 30-line readable loop.
+- **`app/providers/`**: dropped the unused `EmbeddingProvider` protocol + `OpenAIEmbedder` + `StubEmbedder` (v1 ships BM25-only retrieval). Dropped the chat-completions code path: `OpenAILLM` now wraps the Responses API exclusively. `factory.py` carries an explicit `_SUPPORTED_MODEL_PREFIXES` allowlist (gpt-5.5, gpt-5.4, gpt-5-mini, o4-mini) and rejects anything else with a clear `ProviderError` instead of silently routing to OpenAI for a 400. `ReasoningEffort` narrowed to `low|medium|high` (intersection of values every allowlisted model accepts). `temperature`/`verbosity` removed from the protocol — no caller used them. `openai.py` went from 582 → 295 lines.
+- **`tests/providers/test_openai_adapter.py`**: replaced 18 per-branch tests with one round-trip per layer (messages translator, response translator, end-to-end with mocked client) plus a parametrized table of schema-decode errors; 336 → ~190 lines.
+- **`tests/providers/test_factory.py`**: replaced repeated boilerplate with a `configure_openai` fixture that pre-sets a working config; allowlist accept/reject cases live in two parametrized tests; 107 → ~80 lines.
 
 ## Suggested review order
 

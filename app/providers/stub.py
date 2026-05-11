@@ -1,4 +1,4 @@
-"""Fixture-driven stub providers for CI — never burn provider tokens.
+"""Fixture-driven stub provider for CI — never burn provider tokens.
 
 `StubLLM` returns a queue of canned `LLMResponse`s and records every
 `generate` call on `self.calls` so tests can assert on the messages,
@@ -15,7 +15,6 @@ from typing import Any, cast, get_args
 import yaml
 
 from app.providers.base import (
-    EmbeddingResponse,
     FinishReason,
     LLMResponse,
     Message,
@@ -25,7 +24,6 @@ from app.providers.base import (
     TokenUsage,
     ToolCall,
     ToolDefinition,
-    Verbosity,
 )
 
 _FINISH_REASONS: frozenset[str] = frozenset(get_args(FinishReason))
@@ -38,9 +36,7 @@ class StubCall:
     messages: list[Message]
     tools: list[ToolDefinition] = field(default_factory=list)
     schema: StructuredOutputSchema | None = None
-    temperature: float | None = None
     reasoning_effort: ReasoningEffort | None = None
-    verbosity: Verbosity | None = None
     max_output_tokens: int | None = None
 
 
@@ -58,9 +54,7 @@ class StubLLM:
         *,
         tools: list[ToolDefinition] | None = None,
         schema: StructuredOutputSchema | None = None,
-        temperature: float | None = None,
         reasoning_effort: ReasoningEffort | None = None,
-        verbosity: Verbosity | None = None,
         max_output_tokens: int | None = None,
     ) -> LLMResponse:
         self.calls.append(
@@ -68,9 +62,7 @@ class StubLLM:
                 messages=list(messages),
                 tools=list(tools or []),
                 schema=schema,
-                temperature=temperature,
                 reasoning_effort=reasoning_effort,
-                verbosity=verbosity,
                 max_output_tokens=max_output_tokens,
             )
         )
@@ -79,40 +71,6 @@ class StubLLM:
                 "StubLLM exhausted: test issued more generate() calls than canned responses"
             )
         return self._responses.popleft()
-
-
-class StubEmbedder:
-    """`EmbeddingProvider` returning fixed vectors (default: length-3
-    unit vector per input). Tests that care pass `vectors=` explicitly."""
-
-    def __init__(
-        self,
-        *,
-        model: str = "stub-embed",
-        vectors: list[list[float]] | None = None,
-        usage_per_call: TokenUsage | None = None,
-    ) -> None:
-        self._model = model
-        self._vectors = vectors
-        self._usage = usage_per_call
-        self.calls: list[list[str]] = []
-
-    async def embed(self, texts: list[str]) -> EmbeddingResponse:
-        if not texts:
-            raise ProviderError("embed() requires at least one input string")
-        self.calls.append(list(texts))
-        vectors = self._vectors if self._vectors is not None else [[1.0, 0.0, 0.0]] * len(texts)
-        if len(vectors) != len(texts):
-            raise ProviderError(
-                f"StubEmbedder: configured {len(vectors)} vectors but received {len(texts)} inputs"
-            )
-        usage = self._usage or TokenUsage(
-            model=self._model,
-            prompt_tokens=sum(len(t) for t in texts),
-            completion_tokens=0,
-            cached_tokens=0,
-        )
-        return EmbeddingResponse(vectors=vectors, usage=usage)
 
 
 # ---- YAML loader ----------------------------------------------------
