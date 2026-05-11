@@ -1,12 +1,24 @@
 """Alembic bootstrap.
+
+The app is async (aiosqlite), but Alembic itself runs through the sync
+SQLite driver: `db.migrate()` builds a `sqlite:///…` URL and calls the
+sync `command.upgrade` API at lifespan startup. That's fine for SQLite v1.
+When the project moves to Postgres+asyncpg, switch to the async cookbook
+pattern (``async_engine_from_config`` + ``connection.run_sync``).
+
+``target_metadata`` is wired to ``Base.metadata`` so ``alembic revision
+--autogenerate`` would catch ORM↔schema drift. We still author migrations
+by hand — autogenerate is a safety net, not the workflow.
 """
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+# Importing the package side-effect-registers every ORM model on Base.metadata.
+from app.models import Base
 
 config = context.config
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

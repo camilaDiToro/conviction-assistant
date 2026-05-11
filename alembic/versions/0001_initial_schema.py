@@ -15,7 +15,7 @@ branch_labels = None
 depends_on = None
 
 
-_AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'verifier', 'response')"
+_AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'response')"
 
 _COST_LOG_VIEW = """
 CREATE VIEW cost_log AS
