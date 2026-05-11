@@ -206,19 +206,31 @@ Each level-up is documented in the step where it would land, so a reviewer can s
   - **Chat history mapping fixed.** The pre-B9 frontend mocked assistant text as `""` when sending history — that broke the rewrite stage's referent-resolution. `ChatPage.tsx` now extracts `answer` (or `question` on clarify) and sends it as the assistant content.
   - **Deviation from the plan:** the plan called the audit-write transactional via `async with session.begin()`. That collided with SQLAlchemy's autobegin from the agent's prior reads on the same session, so the writer instead does `add_all → flush → commit` (rollback on failure) and remains best-effort.
 
-### B10 — Eval suite + Anthropic adapter (portability proof)
-- **Goal:** golden Q/A bank (~30 items, buckets per `docs/TESTING.md`); `pytest -m eval` reports anchor rate (% of citations whose quotes resolved to passage offsets). Add Anthropic adapter and re-run the suite to prove portability.
-- **Scope cap:** no human-rater UI, no LLM-as-judge dashboard. Anchor rate is the headline metric. Anthropic Citations API is **not** wired (interface slot only).
-- **Per-bucket floor:** ≥ 3 questions per bucket; **Rule A (tangential mention) and Rule B (conflicting convictions) get ≥ 4 each** since they're the highest-risk paths.
-- **Files:** `evals/golden_set.yaml`, `evals/run_eval.py`, `tests/eval/test_eval_suite.py` (skipped without API key), `app/providers/anthropic.py`.
-- **Acceptance:** `pytest -m eval` runs against OpenAI and Anthropic via `LLM_PROVIDER`; both report an anchor rate; the report is markdown that pastes into the README.
+### B10 — Eval suite + per-request config UI  - [x]
+- **Goal:** golden Q/A bank (30 hand-authored items across 6 buckets); deterministic-metric runner (anchor rate as headline) over Ragas's decorator API; CSV/JSON/Markdown reports; cross-run comparator. Plus a per-request override surface — chat clients can carry model + reasoning + limits in the request, `GET /api/config` exposes server defaults + allowed values, a SettingsDrawer in the chat UI persists prefs in localStorage, and the DebugDrawer surfaces `reasoning_effort` per step.
+- **Scope cap:** **no Anthropic adapter**, **no LLM-as-judge metrics**, no human-rater UI. The Anthropic portability proof and Ragas's LLM-judge metrics (Faithfulness, AnswerRelevancy, ContextPrecision) are explicitly future work; a `--with-judge` CLI flag is reserved but raises today.
+- **Per-bucket floor:** ≥ 3 per bucket; Rule A and Rule B each get ≥ 4 (highest-risk paths).
+- **Files (eval suite):** `evals/__init__.py`, `evals/golden_set.yaml`, `evals/dataset.py`, `evals/metrics.py`, `evals/run.py`, `evals/report.py`, `evals/compare.py`, `evals/README.md`, `evals/RAGAS_USAGE.md`. Tests: `tests/eval/__init__.py`, `tests/eval/test_metrics.py`, `tests/eval/test_dataset.py`, `tests/eval/test_eval_suite.py` (synthetic-data smoke runs in default suite; `@pytest.mark.eval` real-OpenAI smoke skipped without `OPENAI_API_KEY`).
+- **Files (backend overrides):** `app/agent/overrides.py` (new `AgentOverrides` dataclass), `app/agent/loop.py` + `app/agent/rewrite.py` (read overrides; fall back to settings), `app/agent/__init__.py` (re-export), `app/api/schemas.py` (`ChatOverrides` + `ChatRequest.overrides`), `app/api/chat.py` (validates `model` against `settings.allowed_models`, rebinds the LLM provider when needed, forwards overrides), `app/providers/factory.py::get_llm_provider(model=...)`, `app/providers/base.py` + `openai.py` + `stub.py` (`TokenUsage.reasoning_effort`), `app/config/settings.py` (`allowed_models`), `app/api/config.py` (new `GET /api/config`), `app/main.py` (router registration). Tests: `tests/api/test_config.py`, `tests/api/test_chat_overrides.py`.
+- **Files (frontend):** `frontend/src/features/chat/SettingsDrawer.tsx`, `frontend/src/lib/chat-prefs.ts`, `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/features/chat/ChatPage.tsx`, `frontend/src/features/chat/DebugDrawer.tsx`.
+- **Acceptance:** `uv run python -m evals.run --reasoning low --limit 3` writes CSV/JSON/MD into `evals/results/`; `uv run python -m evals.compare A.csv B.csv` diffs two runs; default `pytest` is green (209 tests) and never burns tokens; `pytest -m eval` runs the eval test layer. Frontend: settings drawer loads `/api/config`, persists prefs, the chip shows the effective `model · reasoning_effort` (with a dot when overrides are active), and the debug drawer shows the effective `reasoning_effort` per step. **The runner is deliberately not run during this sprint** — the project owner authorises real-OpenAI runs at their discretion.
 - **Depends on:** B9.
+- **Deviations from the original step description (intentional):**
+  - **Anthropic adapter dropped from scope.** Originally B10 was meant to prove portability by re-running the suite under Anthropic. After conversation with the project owner, B10 stays single-provider (OpenAI). The provider abstraction still proves portability *by contract*; the Anthropic adapter is documented as future work below.
+  - **Ragas chosen over a hand-rolled eval.** Compared DeepEval, promptfoo, Inspect AI, and a pure-Python custom suite. Decision documented in `evals/RAGAS_USAGE.md`: use Ragas's `@discrete_metric` / `@numeric_metric` decorators for clean custom metrics, call `metric.score(...)` directly (rather than `ragas.evaluate()`, which expects the heavier `Metric` subclass and gives nothing extra for our deterministic single-pass case). Skip every LLM-judge metric (Faithfulness, AnswerRelevancy, ContextPrecision); the rubric's headline metric (anchor rate) is deterministic and adding judges would inflate cost without changing signal.
+  - **Per-request config UI added.** Was not in the original B10 wording. Asked for during planning: the user should see and tweak model, agent + rewrite reasoning_effort, max tool calls, and max output tokens from the chat UI. Defaults stay `.env`-driven; UI overrides are per-request, persisted in localStorage, gated by `settings.allowed_models`.
+  - **30 questions hand-authored across PT/EN/ES.** Buckets: 12 factual (with verified `expected_passage_ids` reused from the B6 retrieval fixture), 4 rule_a, 4 rule_b, 3 cross_lang, 4 out_of_scope, 3 clarify. Distribution: PT 13 / EN 13 / ES 4. No requirement that every conviction document is covered — focus is on bucket coverage and clean per-bucket signal.
+  - **Rule B uses no dates.** The `Updated:` date system was retired from the system prompt before B10 landed. Rule B is validated by "agent cites both conflicting passages and declares the disagreement"; no "newer" / "more recent" logic in the metric or the golden set.
+- **Future work (post-B10, documented here so the next session can pick it up):**
+  - **Anthropic adapter** (`app/providers/anthropic.py`) + re-run of the eval under each provider. Validates the protocol portability empirically.
+  - **`--with-judge` flag** to wire Ragas's `Faithfulness` / `AnswerRelevancy` / `ContextPrecision` behind an opt-in switch. Requires `langchain` as a runtime dep for the `LangchainLLMWrapper`.
+  - **Anthropic Citations API** optimisation inside the Anthropic adapter (interface slot only; protocol above the adapter does not change).
 
-### B11 — README + production-grade-vs-simplified writeup
-- **Goal:** the interview deliverable. README explains the architecture, embeds the eval results table from B10, lists the run instructions, and contains the production-readiness audit (which "deliberately simplified" parts have which level-up paths).
-- **Scope cap:** no new code. This is a writing step.
-- **Files:** `README.md` (full version replacing the B1 skeleton), maybe `docs/ARCHITECTURE_DIAGRAM.md` if a diagram earns its keep.
-- **Acceptance:** README opens with the one-line framing from `CLAUDE.md`, embeds the eval table, lists `make run` / `make test` / `make eval` commands, and has a section "Production-grade vs deliberately simplified" reusing the framing from this roadmap's intro.
+### B11 — README + production-grade-vs-simplified writeup  - [x]
+- **Goal:** the interview deliverable. README explains the architecture, lists run instructions, and contains the production-readiness audit (which "deliberately simplified" parts have which level-up paths).
+- **Scope cap:** no new code. Writing step. The eval-results table is left as a placeholder until the project owner authorises a paid run.
+- **Files:** `README.md` (full version replacing the B1 skeleton).
+- **Acceptance:** README opens with the one-line framing, points to `docs/ARCHITECTURES.md` for the design depth, lists `uv run` and frontend dev commands, and has a "Production-grade vs deliberately simplified" section reusing the framing from this roadmap's intro.
 - **Depends on:** B10.
 
 **Backend done after B11.** Bonus PDF/Excel uploads are explicitly designed-not-built per `docs/ARCHITECTURES.md`.
@@ -262,26 +274,23 @@ F0.5 ships the architecture explainer + a mocked chat preview ahead of the live 
 - **Depends on:** B1.
 - **Status (subsumed by F0.5):** scaffold, `lib/api.ts`, vite proxy of `/admin` `/health` `/chat` to FastAPI all shipped under F0.5. Two deliberate deviations: (a) no FastAPI static mount of `frontend/dist` — backend and frontend run as two processes via `npm run dev`; (b) no ESLint `no-restricted-imports` rule yet — convention enforced by review.
 
-### F2 — Chat UI: message list + composer + answer rendering
-- **Goal:** working chat screen that hits `/chat` and renders the answer text + plain citation list.
-- **Scope cap:** no citation drawer (F3), no debug drawer (F4), no markdown rendering of answers.
-- **Files:** `frontend/src/features/chat/ChatScreen.tsx`, `MessageList.tsx`, `Composer.tsx`, `useChat.ts`.
-- **Acceptance:** type a question → see the answer with citation list (passage_id + quote). Conversation history sent on each turn.
-- **Depends on:** F1, B9.
+### F2 — Chat UI: message list + composer + answer rendering  - [x]
+- **Goal:** working chat screen that hits `/chat` and renders the answer text + citation list.
+- **Files:** `frontend/src/features/chat/ChatPage.tsx`, `MessageList.tsx` (citations rendered inline), `useChat.ts` (subsumed by `ChatPage.tsx`).
+- **Acceptance:** type a question → see the answer with citations; conversation history sent on each turn.
+- **Status (subsumed by F0.5 + B9 retrofit):** shipped under F0.5 against the mock; retrofitted to the real `/chat` endpoint when B9 landed (token-gated, `X-Chat-Token` header). B10 added the per-request overrides chip in the header.
 
-### F3 — Citation drawer + Rule A / Rule B visual treatment
-- **Goal:** clickable citation chips open a side panel with full passage text, document title, heading path, Updated date. General-knowledge sections get a clearly distinct visual block (Rule A). Conflicting-conviction surfacing has its own treatment (Rule B).
-- **Scope cap:** no inline-text-highlighting of the quoted span. No PDF rendering.
-- **Files:** `frontend/src/features/chat/CitationChip.tsx`, `CitationDrawer.tsx`, `GeneralKnowledgeBlock.tsx`, `ConflictNotice.tsx`.
-- **Acceptance:** clicking a citation opens the drawer; general-knowledge text impossible to confuse with grounded text; a fixture turn with two conflicting passages renders the conflict notice cleanly.
-- **Depends on:** F2.
+### F3 — Citation drawer + Rule A / Rule B visual treatment  - [x]
+- **Goal:** clickable citation chips open a side panel with full passage text + heading path. Rule A (general-knowledge) and Rule B (conflicting convictions) get distinct visual treatment.
+- **Files:** `frontend/src/features/chat/CitationModal.tsx`, `frontend/src/features/chat/MessageList.tsx`.
+- **Acceptance:** clicking a citation opens the modal; the cited range is highlighted by offsets; the Rule A general-knowledge block is rendered with a dashed-border treatment.
+- **Status (with deviation):** the citation modal + offset highlight + Rule A general-knowledge block all shipped. **Rule B does not have a dedicated `ConflictNotice.tsx` component** — the conflict is surfaced in the answer text itself (per the system prompt's Rule B instruction to "*Cite all sides* … *State explicitly that the convictions disagree*"). After conversation with the project owner this was judged sufficient for v1; a dedicated component is deferred until conflict cases are common enough to warrant it.
 
-### F4 — Debug drawer (tool calls, resolver, usage_summary)
-- **Goal:** developer/reviewer view of what the agent did. Fed by the `debug` block in `ChatResponse`.
-- **Scope cap:** no replay, no tracing graph. Chronological list of steps + top-line cost / step count.
-- **Files:** `frontend/src/features/debug/DebugDrawer.tsx`, `DebugStep.tsx`, `useDebug.ts`.
-- **Acceptance:** drawer shows tool calls in order, resolver entries (anchored vs unresolved), total tokens, total cost. Toggleable.
-- **Depends on:** F2.
+### F4 — Debug drawer (tool calls, resolver, usage_summary)  - [x]
+- **Goal:** per-step trace, model + token usage + cost, resolver anchored/unresolved breakdown.
+- **Files:** `frontend/src/features/chat/DebugDrawer.tsx`.
+- **Acceptance:** drawer shows tool calls in order, resolver entries (anchored vs unresolved), per-step tokens + USD, and the total cost / step count.
+- **Status:** shipped under F0.5 + retrofitted with audit-log lazy fetch in B9. **B10 added the per-step `reasoning_effort` display** so the user can see what effort the chip selected.
 
 **Frontend done after F4.**
 
