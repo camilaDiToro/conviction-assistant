@@ -1,16 +1,8 @@
 """Collapse duplicate citations by ``passage_id`` and remap ``[N]`` markers.
 
-The agent often emits one Citation per *claim*, so a passage that backs
-five claims appears as five entries (often with five different verbatim
-substrings). The bottom Citations block then renders five cards with the
-same passage header — visually noisy.
-
-:func:`dedupe_citations` keeps the **first** citation per ``passage_id``
+`dedupe_citations` keeps the **first** citation per ``passage_id``
 and drops the rest. Inline ``[N]`` markers in ``output.answer``
-(1-indexed) are rewritten through an ``old_index → new_index`` remap, so
-claims that pointed to dropped duplicates collapse onto the canonical
-index. Markers whose number is out of range (``N == 0`` or
-``N > len(citations)``) are left untouched.
+(1-indexed) are rewritten through an ``old_index → new_index`` remap.
 """
 
 import re
