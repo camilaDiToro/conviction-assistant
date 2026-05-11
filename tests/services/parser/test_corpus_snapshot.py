@@ -4,6 +4,7 @@ If any of these constants changes, it should be a deliberate decision —
 ID drift would silently break previously-verified citations.
 """
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -28,8 +29,11 @@ def test_corpus_shape(passages) -> None:
     ids = [p.id for p in passages]
 
     assert len(doc_ids) == EXPECTED_DOC_COUNT
-    assert len(passages) >= EXPECTED_DOC_COUNT * MIN_PASSAGES_PER_DOC
     assert len(ids) == len(set(ids))
+
+    by_doc = Counter(p.document_id for p in passages)
+    thin = [d for d, n in by_doc.items() if n < MIN_PASSAGES_PER_DOC]
+    assert not thin, f"docs with fewer than {MIN_PASSAGES_PER_DOC} passages: {thin}"
 
 
 def test_known_passage_ids_present(passages) -> None:
