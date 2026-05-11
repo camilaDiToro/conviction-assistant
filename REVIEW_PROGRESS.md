@@ -32,7 +32,7 @@ decade-ai-challenge/
 │   ├── agent/
 │   │   ├── [x] __init__.py                — public surface: `run` + structured output models; rewrite stage is the conversation-memory quarantine
 │   │   ├── [x] audit.py                   — step-record builders (llm_call / tool_call / resolver) + resolver-side passage fetch adapter
-│   │   ├── [ ] dedupe.py
+│   │   ├── [x] dedupe.py                  — collapse duplicate citations by passage_id, remap inline [N] markers in answer text
 │   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
 │   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
 │   │   ├── [ ] schemas.py
@@ -204,12 +204,12 @@ decade-ai-challenge/
     ├── [ ] conftest.py
     │
     ├── agent/
-    │   ├── [ ] __init__.py
-    │   ├── [ ] conftest.py
-    │   ├── [ ] test_dedupe.py
-    │   ├── [ ] test_loop_with_resolver.py
+    │   ├── [x] __init__.py
+    │   ├── [x] conftest.py                — autouse fixture patches passages_repo.get for loop tests under tests/agent/ only
+    │   ├── [x] test_dedupe.py             — 4 tests covering happy path, no-op, out-of-range markers, empty
+    │   ├── [x] test_loop_with_resolver.py
     │   ├── [ ] test_loop_with_stub.py
-    │   ├── [ ] test_rewrite.py
+    │   ├── [x] test_rewrite.py
     │   ├── resolver/                    [x] reviewed (simplified)
     │   │   ├── [x] __init__.py
     │   │   └── [x] test_substring.py     — collapsed to 7 tests through resolve_answer; kept property test + smart-quote guard
