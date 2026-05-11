@@ -11,7 +11,6 @@ import re
 from pathlib import Path
 
 from app.schemas import Passage
-from app.services.parser import register
 from app.services.parser.text import slugify
 
 _H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
@@ -36,7 +35,6 @@ def _split_sections(body: str) -> list[tuple[str, str]]:
     return sections
 
 
-@register("md", "markdown")
 def parse_markdown(path: Path) -> list[Passage]:
     raw = path.read_text(encoding="utf-8")
     document_id = path.stem
