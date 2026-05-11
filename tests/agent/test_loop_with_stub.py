@@ -21,6 +21,7 @@ from app.agent.schemas import (
 )
 from app.agent.tools import TOOLS, ToolContext, ToolEntry
 from app.errors import PassageNotFoundError
+from app.providers.base import LLMResponse, TokenUsage, ToolCall
 from app.providers.stub import StubLLM, load_stub_responses
 from app.schemas import Passage, PassageHit
 
@@ -266,6 +267,62 @@ async def test_out_of_scope_answer_exempt_from_lower_bound() -> None:
 
 
 # ---- tool-error feedback ------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_invariant_violation_triggers_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If the model emits an AnswerOutput that breaks an inter-field
+    invariant (general_knowledge_used=true with null section), the loop
+    must append a reminder and re-prompt instead of failing the turn."""
+
+    async def fake_search(_ctx: ToolContext, **_: Any) -> list[PassageHit]:
+        return [_hit("cdbs_quick_guide#tributacao")]
+
+    _patch_tools(monkeypatch, {"search_convictions": fake_search})
+
+    usage = TokenUsage(model="stub-llm", prompt_tokens=10, completion_tokens=5)
+    answer_parsed = {
+        "kind": "answer",
+        "answer": "Recovered.",
+        "citations": [{"passage_id": "cdbs_quick_guide#tributacao", "quote": "tabela regressiva"}],
+        "general_knowledge_used": False,
+        "general_knowledge_section": None,
+        "out_of_scope": False,
+        "question": None,
+        "options": None,
+    }
+    bad_parsed = {**answer_parsed, "answer": "Premature.", "general_knowledge_used": True}
+
+    responses = [
+        # Rewrite stage — passthrough.
+        LLMResponse(
+            content='{"rewritten_question":"X?","detected_language":"en"}',
+            parsed={"rewritten_question": "X?", "detected_language": "en"},
+            usage=usage,
+        ),
+        # Loop turn 1 — call search to clear the pre-search rule.
+        LLMResponse(
+            tool_calls=[
+                ToolCall(id="c1", name="search_convictions", arguments={"query": "x", "k": 5})
+            ],
+            usage=usage,
+        ),
+        # Loop turn 2 — invariant violation.
+        LLMResponse(content="{}", parsed=bad_parsed, usage=usage),
+        # Loop turn 3 — corrected output.
+        LLMResponse(content="{}", parsed=answer_parsed, usage=usage),
+    ]
+
+    stub = StubLLM(responses)
+    result = await run("X?", [], tool_ctx=_stub_ctx(), llm=stub)
+
+    assert isinstance(result.output, AnswerOutput)
+    assert result.output.answer == "Recovered."
+
+    # The corrective reminder must have been appended to the loop.
+    loop_messages = [m for c in stub.calls[1:] for m in c.messages]
+    reminders = [m for m in loop_messages if m.role == "user" and "invariants" in (m.content or "")]
+    assert reminders, "expected an invariant-reminder user message in the loop"
 
 
 @pytest.mark.asyncio

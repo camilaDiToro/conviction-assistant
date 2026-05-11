@@ -16,7 +16,7 @@ it sidesteps Pydantic's ``oneOf`` emission for discriminated unions.
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent.resolver import OffsetResolution
 from app.i18n import Language
@@ -56,6 +56,21 @@ class AnswerOutput(BaseModel):
     general_knowledge_used: bool
     general_knowledge_section: str | None
     out_of_scope: bool
+
+    @model_validator(mode="after")
+    def _check_invariants(self) -> "AnswerOutput":
+        section = (self.general_knowledge_section or "").strip()
+        if self.general_knowledge_used and not section:
+            raise ValueError(
+                "general_knowledge_used=true requires a non-empty general_knowledge_section"
+            )
+        if section and not self.general_knowledge_used:
+            raise ValueError(
+                "non-empty general_knowledge_section requires general_knowledge_used=true"
+            )
+        if self.out_of_scope and self.citations:
+            raise ValueError("out_of_scope=true requires empty citations")
+        return self
 
 
 class ClarifyingQuestionOutput(BaseModel):

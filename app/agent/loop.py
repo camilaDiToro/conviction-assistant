@@ -131,7 +131,11 @@ async def _agent_loop(
             continue
 
         if response.parsed is not None:
-            output = _parse_output(response)
+            try:
+                output = _parse_output(response)
+            except ValidationError as exc:
+                _append_invariant_reminder(messages, response, exc)
+                continue
 
             if _needs_search_first(output, search_count):
                 _append_search_reminder(messages, response)
@@ -220,10 +224,9 @@ async def _handle_tool_branch(
 
 
 def _parse_output(response: LLMResponse) -> AgentOutput:
-    try:
-        return _AGENT_OUTPUT_ADAPTER.validate_python(response.parsed)
-    except ValidationError as exc:
-        raise AgentError(f"model output failed schema validation: {exc}") from exc
+    # Lets ValidationError propagate so the loop can decide whether the
+    # failure is recoverable (inter-field invariant breach) vs fatal.
+    return _AGENT_OUTPUT_ADAPTER.validate_python(response.parsed)
 
 
 def _needs_search_first(output: AgentOutput, search_count: int) -> bool:
@@ -241,6 +244,27 @@ def _append_search_reminder(messages: list[Message], response: LLMResponse) -> N
                 "before producing an answer. If the message is a "
                 "greeting or unrelated to Decade's convictions, set "
                 "out_of_scope=true instead."
+            ),
+        )
+    )
+
+
+def _append_invariant_reminder(
+    messages: list[Message], response: LLMResponse, exc: ValidationError
+) -> None:
+    """Surface inter-field invariant breaches back to the model so it can
+    re-emit a consistent output instead of failing the turn."""
+    content = response.content or json.dumps(response.parsed)
+    messages.append(Message(role="assistant", content=content))
+    reasons = "; ".join(
+        f"{'.'.join(str(p) for p in err['loc']) or '<root>'}: {err['msg']}" for err in exc.errors()
+    )
+    messages.append(
+        Message(
+            role="user",
+            content=(
+                "Your output violated structured-output invariants and was rejected: "
+                f"{reasons}. Re-emit the same kind of response with consistent fields."
             ),
         )
     )
