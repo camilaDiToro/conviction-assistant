@@ -15,20 +15,16 @@ conversation memory and grounded retrieval.
 
 from app.agent.loop import run
 from app.agent.schemas import (
-    AgentOutput,
     AgentResult,
     AnswerOutput,
-    Citation,
     ClarifyingQuestionOutput,
     ConversationTurn,
     StepRecord,
 )
 
 __all__ = [
-    "AgentOutput",
     "AgentResult",
     "AnswerOutput",
-    "Citation",
     "ClarifyingQuestionOutput",
     "ConversationTurn",
     "StepRecord",
