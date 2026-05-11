@@ -34,11 +34,11 @@ decade-ai-challenge/
 │   │   ├── [ ] audit.py
 │   │   ├── [ ] dedupe.py
 │   │   ├── [ ] loop.py
-│   │   ├── [ ] rewrite.py
+│   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
 │   │   ├── [ ] schemas.py
 │   │   ├── [ ] tool_dispatch.py
 │   │   ├── prompts/
-│   │   │   ├── [ ] rewrite.md
+│   │   │   ├── [x] rewrite.md
 │   │   │   └── [ ] system.md
 │   │   ├── resolver/
 │   │   │   ├── [ ] __init__.py
@@ -57,7 +57,7 @@ decade-ai-challenge/
 │   │   ├── [ ] __init__.py
 │   │   ├── [ ] admin.py
 │   │   ├── [ ] auth.py
-│   │   ├── [ ] chat.py
+│   │   ├── [x] chat.py                         — thin handler: token gate, deps for session/llm, retriever from app.state with 503 guard
 │   │   ├── [ ] chat_history.py
 │   │   ├── [ ] config.py
 │   │   ├── [ ] conversations.py

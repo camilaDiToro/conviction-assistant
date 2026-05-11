@@ -85,7 +85,7 @@ async def rewrite_question(
         usage=response.usage,
         duration_ms=rewrite_dur,
     )
-    return cast(str, rewritten), language, step
+    return rewritten, language, step
 
 
 def _format_history(history: list[ConversationTurn]) -> str:

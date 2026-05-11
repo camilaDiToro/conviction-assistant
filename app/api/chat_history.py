@@ -37,7 +37,7 @@ from app.api.schemas import (
 )
 from app.config.db import get_session
 from app.repositories import audit as audit_repo
-from app.services.wrap_response import build_response_debug_step, reconstruct_steps_from_audit
+from app.services.debug_view import reconstruct_steps_from_audit, response_debug_step
 
 router = APIRouter(
     prefix="/chat/conversations",
@@ -137,7 +137,7 @@ async def question_steps(
         if not isinstance(resolution_entries, list):
             resolution_entries = None
         steps.append(
-            build_response_debug_step(
+            response_debug_step(
                 output_dump,
                 resolution_entries=resolution_entries,
                 step_id=response_row["step_id"],
