@@ -202,34 +202,68 @@ export default function RetrievalPage() {
 
       <Section eyebrow="How this scales">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          BM25 itself scales fine — sub-second to index 30 docs, a few seconds for 30k. What
-          breaks first is <em>quality</em>: vocabulary mismatch degrades recall before the
-          algorithm slows down. The fix depends on corpus size.
+          BM25 doesn't fail because of corpus size — it fails because query vocabulary stops
+          matching document vocabulary. Compute and memory are not the bottleneck until very
+          large N. The right level-up depends on{' '}
+          <em>which failure your eval is reporting</em>, not on a doc count. Symptom → fix,
+          ordered by what typically breaks first and what's cheapest to add.
         </p>
         <SpecList>
-          <SpecItem term="~30 docs (today)">
-            No change. Well-normalized BM25 is enough; queries that miss are usually genuine
-            coverage gaps, not retriever failures.
+          <SpecItem term="Right passage ranked too low (top-20 but not top-5)">
+            The most common first failure. BM25 found the relevant passage but other passages
+            with similar token frequencies outranked it.{' '}
+            <strong className="text-ink-1">Fix: cross-encoder reranker</strong> over BM25's
+            top-50. Wraps <code className="font-mono text-[13px] text-ink-1">.search()</code>{' '}
+            results; the <code className="font-mono text-[13px] text-ink-1">Retriever</code>{' '}
+            Protocol and <code className="font-mono text-[13px] text-ink-1">PassageHit</code>{' '}
+            schema don't change. ~50–200 ms in CPU. Reversible.
           </SpecItem>
-          <SpecItem term="~100–500 docs">
-            Add a cross-encoder reranker over BM25's top-50. Same retriever surface, ~100 ms
-            more per query, fixes ranking on borderline cases.
+          <SpecItem term="Score-driven false positives in top-5">
+            Passages that incidentally repeat the query's terms in irrelevant context. Same
+            fix as above — the reranker catches both.
           </SpecItem>
-          <SpecItem term="~500–5k docs">
-            Move to hybrid: BM25 + dense embeddings + Reciprocal Rank Fusion. A new file under{' '}
+          <SpecItem term="Right passage not in top-50 (recall fail)">
+            Query uses different words than the doc. Two paths, cheapest first.{' '}
+            <strong className="text-ink-1">Fix A: synonym expansion</strong> — a static map (
+            <code className="font-mono text-[13px] text-ink-1">renda variável → ações | equities</code>
+            ) or an LLM call before search. Cheap, works well in domains with stable jargon.{' '}
+            <strong className="text-ink-1">Fix B: hybrid retrieval</strong> — BM25 + dense
+            embeddings + Reciprocal Rank Fusion. A new file under{' '}
             <code className="font-mono text-[13px] text-ink-1">app/retrieval/</code>, registered
-            in <code className="font-mono text-[13px] text-ink-1">registry.py</code>; call sites
-            don't change.
+            in <code className="font-mono text-[13px] text-ink-1">registry.py</code>. Call
+            sites don't change.
           </SpecItem>
-          <SpecItem term="~5k–50k docs">
-            Swap SQLite → Postgres + pgvector. The repository contract stays; only the storage
-            backend changes. The index stops fitting comfortably in RAM around here.
+          <SpecItem term="Cross-language queries fail">
+            EN query, PT corpus (or any cross-lingual pair). Diacritic-folding doesn't bridge
+            languages. <strong className="text-ink-1">Fix: hybrid with multilingual dense</strong>{' '}
+            (e.g. <code className="font-mono text-[13px] text-ink-1">multilingual-e5</code> or{' '}
+            <code className="font-mono text-[13px] text-ink-1">bge-m3</code>). Synonyms don't
+            help here.
           </SpecItem>
-          <SpecItem term="50k+ docs">
-            ANN (HNSW or IVF), two-stage retrieval (cheap recall → expensive rerank), query
-            caching, sharding by document type. Different project shape.
+          <SpecItem term="Latency or memory becomes the bottleneck">
+            Only at hundreds of thousands of passages or more. BM25 itself stays fast longer
+            than people expect.{' '}
+            <strong className="text-ink-1">Fix: persistent search engine</strong> (Tantivy,
+            Lucene) for the lexical side;{' '}
+            <strong className="text-ink-1">ANN</strong> (HNSW / IVF, in pgvector or Qdrant) for
+            the dense side. Two-stage retrieval — cheap recall, expensive rerank — becomes
+            mandatory at this point.
           </SpecItem>
         </SpecList>
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          The prerequisite for all of the above is{' '}
+          <strong className="text-ink-1">an eval set</strong> (~30–100 hand-curated queries
+          with expected passage IDs, scored by{' '}
+          <code className="font-mono text-[13px] text-ink-1">recall@K</code> and MRR). Today:{' '}
+          <code className="font-mono text-[13px] text-ink-1">tests/eval/</code> with 29 cases.
+          Without it every "level-up" is guesswork; with it, the highest-leverage fix is
+          obvious from the failure breakdown.
+        </p>
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          Size is a weak proxy: a homogeneous 5k-doc corpus with stable jargon often outlasts a
+          heterogeneous 50-doc one. Standard "hybrid at 1k docs" rules of thumb are empirical
+          averages, not laws — let the eval decide.
+        </p>
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
           The finance-domain twist: precise vocabulary (codes, indices, tax tables) favors
           lexical matching over semantic embeddings, which flatten exactly the distinctions that
