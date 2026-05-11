@@ -130,6 +130,7 @@ app/
     ingest.py         # parser → repo orchestration
     audit.py          # persist_question — serialize agent steps into audit_log rows
     chat.py           # one /chat turn: IDs → agent → response wrapping → audit
+    conversations.py  # build_trace — group audit rows by question for admin review
     disclaimer.py     # localized disclaimer strings (PT / EN / ES)
     wrap_response.py  # AgentResult → wire response + audit summary
     parser/           # pure: markdown -> passages; dispatch by extension in registry.py
