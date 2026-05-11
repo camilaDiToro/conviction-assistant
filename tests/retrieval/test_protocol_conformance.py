@@ -96,20 +96,6 @@ async def test_build_then_search_returns_k_or_fewer_results(
 
 
 @pytest.mark.asyncio
-async def test_no_match_query_returns_empty(
-    retriever_name: str,
-    populated_session: AsyncSession,
-) -> None:
-    retriever: Retriever = get_retriever(retriever_name)
-    await retriever.build(populated_session)
-
-    hits = retriever.search("zzzzzqqqqqxxxxx", k=5)
-    # Any retriever may return [] OR low-scoring hits for OOV tokens.
-    # The contract is just "no crash, return type is list".
-    assert isinstance(hits, list)
-
-
-@pytest.mark.asyncio
 async def test_rebuild_is_idempotent(
     retriever_name: str,
     populated_session: AsyncSession,

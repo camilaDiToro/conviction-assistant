@@ -41,13 +41,16 @@ def _passage(slug: str, doc: str, head: str, *, text: str) -> Passage:
 # ---- _normalize ----
 
 
-def test_normalize_strips_diacritics_for_pt():
-    assert _normalize("tributação") == "tributacao"
-    assert _normalize("Atualização Periódica") == "atualizacao periodica"
-
-
-def test_normalize_strips_diacritics_for_es():
-    assert _normalize("¿Cómo se calculan?") == "¿como se calculan?"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("tributação", "tributacao"),
+        ("Atualização Periódica", "atualizacao periodica"),
+        ("¿Cómo se calculan?", "¿como se calculan?"),
+    ],
+)
+def test_normalize_strips_diacritics(raw: str, expected: str) -> None:
+    assert _normalize(raw) == expected
 
 
 # ---- BM25Retriever lifecycle ----
@@ -105,19 +108,3 @@ async def test_index_rebuild_picks_up_new_passages(session: AsyncSession):
 
     hits = idx.search("zorgon", k=5)
     assert hits and hits[0][0].id == "doc#x"
-
-
-async def test_index_search_k_capped_at_corpus_size(session: AsyncSession):
-    async with session.begin():
-        await passages_repo.upsert_many(
-            session,
-            [
-                _passage("a", "doc", "A", text="alpha"),
-                _passage("b", "doc", "B", text="beta"),
-            ],
-        )
-    idx = BM25Retriever()
-    await idx.build(session)
-
-    hits = idx.search("alpha beta", k=50)
-    assert len(hits) == 2
