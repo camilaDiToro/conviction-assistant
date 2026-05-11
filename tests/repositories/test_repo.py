@@ -3,10 +3,10 @@
 from pathlib import Path
 
 import pytest
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import db
-from app.repositories import introspection
 from app.repositories import passages as passages_repo
 from app.schemas import Passage
 from app.services.parser import parse_corpus
@@ -157,8 +157,10 @@ async def test_heading_path_round_trips_unicode(session: AsyncSession):
 
 async def test_migrate_creates_schema(session: AsyncSession):
     """Migrate-then-use must work end-to-end."""
-    assert "passages" in await introspection.list_tables(session)
-    assert "audit_log" in await introspection.list_tables(session)
+    conn = await session.connection()
+    tables = await conn.run_sync(lambda c: set(inspect(c).get_table_names()))
+    assert "passages" in tables
+    assert "audit_log" in tables
 
 
 async def test_migrate_is_idempotent(tmp_path):

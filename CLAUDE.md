@@ -137,7 +137,6 @@ app/
   repositories/
     passages.py       # SQLAlchemy 2.x async repo for passages
     audit.py          # audit_log access (insert_many, fetch_by_*)
-    introspection.py  # list_tables / list_views — schema diagnostics (uses raw text() SQL)
   models/
     base.py           # DeclarativeBase
     passage.py        # PassageORM
