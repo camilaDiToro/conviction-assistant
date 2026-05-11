@@ -118,6 +118,22 @@ class StepRecord(BaseModel):
     duration_ms: int = 0
 
 
+class TokenTotals(BaseModel):
+    """Aggregated token counts across every LLM call in one agent turn.
+
+    Computed from :class:`StepRecord` entries with ``kind='llm_call'``;
+    the HTTP layer wraps these totals into a wire ``UsageSummary``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    llm_call_count: int
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    reasoning_tokens: int
+
+
 class AgentResult(BaseModel):
     """One full agent turn: structured output + the trace that produced it.
 
@@ -143,6 +159,18 @@ class AgentResult(BaseModel):
     tool_call_count: int
     search_count: int
     resolution: OffsetResolution | None = None
+
+    @property
+    def token_totals(self) -> TokenTotals:
+        """Sum token counts across every ``llm_call`` step in this turn."""
+        usages = [s.usage for s in self.steps if s.kind == "llm_call" and s.usage is not None]
+        return TokenTotals(
+            llm_call_count=len(usages),
+            prompt_tokens=sum(u.prompt_tokens for u in usages),
+            completion_tokens=sum(u.completion_tokens for u in usages),
+            cached_tokens=sum(u.cached_tokens for u in usages),
+            reasoning_tokens=sum(u.reasoning_tokens for u in usages),
+        )
 
 
 # --- JSON schemas for the LLM ---------------------------------------------
