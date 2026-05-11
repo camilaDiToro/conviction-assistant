@@ -53,15 +53,15 @@ export const ROADMAP: RoadmapStep[] = [
     title: 'BM25 retrieval + search_convictions',
     status: 'done',
     description: 'In-memory BM25 over normalized passages. ≥80% pass on the 29-case retrieval golden set.',
-    ships: ['app/services/search.py', 'app/tools/search_convictions.py', 'lifespan-built index'],
+    ships: ['app/retrieval/bm25.py', 'app/agent/tools/search_convictions.py', 'lifespan-built index'],
     levelUp: 'Hybrid (BM25 + multilingual embeddings + RRF) gated on cross-language eval failure.',
   },
   {
     id: 'B7',
-    title: 'Citation verifier',
+    title: 'Offset resolver',
     status: 'in_progress',
-    description: 'Deterministic substring check after pinned normalization. Retry-once-with-feedback loop.',
-    ships: ['app/verifier/normalize.py', 'app/verifier/substring.py', 'verifier-pass-rate metric'],
+    description: 'Deterministic literal-substring resolver. Citations that do not anchor still surface; popup shows the passage with no highlight.',
+    ships: ['app/agent/resolver/substring.py', 'app/agent/resolver/base.py', 'anchor-rate metric'],
   },
   {
     id: 'B8',
@@ -82,7 +82,7 @@ export const ROADMAP: RoadmapStep[] = [
     id: 'B10',
     title: 'Eval suite + Anthropic adapter',
     status: 'pending',
-    description: '~30 hand-written Q/A. Verifier-pass-rate as headline metric. Anthropic adapter as the portability proof.',
+    description: '~30 hand-written Q/A. Anchor rate as headline metric. Anthropic adapter as the portability proof.',
     ships: ['tests/eval/', 'pytest -m eval', 'app/providers/anthropic.py'],
   },
   {

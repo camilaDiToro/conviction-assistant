@@ -24,7 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/design/pipeline/corpus', label: 'Corpus & chunking' },
       { to: '/design/pipeline/tools', label: 'Tools' },
       { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)' },
-      { to: '/design/pipeline/verifier', label: 'Verifier' },
+      { to: '/design/pipeline/resolver', label: 'Resolver' },
       { to: '/design/pipeline/agent-loop', label: 'Agent loop' },
     ],
   },
