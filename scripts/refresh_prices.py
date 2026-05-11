@@ -5,13 +5,6 @@ Run::
     uv run python scripts/refresh_prices.py
 
 See ``README.md`` § "Refreshing model prices" for the workflow.
-
-``WANTED_MODELS`` must cover every model the runtime uses — that means
-``settings.allowed_models`` (the ``/chat`` override whitelist) plus the
-embedding models. When a wanted model is not in upstream (e.g. a
-just-announced flagship that LiteLLM hasn't picked up yet), the script
-WARNS and preserves the existing manual entry from the vendored JSON;
-review those by hand against OpenAI's pricing page.
 """
 
 import json
@@ -37,10 +30,6 @@ WANTED_MODELS = [
     "text-embedding-3-large",
     "text-embedding-3-small",
 ]
-# Fields we keep per model. Anything else upstream gets dropped — keeps
-# the vendored JSON readable. Update this list if cost.py starts using
-# additional fields. ``_note`` is preserved when present so manual
-# annotations on approximate prices survive a refresh.
 KEEP_FIELDS = {
     "input_cost_per_token",
     "output_cost_per_token",
