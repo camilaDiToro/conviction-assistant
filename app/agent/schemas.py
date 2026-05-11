@@ -9,7 +9,7 @@ Two layers live here:
    sent to the LLM via ``StructuredOutputSchema``.
 
 The flat-schema-with-nullable-fields pattern matches the project
-convention of hand-written tool schemas (see ``app/tools/registry.py``);
+convention of hand-written tool schemas (see ``app/agent/tools/registry.py``);
 it sidesteps Pydantic's ``oneOf`` emission for discriminated unions.
 """
 

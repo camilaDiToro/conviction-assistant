@@ -62,9 +62,9 @@ Required behavior:
 
 ## Corpus
 
-**Projected corpus size:** design for the **current scale (~30–50 docs)**. **But BM25-only is not sufficient** because the corpus is PT/EN and queries are PT/EN/ES (Spanish queries against PT documents fail with bag-of-words alone). The v1 retrieval stack is **hybrid BM25 + multilingual dense embeddings, fused with RRF** — see `docs/ARCHITECTURES.md § "Classic hybrid retrieval pipeline"` for the embedding-model alternatives and the corpus-growth scaling story.
+**Projected corpus size:** design for the **current scale (~30 docs)**. At this scale **BM25-only is the v1 retrieval baseline** (with unicode-fold + accent-strip + lowercase normalization) — plain BM25 may be sufficient and hybrid retrieval is gated on eval failure, not auto-promoted. The PT/EN/ES mismatch (Spanish queries against PT documents) is the headline reason hybrid (BM25 + multilingual dense embeddings + RRF) is the documented level-up — see `docs/ARCHITECTURES.md § "Classic hybrid retrieval pipeline"` for the embedding-model alternatives and the corpus-growth scaling story.
 
-**Default embedding model for v1:** OpenAI `text-embedding-3-large` (multilingual). Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) slot in behind the same `EmbeddingProvider` interface.
+**Embedding model in the adapter:** OpenAI `text-embedding-3-large` (multilingual) ships in the OpenAI provider even though v1 retrieval doesn't use embeddings — keeps the adapter complete behind the `EmbeddingProvider` interface. Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) slot in behind the same interface when hybrid retrieval lands.
 
 **Conviction update cadence:** assumed **rare** (published once, occasional edits). Index is **rebuilt on deploy / container start** — no watched-folder, no webhook, no live-update path.
 
@@ -231,4 +231,4 @@ This framing is mirrored in `../CLAUDE.md` § "Project framing".
 
 **Production feedback loop (thumbs up/down):** not implemented for v1.
 
-**Frontend:** **Vite + React + TypeScript + Tailwind** — the lightest *real React* setup. Single-page app, builds to plain static files (no SSR, no node runtime in production). Default deploy is to mount the Vite `dist/` under FastAPI at `/` — single service, single URL, no CORS. Optional alternative: deploy `dist/` separately to Vercel and point at the API by URL. See `DEPLOY.md` for the Hugging Face Spaces deploy.
+**Frontend:** **Vite + React + TypeScript + Tailwind** — the lightest *real React* setup. Single-page app, builds to plain static files (no SSR, no node runtime in production). Default deploy is to mount the Vite `dist/` under FastAPI at `/` — single service, single URL, no CORS. Optional alternative: deploy `dist/` separately to Vercel and point at the API by URL.

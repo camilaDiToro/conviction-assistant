@@ -1,5 +1,4 @@
-"""Tool advertisements (JSON schemas + ``ToolDefinition``s) and registry.
-"""
+"""Tool advertisements (JSON schemas + ``ToolDefinition``s) and registry."""
 
 from typing import Any
 
