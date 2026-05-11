@@ -105,15 +105,12 @@ export default function RetrievalPage() {
         </div>
       </Section>
 
-      <Section eyebrow="Reproducible reference implementation">
+      <Section eyebrow="Live example">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          The TS implementation in <code className="font-mono text-[13px] text-ink-1">frontend/src/lib/bm25.ts</code>{' '}
-          mirrors <code className="font-mono text-[13px] text-ink-1">app/retrieval/bm25.py::_normalize</code>{' '}
-          and the <code className="font-mono text-[13px] text-ink-1">bm25s</code> tokenization defaults. It runs over a
-          9-passage subset of the corpus (the LCI/LCA document) so a reader can verify the
-          algorithm in the browser. The Portuguese preset queries return the right passage at
-          rank 1; the English query "tax exemption LCI" demonstrates the cross-language failure
-          mode that motivates the hybrid level-up.
+          Below is BM25 running live over a 9-passage subset of the corpus (the LCI/LCA
+          document). Try the Portuguese preset queries to see the right passage returned at
+          rank 1, or type your own and watch how the normalized query, tokens, and scores
+          update.
         </p>
 
         <input
