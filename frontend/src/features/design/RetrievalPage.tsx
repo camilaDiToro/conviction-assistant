@@ -223,11 +223,8 @@ export default function RetrievalPage() {
             fix as above — the reranker catches both.
           </SpecItem>
           <SpecItem term="Right passage not in top-50 (recall fail)">
-            Query uses different words than the doc. Two paths, cheapest first.{' '}
-            <strong className="text-ink-1">Fix A: synonym expansion</strong> — a static map (
-            <code className="font-mono text-[13px] text-ink-1">renda variável → ações | equities</code>
-            ) or an LLM call before search. Cheap, works well in domains with stable jargon.{' '}
-            <strong className="text-ink-1">Fix B: hybrid retrieval</strong> — BM25 + dense
+            Query uses different words than the doc.{' '}
+            <strong className="text-ink-1">Fix: hybrid retrieval</strong> — BM25 + dense
             embeddings + Reciprocal Rank Fusion. A new file under{' '}
             <code className="font-mono text-[13px] text-ink-1">app/retrieval/</code>, registered
             in <code className="font-mono text-[13px] text-ink-1">registry.py</code>. Call
