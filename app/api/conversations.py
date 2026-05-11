@@ -5,8 +5,6 @@ One read-only endpoint, admin-token-gated:
 - ``GET /admin/conversations/{conversation_id}`` — ordered list of
   questions (one per ``kind='response'`` row) with the agent's structured
   output and step kinds.
-
-The aggregation logic lives in :mod:`app.services.conversations`.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -30,7 +30,6 @@ class Settings(BaseSettings):
     agent_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] = "low"
     rewrite_max_output_tokens: int = 200
     # gpt-5.5 dropped "minimal" in favor of "none"; "low" is the safest
-    # default that works across the full gpt-5.x family.
     rewrite_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] = "low"
     retrieval_strategy: Literal["bm25"] = "bm25"
 
