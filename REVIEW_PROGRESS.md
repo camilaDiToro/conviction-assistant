@@ -161,13 +161,12 @@ decade-ai-challenge/
     │       ├── [x] test_search_convictions.py  — golden-set recall@5 floors + p95 latency + empty-query guard
     │       └── [x] test_simple_tools.py        — pure-function tests for list_documents / read_document_outline / read_passage + registry sanity
     │
-    ├── api/
-    │   ├── [ ] __init__.py
-    │   ├── [ ] test_admin.py
-    │   ├── [ ] test_chat.py
-    │   ├── [ ] test_chat_history.py
-    │   ├── [ ] test_config.py
-    │   └── [ ] test_conversations.py
+    ├── api/                                [x] reviewed
+    │   ├── [x] __init__.py
+    │   ├── [x] test_admin.py                — happy path + missing-dir → 400; doesn't cover admin-token auth
+    │   ├── [x] test_chat.py                 — StubLLM + real SQLite; happy path, 401/503 auth, ES/PT disclaimers, audit rows, supplied conv_id, clarifying branch
+    │   ├── [x] test_chat_history.py         — list/load/steps endpoints; offset round-trip (passage_text[start:end]); cross-turn order
+    │   └── [x] test_config.py               — happy path + missing/wrong token → 401
     │
     ├── eval/
     │   ├── [ ] __init__.py
@@ -179,8 +178,8 @@ decade-ai-challenge/
     │   ├── [ ] retrieval_golden.yaml
     │   ├── [ ] stub_responses_example.yaml
     │   └── agent_scenarios/
-    │       ├── [ ] basic_search.yaml
-    │       ├── [ ] clarifying.yaml
+    │       ├── [x] basic_search.yaml                — 4-turn stub: rewrite → search → read_passage → answer with citation; used by tests/api/test_chat + test_chat_history
+    │       ├── [x] clarifying.yaml                  — stub returning kind=clarifying_question; used by tests/api/test_chat::test_chat_clarifying_branch
     │       ├── [ ] multi_turn_with_rewrite.yaml
     │       ├── [ ] out_of_scope_no_search.yaml
     │       ├── [ ] over_budget.yaml
