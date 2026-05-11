@@ -1,11 +1,9 @@
 """BM25 search index over the conviction corpus.
 
 Built at startup from `passages_repo.iter_all()`; rebuilt at the end of
-`POST /admin/ingest`. v1 is BM25-only because the corpus is 30 docs; the
-hybrid level-up (BM25 + dense embeddings + RRF) is documented under
-ROADMAP B6 and is gated on a conversation, not auto-promoted.
+`POST /admin/ingest`.
 
-Tokenization (pinned, see `docs/b6-decisions.md`):
+Tokenization:
 - NFKD unicode normalization, drop combining marks (accent-strip)
 - lowercase
 - collapse runs of whitespace to a single space
@@ -19,8 +17,6 @@ round-trip: search normalization is a recall concern, resolver matching
 is a fidelity concern.
 """
 
-from __future__ import annotations
-
 import re
 import unicodedata
 
@@ -28,8 +24,6 @@ import bm25s  # type: ignore[import-untyped]
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories import passages as passages_repo
-from app.retrieval.base import Retriever
-from app.retrieval.registry import register
 from app.schemas.passage import Passage
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -39,17 +33,6 @@ def _normalize(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
     no_accents = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     return _WHITESPACE_RE.sub(" ", no_accents.lower()).strip()
-
-
-def _make_snippet(text: str, max_chars: int = 200) -> str:
-    """First ~`max_chars` chars of `text`, cut at the last word boundary."""
-    collapsed = _WHITESPACE_RE.sub(" ", text).strip()
-    if len(collapsed) <= max_chars:
-        return collapsed
-    cut = collapsed[: max_chars + 1]
-    space = cut.rfind(" ")
-    cut = cut[:space] if space > max_chars // 2 else cut[:max_chars]
-    return cut.rstrip() + "…"
 
 
 class BM25Retriever:
@@ -106,8 +89,3 @@ class BM25Retriever:
             score = float(scores[0, i])
             out.append((self._passages[idx], score))
         return out
-
-
-@register("bm25")
-def _bm25_factory() -> Retriever:
-    return BM25Retriever()
