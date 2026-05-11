@@ -113,6 +113,9 @@ function StepItem({ step, index }: { step: DebugStep; index: number }) {
       {step.usage && (
         <div className="mt-3 pt-3 border-t border-border text-[11px] font-mono text-ink-3 grid grid-cols-2 gap-x-6 gap-y-1">
           <span>model: <span className="text-ink-1">{step.usage.model}</span></span>
+          {step.usage.reasoning_effort && (
+            <span>effort: <span className="text-ink-1">{step.usage.reasoning_effort}</span></span>
+          )}
           <span>prompt: <span className="text-ink-1">{step.usage.prompt_tokens}</span></span>
           <span>cached: <span className="text-ink-1">{step.usage.cached_tokens}</span></span>
           <span>completion: <span className="text-ink-1">{step.usage.completion_tokens}</span></span>

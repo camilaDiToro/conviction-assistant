@@ -7,12 +7,15 @@
 // re-prompt for it.
 
 import type {
+  ChatOverrides,
   ChatResponse,
+  ConfigResponse,
   ConversationListResponse,
   ConversationMessagesResponse,
   QuestionStepsResponse,
 } from './types'
 import { clearToken, readToken } from './access-gate'
+import { readChatPrefs } from './chat-prefs'
 
 export class UnauthorizedError extends Error {
   constructor(message = 'unauthorized') {
@@ -25,11 +28,14 @@ export interface SendChatArgs {
   question: string
   conversationId?: string
   history: Array<{ role: 'user' | 'assistant'; content: string }>
+  overrides?: ChatOverrides
 }
 
 export async function sendChatMessage(args: SendChatArgs): Promise<ChatResponse> {
   const token = readToken()
   if (!token) throw new UnauthorizedError('no chat token configured')
+
+  const overrides = args.overrides ?? readChatPrefs() ?? undefined
 
   const res = await fetch('/api/chat', {
     method: 'POST',
@@ -41,6 +47,7 @@ export async function sendChatMessage(args: SendChatArgs): Promise<ChatResponse>
       question: args.question,
       conversation_id: args.conversationId,
       history: args.history,
+      ...(overrides ? { overrides } : {}),
     }),
   })
 
@@ -94,4 +101,8 @@ export async function loadQuestionSteps(
   return getJson<QuestionStepsResponse>(
     `/api/chat/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/steps`,
   )
+}
+
+export async function loadConfig(): Promise<ConfigResponse> {
+  return getJson<ConfigResponse>('/api/config')
 }
