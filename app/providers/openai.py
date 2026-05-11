@@ -7,6 +7,14 @@ Tuning kwargs (``temperature``, ``reasoning_effort``, ``verbosity``,
 ``max_output_tokens``) are forwarded to the API only when non-``None``
 — this is what keeps the adapter compatible with reasoning models like
 gpt-5, which reject explicit ``temperature``.
+
+**Prompt caching is provider-automatic** for both APIs used here. OpenAI
+caches identical prefixes ≥ 1024 tokens for an hour at no opt-in cost;
+``cached_tokens`` flows back through ``usage.prompt_tokens_details``
+(chat completions) or ``usage.input_tokens_details`` (responses), and
+both translators surface it on :class:`TokenUsage`. The caller's job is
+to keep the stable system prompt at the start of the message list — see
+``app.agent.loop._build_initial_messages``.
 """
 
 import json
@@ -405,9 +413,7 @@ def _messages_to_responses_input(
                 # One function_call item per tool call. Text content (if
                 # any) is emitted as a separate message item alongside.
                 if msg.content:
-                    items.append(
-                        {"type": "message", "role": "assistant", "content": msg.content}
-                    )
+                    items.append({"type": "message", "role": "assistant", "content": msg.content})
                 for tc in msg.tool_calls:
                     items.append(
                         {
@@ -418,9 +424,7 @@ def _messages_to_responses_input(
                         }
                     )
             else:
-                items.append(
-                    {"type": "message", "role": "assistant", "content": msg.content or ""}
-                )
+                items.append({"type": "message", "role": "assistant", "content": msg.content or ""})
         elif role == "tool":
             if not msg.tool_call_id:
                 raise ProviderError("tool messages require tool_call_id")

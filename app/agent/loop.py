@@ -154,6 +154,11 @@ async def _agent_loop(
 
 
 def _build_initial_messages(question: str, language: Language) -> list[Message]:
+    # Order matters for provider-side prefix caching: the static system
+    # prompt (>1024 tokens, identical across turns and conversations) sits
+    # first so OpenAI's automatic prompt cache can reuse it. The language
+    # directive only takes 3 distinct values, so it's still cache-friendly
+    # per-language. The user question — the only fully-dynamic part — is last.
     lang_name = _LANGUAGE_NAME[language]
     language_directive = (
         f"ANSWER LANGUAGE: {lang_name} ({language}). "
