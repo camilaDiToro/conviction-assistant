@@ -123,6 +123,39 @@ which Ragas features the suite uses and which it deliberately skips
 A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
 (Faithfulness, AnswerRelevancy) later; not wired in this iteration.
 
+## Refreshing model prices
+
+Per-call USD cost is computed in `app/services/cost.py` from
+`app/providers/_model_prices.json`, a trimmed copy of LiteLLM's
+[`model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
+(the de-facto industry source for LLM pricing data). Prices are **per
+token**, not per million — multiply token counts directly.
+
+```sh
+uv run python scripts/refresh_prices.py
+git diff app/providers/_model_prices.json
+# review the diff — these are real money numbers
+git add app/providers/_model_prices.json
+git commit -m "refresh model prices from upstream"
+```
+
+The `WANTED_MODELS` list in the script pins what gets refreshed; it must
+cover every model in `settings.allowed_models` (the `/chat` override
+whitelist) plus the embedding models. When a wanted model isn't in
+upstream yet (a just-announced flagship like the first `gpt-5.5`
+release), the script **warns and preserves the existing manual entry**
+— confirm those numbers against
+[OpenAI's pricing page](https://openai.com/api/pricing/) by hand and
+note them with `"_note": "approximate — confirm..."` so future readers
+know they aren't upstream-verified.
+
+Refresh before any release or eval run; **don't** refresh mid-eval —
+price drift across runs muddies cost comparisons. To add a new model:
+append to `WANTED_MODELS`, run the script, add to `settings.allowed_models`
+(if it should be selectable via `/chat` overrides). We vendor the JSON
+instead of importing `litellm` because the package ships a large
+abstraction layer + dozens of transitive deps for one piece of data.
+
 ## Production-grade vs deliberately simplified
 
 This project ships two tiers of code; reviewers should be able to tell

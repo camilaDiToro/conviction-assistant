@@ -10,8 +10,9 @@ Pricing data
 
 Prices come from ``app/providers/_model_prices.json``, which is a
 trimmed copy of LiteLLM's ``model_prices_and_context_window.json``
-(the de-facto industry source — see ``docs/PRICING.md``). Prices are
-**per token** (not per million); we multiply token counts directly.
+(the de-facto industry source — see ``README.md`` § "Refreshing model
+prices"). Prices are **per token** (not per million); we multiply token
+counts directly.
 """
 
 import json

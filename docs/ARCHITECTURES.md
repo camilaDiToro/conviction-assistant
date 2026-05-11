@@ -260,7 +260,7 @@ Every step of every request is persisted. One log, two consumers (audit and cost
 }
 ```
 
-The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `docs/PRICING.md`.
+The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is the documented level-up under `ROADMAP.md` § B3 if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `README.md` § "Refreshing model prices".
 
 See `ASSUMPTIONS.md` § "Cost tracking — REQUIRED" and § "Audit log".
 
