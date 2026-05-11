@@ -362,6 +362,32 @@ The following are designed but **out of scope for this submission**:
 - **Postgres + pgvector.** v1 ships SQLite + a Python BM25 library; Postgres is a documented level-up, justified by concurrency or index-size pressure neither of which exists at 30 docs.
 - **Anthropic Citations API** inside the Anthropic adapter (per-provider optimization for free `cited_text` and deterministic indices). Adapter slot exists; the optimization is not wired in.
 
+## Tier breakdown — production-grade vs deliberately simplified
+
+This project ships two tiers of code; reviewers should be able to tell at a glance which one any file belongs to.
+
+**Production-grade — built right:**
+
+- Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
+- Offset resolver — deterministic substring → `(start, end)` mapping; the literal quote is dropped before the response is built
+- Agent loop bounds (max 5 tool calls; `≥ 1` search before answer; tools dropped on forced-final turn)
+- Audit log + raw token usage in every LLM step and response summary
+- Response contract (deterministic disclaimer, language mirroring, schema-validated)
+- Tool surface (read-only, hand-written JSON schemas, pure-function tests)
+- Layering rules (Router → Service → Repository; CI-greppable — see `CLAUDE.md`)
+
+**Deliberately simplified — well-known production paths exist; documented as level-up, not built:**
+
+- SQLite + BM25-only retrieval (vs Postgres + pgvector + FTS; the hybrid path is documented as a level-up above)
+- In-process FastAPI (vs Docker / k8s / multi-replica)
+- Two-token auth only (chat + admin); no JWT/OAuth, no per-user identity, no rate limit
+- File-based settings (vs secrets manager)
+- 30 hand-written eval questions, deterministic metrics only (vs auto-generated bank + LLM-judge dashboard)
+- No streaming (single sync `/chat`; SSE is out of scope)
+- Single LLM provider (OpenAI; Anthropic adapter slot documented, not built)
+
+Each level-up is described in the step where it would land. Promotion from "simplified" to "production-grade" is a conversation, not auto-triggered by the implementer. The frontend `Tiers` page renders this same matrix for live demos.
+
 ## Implementation order (eval-driven)
 
 1. **Passage parser + store.** Markdown → passages with stable IDs.
