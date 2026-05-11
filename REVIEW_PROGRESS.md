@@ -36,22 +36,22 @@ decade-ai-challenge/
 │   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
 │   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
 │   │   ├── [x] schemas.py                 — pydantic models + hand-written JSON schemas (flat+discriminator pattern bc openai strict ≠ oneOf)
-│   │   ├── [ ] tool_dispatch.py
+│   │   ├── [x] tool_dispatch.py             — single entry execute_tool: lookup TOOLS, run via ToolEntry.func, catch DomainError/TypeError to JSON {"error":...}, serialize Pydantic results
 │   │   ├── prompts/
 │   │   │   ├── [x] rewrite.md
-│   │   │   └── [ ] system.md
+│   │   │   └── [x] system.md
 │   │   ├── resolver/                   [x] reviewed (simplified)
 │   │   │   ├── [x] __init__.py             — shortened module doc
 │   │   │   ├── [x] base.py                 — corrected invariants doc, trimmed class docs
 │   │   │   └── [x] substring.py            — dried resolve_answer via _resolve_one + shared provenance
 │   │   └── tools/
-│   │       ├── [ ] __init__.py
-│   │       ├── [ ] context.py
-│   │       ├── [ ] list_documents.py
-│   │       ├── [ ] read_document_outline.py
-│   │       ├── [ ] read_passage.py
-│   │       ├── [ ] registry.py
-│   │       └── [ ] search_convictions.py
+│   │       ├── [x] __init__.py                — re-exports tools, ToolDefinitions, TOOLS registry, ToolContext/ToolEntry
+│   │       ├── [x] context.py                 — DI seam: ToolContext(session, retriever) + ToolEntry(definition, func), both frozen dataclasses
+│   │       ├── [x] list_documents.py          — corpus table of contents (DocSummary list ordered by document_id)
+│   │       ├── [x] read_document_outline.py   — one document's heading tree + metadata; raises DocumentNotFoundError
+│   │       ├── [x] read_passage.py            — full text of N passages by ID, order-preserving; raises PassageNotFoundError
+│   │       ├── [x] registry.py                 — hand-written JSON schemas (OpenAI strict-mode compliant) + ToolDefinitions + TOOLS dict
+│   │       └── [x] search_convictions.py      — BM25 over corpus via ctx.retriever; EmptyQueryError on blank input
 │   │
 │   ├── api/
 │   │   ├── [ ] __init__.py
