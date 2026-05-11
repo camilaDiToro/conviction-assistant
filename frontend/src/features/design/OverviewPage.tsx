@@ -201,9 +201,6 @@ const TOUR = [
   { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)', desc: 'BM25Index over normalized tokens. Cross-language is the level-up trigger.' },
   { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Bounded gather → act → answer with strict loop invariants.' },
-  { to: '/design/plumbing/providers', label: 'Provider abstraction', desc: 'LLMProvider protocol, OpenAI + Stub adapters behind a single interface.' },
-  { to: '/design/plumbing/usage', label: 'Token usage', desc: 'Raw TokenUsage in debug and audit_log.' },
-  { to: '/design/plumbing/layering', label: 'Layering rules', desc: 'Router → Service → Repository. Domain errors. Configuration. Lifecycle.' },
   { to: '/design/framing/tiers', label: 'Production-grade vs simplified', desc: 'What is built right vs deliberately simplified, with documented level-ups.' },
 ] as const
 
@@ -375,7 +372,7 @@ function LifecycleDiagram() {
   // Sequence diagram. Lanes: Router · Agent · Tools · LLMProvider · Verifier · Audit
   const lanes = [
     { x: 90, label: 'Router', file: 'api/chat.py' },
-    { x: 240, label: 'Agent', file: 'services/agent.py' },
+    { x: 240, label: 'Agent', file: 'agent/loop.py' },
     { x: 390, label: 'Tools', file: 'tools/' },
     { x: 540, label: 'LLM', file: 'providers/' },
     { x: 690, label: 'Resolver', file: 'app/agent/resolver/' },

@@ -7,9 +7,6 @@ import ToolsPage from './features/design/ToolsPage'
 import RetrievalPage from './features/design/RetrievalPage'
 import ResolverPage from './features/design/ResolverPage'
 import AgentLoopPage from './features/design/AgentLoopPage'
-import ProvidersPage from './features/design/ProvidersPage'
-import UsagePage from './features/design/UsagePage'
-import LayeringPage from './features/design/LayeringPage'
 import TiersPage from './features/design/TiersPage'
 import ChatPage from './features/chat/ChatPage'
 import AccessGate from './features/chat/AccessGate'
@@ -27,9 +24,6 @@ export default function App() {
         <Route path="pipeline/tools" element={<ToolsPage />} />
         <Route path="pipeline/resolver" element={<ResolverPage />} />
         <Route path="pipeline/agent-loop" element={<AgentLoopPage />} />
-        <Route path="plumbing/providers" element={<ProvidersPage />} />
-        <Route path="plumbing/usage" element={<UsagePage />} />
-        <Route path="plumbing/layering" element={<LayeringPage />} />
         <Route path="framing/tiers" element={<TiersPage />} />
       </Route>
 
