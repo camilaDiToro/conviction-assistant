@@ -33,9 +33,7 @@ export default function RetrievalPage() {
         lead={
           <>
             In-memory BM25 ranking via the <code className="font-mono text-[15px] text-ink-1">bm25s</code>{' '}
-            library. Built at lifespan, rebuilt after ingest. v1 is BM25-only; the hybrid
-            level-up (BM25 + multilingual embeddings + RRF) is documented and gated on a
-            cross-language evaluation failure.
+            library. Built at lifespan, rebuilt after ingest.
           </>
         }
       />
@@ -46,15 +44,6 @@ export default function RetrievalPage() {
           likely to contain the answer. The result is a starting point: the agent reads the
           full text of any hit it intends to cite via <code className="font-mono text-[13px] text-ink-1">read_passage</code>.
         </p>
-      </Section>
-
-      <Section eyebrow="Constraints">
-        <SpecList>
-          <SpecItem term="Corpus size">30 documents, ~400 passages today. Index fits in memory by an order of magnitude.</SpecItem>
-          <SpecItem term="Languages">PT primary, EN secondary, ES queries possible. Diacritic-folding at the search layer is required for recall.</SpecItem>
-          <SpecItem term="Build cadence">Index built at startup from <code className="font-mono text-[13px] text-ink-1">passages_repo.iter_all</code>; rebuilt at the end of <code className="font-mono text-[13px] text-ink-1">POST /admin/ingest</code>. No incremental updates.</SpecItem>
-          <SpecItem term="Single process">FastAPI runs in one process today. No cross-replica index synchronization.</SpecItem>
-        </SpecList>
       </Section>
 
       <Section eyebrow="Approach">
