@@ -85,37 +85,6 @@ export default function RetrievalPage() {
         </div>
       </Section>
 
-      <Section eyebrow="Approach">
-        <div className="max-w-prose space-y-4 text-ink-2 text-[15px] leading-relaxed">
-          <p>
-            The retrieval contract is a <code className="font-mono text-[13px] text-ink-1">Protocol</code> in{' '}
-            <code className="font-mono text-[13px] text-ink-1">app/retrieval/base.py::Retriever</code>{' '}
-            — three methods: <code className="font-mono text-[13px] text-ink-1">build</code>,{' '}
-            <code className="font-mono text-[13px] text-ink-1">rebuild</code>,{' '}
-            <code className="font-mono text-[13px] text-ink-1">search</code>. Today one
-            implementation (<code className="font-mono text-[13px] text-ink-1">BM25Retriever</code>);
-            tomorrow hybrid drops in beside it without any call site changing.
-          </p>
-          <p>
-            <code className="font-mono text-[13px] text-ink-1">app/retrieval/bm25.py::BM25Retriever</code>{' '}
-            wraps the <code className="font-mono text-[13px] text-ink-1">bm25s</code> library.{' '}
-            <code className="font-mono text-[13px] text-ink-1">build(session)</code> loads all
-            passages, normalizes their text, and builds the retriever.{' '}
-            <code className="font-mono text-[13px] text-ink-1">search(query, k)</code> normalizes
-            the query the same way and returns the top-<code className="font-mono text-[13px] text-ink-1">k</code> (passage,
-            score) pairs.
-          </p>
-          <p>
-            The lifespan in <code className="font-mono text-[13px] text-ink-1">app/main.py::lifespan</code>{' '}
-            instantiates the retriever, calls <code className="font-mono text-[13px] text-ink-1">build</code>,
-            and stores it on <code className="font-mono text-[13px] text-ink-1">app.state.retriever</code>.
-            The admin route in <code className="font-mono text-[13px] text-ink-1">app/api/admin.py</code>{' '}
-            calls <code className="font-mono text-[13px] text-ink-1">rebuild</code> after the
-            ingest service finishes upserts.
-          </p>
-        </div>
-      </Section>
-
       <Section eyebrow="Live example">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
           Below is BM25 running live over a 9-passage subset of the corpus (the LCI/LCA
