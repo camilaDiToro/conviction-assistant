@@ -200,38 +200,41 @@ export default function RetrievalPage() {
         />
       </Section>
 
-      <Section eyebrow="Failure modes">
+      <Section eyebrow="How this scales">
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
+          BM25 itself scales fine — sub-second to index 30 docs, a few seconds for 30k. What
+          breaks first is <em>quality</em>: vocabulary mismatch degrades recall before the
+          algorithm slows down. The fix depends on corpus size.
+        </p>
         <SpecList>
-          <SpecItem term="Empty index">
-            <code className="font-mono text-[13px] text-ink-1">search</code> returns{' '}
-            <code className="font-mono text-[13px] text-ink-1">[]</code>. The retriever is{' '}
-            <code className="font-mono text-[13px] text-ink-1">None</code> until <code className="font-mono text-[13px] text-ink-1">build</code> is called.
+          <SpecItem term="~30 docs (today)">
+            No change. Well-normalized BM25 is enough; queries that miss are usually genuine
+            coverage gaps, not retriever failures.
           </SpecItem>
-          <SpecItem term="Empty / whitespace query">The tool wrapper raises <code className="font-mono text-[13px] text-ink-1">EmptyQueryError</code> before it reaches the index.</SpecItem>
-          <SpecItem term="No matching passages">Returns an empty list. Score-zero passages are filtered.</SpecItem>
-          <SpecItem term="Cross-language query">Diacritic-folded BM25 cannot bridge "tax" → "tributação". Recall degrades. This is the level-up trigger.</SpecItem>
+          <SpecItem term="~100–500 docs">
+            Add a cross-encoder reranker over BM25's top-50. Same retriever surface, ~100 ms
+            more per query, fixes ranking on borderline cases.
+          </SpecItem>
+          <SpecItem term="~500–5k docs">
+            Move to hybrid: BM25 + dense embeddings + Reciprocal Rank Fusion. A new file under{' '}
+            <code className="font-mono text-[13px] text-ink-1">app/retrieval/</code>, registered
+            in <code className="font-mono text-[13px] text-ink-1">registry.py</code>; call sites
+            don't change.
+          </SpecItem>
+          <SpecItem term="~5k–50k docs">
+            Swap SQLite → Postgres + pgvector. The repository contract stays; only the storage
+            backend changes. The index stops fitting comfortably in RAM around here.
+          </SpecItem>
+          <SpecItem term="50k+ docs">
+            ANN (HNSW or IVF), two-stage retrieval (cheap recall → expensive rerank), query
+            caching, sharding by document type. Different project shape.
+          </SpecItem>
         </SpecList>
-      </Section>
-
-      <Section eyebrow="Trade-offs and alternatives considered">
-        <SpecList>
-          <SpecItem term="Hybrid (BM25 + dense + RRF) as v1">Rejected. Two retrieval paths, fusion weights, and an embeddings provider before any eval signal that one path is insufficient.</SpecItem>
-          <SpecItem term="Cross-encoder reranker as v1">Rejected. A second model and an additional ~100 ms per query, justified at hundreds of documents.</SpecItem>
-          <SpecItem term="Evidence-selector model">Rejected. A small LLM picking the best 4–8 of the fused top-30. Correct technique at thousands+ of documents; premature at 30.</SpecItem>
-          <SpecItem term="Persistent on-disk index">Rejected. The cost of rebuilding 400 passages at startup is sub-second; persistence adds invalidation surface for no observable win.</SpecItem>
-        </SpecList>
-      </Section>
-
-      <Section eyebrow="Future work">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
-          Hybrid retrieval lands at ROADMAP B6 as a new file in{' '}
-          <code className="font-mono text-[13px] text-ink-1">app/retrieval/</code> alongside{' '}
-          <code className="font-mono text-[13px] text-ink-1">bm25.py</code>, registered in{' '}
-          <code className="font-mono text-[13px] text-ink-1">registry.py</code>. The{' '}
-          <code className="font-mono text-[13px] text-ink-1">Retriever</code> Protocol and the{' '}
-          <code className="font-mono text-[13px] text-ink-1">PassageHit</code>{' '}
-          schema do not change. The promotion gate is a measurable cross-language eval failure
-          plus an explicit decision; not auto-triggered.
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          The finance-domain twist: precise vocabulary (codes, indices, tax tables) favors
+          lexical matching over semantic embeddings, which flatten exactly the distinctions that
+          grounded citations need to preserve. These thresholds are conservative for this
+          domain — BM25 likely stays competitive further than for a generic prose corpus.
         </p>
       </Section>
     </article>
