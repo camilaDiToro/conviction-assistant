@@ -31,7 +31,7 @@ decade-ai-challenge/
 │   │
 │   ├── agent/
 │   │   ├── [ ] __init__.py
-│   │   ├── [ ] audit.py
+│   │   ├── [x] audit.py                   — step-record builders (llm_call / tool_call / resolver) + resolver-side passage fetch adapter
 │   │   ├── [ ] dedupe.py
 │   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
 │   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
