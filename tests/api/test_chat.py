@@ -3,7 +3,7 @@
 Uses StubLLM for the agent loop and a real tmp-path SQLite DB for the
 audit-log writes. Tools are patched at the registry (same pattern as
 ``tests/agent/test_loop_with_stub.py``); the resolver's
-``passages_repo.get`` lookup is patched to return the fixture passage.
+``passages_repo.get_many`` lookup is patched to return the fixture passage.
 """
 
 from collections.abc import Awaitable, Callable
@@ -63,10 +63,10 @@ def _patch_tools(
 def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _passage()
 
-    async def fake_get(_session: Any, passage_id: str) -> Passage | None:
-        return fake if passage_id == fake.id else None
+    async def fake_get_many(_session: Any, ids: Any) -> dict[str, Passage]:
+        return {pid: fake for pid in ids if pid == fake.id}
 
-    monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.audit.passages_repo.get_many", fake_get_many)
 
 
 # ---- fixtures -------------------------------------------------------
