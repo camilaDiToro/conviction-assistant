@@ -62,9 +62,9 @@ Required behavior:
 
 ## Corpus
 
-**Projected corpus size:** design for the **current scale (~30–50 docs)**. **But BM25-only is not sufficient** because the corpus is PT/EN and queries are PT/EN/ES (Spanish queries against PT documents fail with bag-of-words alone). The v1 retrieval stack is **hybrid BM25 + multilingual dense embeddings, fused with RRF** — see `RETRIEVAL_SCALE.md` for the embedding-model alternatives and the full tier-by-tier scaling story.
+**Projected corpus size:** design for the **current scale (~30–50 docs)**. **But BM25-only is not sufficient** because the corpus is PT/EN and queries are PT/EN/ES (Spanish queries against PT documents fail with bag-of-words alone). The v1 retrieval stack is **hybrid BM25 + multilingual dense embeddings, fused with RRF** — see `docs/ARCHITECTURES.md § "Classic hybrid retrieval pipeline"` for the embedding-model alternatives and the corpus-growth scaling story.
 
-**Default embedding model for v1:** OpenAI `text-embedding-3-large` (multilingual). Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) are documented in `RETRIEVAL_SCALE.md` and slot in behind the same `EmbeddingProvider` interface.
+**Default embedding model for v1:** OpenAI `text-embedding-3-large` (multilingual). Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) slot in behind the same `EmbeddingProvider` interface.
 
 **Conviction update cadence:** assumed **rare** (published once, occasional edits). Index is **rebuilt on deploy / container start** — no watched-folder, no webhook, no live-update path.
 
@@ -131,7 +131,7 @@ This assumption is documented prominently because pivoting away from it later is
 
 **Concurrent users (v1):** small internal team, **<10 concurrent users**. Single-instance FastAPI talking to one Postgres (Postgres FTS for BM25, pgvector for dense). No load balancer, no Redis, no real auth layer required for v1.
 
-See `SCALING.md` for what changes if the user count grows to ~10–100 or 100+.
+See `SCALE_NOTES.md` for what changes if the user count grows to ~10–100 or 100+.
 
 ### Token usage — REQUIRED
 
@@ -174,7 +174,7 @@ This must work identically across providers: adapters expose token counts, and n
 *Architectural impact:*
 - An `audit_log` table records every step: `{step_id, question_id, conversation_id, timestamp, kind: "llm_call" | "tool_call" | "verifier" | "response", payload, usage}`. Same database that holds passages and conversations.
 - Citations are persisted as part of the final response record so they can be replayed and re-verified later (e.g., if a conviction is edited and we want to know which past responses cited it).
-- For v1, the log is local. Production would forward to a structured log destination and add retention policies (see `SCALING.md`).
+- For v1, the log is local. Production would forward to a structured log destination and add retention policies (see `SCALE_NOTES.md`).
 
 ## Conversation behavior
 
@@ -231,4 +231,4 @@ This framing is mirrored in `../CLAUDE.md` § "Project framing".
 
 **Production feedback loop (thumbs up/down):** not implemented for v1.
 
-**Frontend:** **Vite + React + TypeScript + Tailwind** — the lightest *real React* setup. Single-page app, builds to plain static files (no SSR, no node runtime in production). Default deploy is to mount the Vite `dist/` under FastAPI at `/` — single service, single URL, no CORS. Optional alternative: deploy `dist/` separately to Vercel and point at the API by URL. See `DEPLOYMENT.md` for the full frontend section.
+**Frontend:** **Vite + React + TypeScript + Tailwind** — the lightest *real React* setup. Single-page app, builds to plain static files (no SSR, no node runtime in production). Default deploy is to mount the Vite `dist/` under FastAPI at `/` — single service, single URL, no CORS. Optional alternative: deploy `dist/` separately to Vercel and point at the API by URL. See `DEPLOY.md` for the Hugging Face Spaces deploy.

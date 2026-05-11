@@ -138,7 +138,7 @@ at a glance which one any file belongs to.
 **Deliberately simplified — well-known production paths exist; documented as level-up, not built:**
 
 - SQLite + BM25-only retrieval (vs Postgres + pgvector + FTS; the hybrid path is documented as a level-up in `docs/ARCHITECTURES.md`)
-- In-process FastAPI (vs Docker / k8s / multi-replica — see `docs/DEPLOYMENT.md`)
+- In-process FastAPI (vs Docker / k8s / multi-replica)
 - Two-token auth only (chat + admin); no JWT/OAuth, no per-user identity, no rate limit
 - File-based settings (vs secrets manager)
 - 30 hand-written eval questions, deterministic metrics only (vs auto-generated bank + LLM-judge dashboard)
