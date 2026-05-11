@@ -1,7 +1,7 @@
 """HTTP request/response schemas."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -154,21 +154,34 @@ class ConversationListResponse(StrictModel):
     conversations: list[ConversationListItem]
 
 
-class ConversationMessage(StrictModel):
-    """One reconstructed turn — user question + agent response."""
+class ConversationMessageBase(StrictModel):
+    """Fields shared by every reconstructed turn, regardless of branch."""
 
     question_id: str
     timestamp: datetime
     user_question: str
     language: Language
-    kind: Literal["answer", "clarifying_question"]
+
+
+class ConversationAnswerMessage(ConversationMessageBase):
+    kind: Literal["answer"] = "answer"
     answer: str | None = None
     citations: list[ChatCitation] = Field(default_factory=list)
     general_knowledge_used: bool | None = None
     general_knowledge_section: str | None = None
     out_of_scope: bool | None = None
+
+
+class ConversationClarifyMessage(ConversationMessageBase):
+    kind: Literal["clarifying_question"] = "clarifying_question"
     clarifying_question: str | None = None
     clarifying_options: list[str] = Field(default_factory=list)
+
+
+ConversationMessage = Annotated[
+    ConversationAnswerMessage | ConversationClarifyMessage,
+    Field(discriminator="kind"),
+]
 
 
 class ConversationMessagesResponse(StrictModel):
@@ -196,9 +209,12 @@ __all__ = [
     "ChatClarifyResponse",
     "ChatHistoryTurn",
     "ChatRequest",
+    "ConversationAnswerMessage",
+    "ConversationClarifyMessage",
     "ConversationListItem",
     "ConversationListResponse",
     "ConversationMessage",
+    "ConversationMessageBase",
     "ConversationMessagesResponse",
     "ConversationQuestionSummary",
     "ConversationTraceResponse",

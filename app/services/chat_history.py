@@ -19,6 +19,8 @@ from typing import Any, cast
 
 from app.api.schemas import (
     ChatCitation,
+    ConversationAnswerMessage,
+    ConversationClarifyMessage,
     ConversationListItem,
     ConversationMessage,
     DebugStep,
@@ -99,11 +101,6 @@ def make_title(text: str) -> str:
 def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> ConversationMessage:
     output = payload.get("output") or {}
     kind = output.get("kind", "answer")
-    citations = [
-        chat
-        for entry in (payload.get("resolution_entries") or [])
-        if (chat := _citation_from_dump(entry)) is not None
-    ]
 
     user_question_raw = payload.get("user_question") or payload.get("rewritten_question") or ""
     common = {
@@ -114,9 +111,8 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
     }
 
     if kind == "clarifying_question":
-        return ConversationMessage(
+        return ConversationClarifyMessage(
             **common,
-            kind="clarifying_question",
             clarifying_question=_repair(output.get("question")),
             clarifying_options=[
                 repaired
@@ -125,9 +121,13 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
             ],
         )
 
-    return ConversationMessage(
+    citations = [
+        chat
+        for entry in (payload.get("resolution_entries") or [])
+        if (chat := _citation_from_dump(entry)) is not None
+    ]
+    return ConversationAnswerMessage(
         **common,
-        kind="answer",
         answer=_repair(output.get("answer")),
         citations=citations,
         general_knowledge_used=output.get("general_knowledge_used"),
