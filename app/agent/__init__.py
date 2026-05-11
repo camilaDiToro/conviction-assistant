@@ -14,6 +14,7 @@ conversation memory and grounded retrieval.
 """
 
 from app.agent.loop import run
+from app.agent.overrides import AgentOverrides
 from app.agent.schemas import (
     AgentOutput,
     AgentResult,
@@ -26,6 +27,7 @@ from app.agent.schemas import (
 
 __all__ = [
     "AgentOutput",
+    "AgentOverrides",
     "AgentResult",
     "AnswerOutput",
     "Citation",

@@ -33,6 +33,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Literal, cast
 
+from app.agent.overrides import AgentOverrides
 from app.agent.schemas import (
     REWRITE_OUTPUT_SCHEMA,
     ConversationTurn,
@@ -54,12 +55,16 @@ async def rewrite_question(
     history: list[ConversationTurn],
     *,
     llm: LLMProvider,
+    overrides: AgentOverrides | None = None,
 ) -> tuple[str, Literal["pt", "es", "en"], StepRecord]:
     """Rewrite ``user_message`` into a self-contained question and detect its language.
 
     Runs on every turn. With empty ``history`` the model returns the
     question unchanged but still classifies the language.
     """
+    overrides = overrides or AgentOverrides()
+    rewrite_effort = overrides.rewrite_reasoning_effort or settings.rewrite_reasoning_effort
+
     if history:
         user_block = _format_history(history) + f"\n\nNew question: {user_message}"
     else:
@@ -74,7 +79,7 @@ async def rewrite_question(
     response = await llm.generate(
         messages,
         schema=REWRITE_OUTPUT_SCHEMA,
-        reasoning_effort=settings.rewrite_reasoning_effort,
+        reasoning_effort=rewrite_effort,
         max_output_tokens=settings.rewrite_max_output_tokens,
     )
     rewrite_dur = int((perf_counter() - t0) * 1000)

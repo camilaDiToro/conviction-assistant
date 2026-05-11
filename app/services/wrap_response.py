@@ -244,8 +244,7 @@ def _name_and_detail(step: StepRecord, retriever_name: str) -> tuple[str, str]:
         anchored = sum(1 for e in entries if e.get("failure_reason") is None)
         return (
             "resolver",
-            f"entries={len(entries)} anchored={anchored} "
-            f"unresolved={len(entries) - anchored}",
+            f"entries={len(entries)} anchored={anchored} unresolved={len(entries) - anchored}",
         )
     return step.kind, ""
 
@@ -362,9 +361,7 @@ def build_response_debug_step(
     steps endpoint can append the same synthetic response step the live
     path emits.
     """
-    return _response_debug_step(
-        output_dump, resolution_entries=resolution_entries, step_id=step_id
-    )
+    return _response_debug_step(output_dump, resolution_entries=resolution_entries, step_id=step_id)
 
 
 __all__ = ["build_response_debug_step", "reconstruct_steps_from_audit", "wrap"]
