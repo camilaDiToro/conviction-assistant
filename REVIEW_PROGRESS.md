@@ -64,16 +64,16 @@ decade-ai-challenge/
 │   │   ├── [x] health.py                       — liveness probe (Docker / HF Space)
 │   │   └── [x] schemas.py                      — StrictModel base; ConversationMessage as discriminated union
 │   │
-│   ├── config/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] db.py
-│   │   └── [ ] settings.py
+│   ├── config/                          [x] reviewed
+│   │   ├── [x] __init__.py                — re-exports Settings + singleton
+│   │   ├── [x] db.py                      — async engine + module-scope session factory; sync migrate() for Alembic
+│   │   └── [x] settings.py                — pydantic-settings BaseSettings; narrowed llm_provider to Literal["openai"] (anthropic adapter not shipped)
 │   │
-│   ├── models/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] audit.py
-│   │   ├── [ ] base.py
-│   │   └── [ ] passage.py
+│   ├── models/                          [x] reviewed
+│   │   ├── [x] __init__.py                — re-exports Base + ORM classes
+│   │   ├── [x] audit.py                   — append-only ORM; payload/usage are JSON-encoded Text columns
+│   │   ├── [x] base.py                    — single DeclarativeBase subclass
+│   │   └── [x] passage.py                 — heading_path stored as JSON Text; bridge lives in repositories/passages.py
 │   │
 │   ├── providers/                       [x] reviewed (simplified)
 │   │   ├── [x] __init__.py                — re-exports LLMProvider/Message/types + get_llm_provider
@@ -96,10 +96,10 @@ decade-ai-challenge/
 │   │   ├── [x] registry.py
 │   │   └── [x] snippet.py
 │   │
-│   ├── schemas/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] ingest.py
-│   │   └── [ ] passage.py
+│   ├── schemas/                         [x] reviewed
+│   │   ├── [x] __init__.py                — re-exports schema models alphabetically
+│   │   ├── [x] ingest.py                  — plain Pydantic response model for /admin/ingest
+│   │   └── [x] passage.py                 — Passage / DocSummary / Heading / DocumentOutline / PassageHit; from_attributes=True throughout
 │   │
 │   └── services/
 │       ├── [ ] __init__.py
@@ -216,23 +216,3 @@ decade-ai-challenge/
             ├── [x] test_markdown.py
             └── [x] test_registry.py
 ```
-
-## Notes on simplifications applied
-
-- **`tests/retrieval/test_bm25.py`**: merged `test_normalize_strips_diacritics_for_pt` + `..._for_es` into one `@pytest.mark.parametrize`'d test (3 cases). Dropped `test_index_search_k_capped_at_corpus_size` — exercised `bm25s` library behavior, not project code.
-- **`tests/retrieval/test_protocol_conformance.py`**: dropped `test_no_match_query_returns_empty` — only asserted `isinstance(hits, list)`, no real signal.
-- **`app/agent/resolver/substring.py`**: extracted `_resolve_one(citation, passage)` so the four `CitationResolution(...)` branches share one provenance dict — cuts the function from ~60 lines of duplicated constructors to ~25.
-- **`tests/agent/resolver/test_substring.py`**: collapsed 11 tests → 7 by removing direct `resolve_citation` tests (covered transitively by `resolve_answer`) and the no-citations edge case (trivial empty-comprehension path).
-- **`app/agent/loop.py`**: split `_agent_loop` into short helpers (`_build_initial_messages`, `_llm_turn`, `_handle_tool_branch`, `_parse_output`, `_needs_search_first`, `_append_search_reminder`, `_resolve_answer`); orchestrator is now a 30-line readable loop.
-- **`app/providers/`**: dropped the unused `EmbeddingProvider` protocol + `OpenAIEmbedder` + `StubEmbedder` (v1 ships BM25-only retrieval). Dropped the chat-completions code path: `OpenAILLM` now wraps the Responses API exclusively. `factory.py` carries an explicit `_SUPPORTED_MODEL_PREFIXES` allowlist (gpt-5.5, gpt-5.4, gpt-5-mini, o4-mini) and rejects anything else with a clear `ProviderError` instead of silently routing to OpenAI for a 400. `ReasoningEffort` narrowed to `low|medium|high` (intersection of values every allowlisted model accepts). `temperature`/`verbosity` removed from the protocol — no caller used them. `openai.py` went from 582 → 295 lines.
-- **`tests/providers/test_openai_adapter.py`**: replaced 18 per-branch tests with one round-trip per layer (messages translator, response translator, end-to-end with mocked client) plus a parametrized table of schema-decode errors; 336 → ~190 lines.
-- **`tests/providers/test_factory.py`**: replaced repeated boilerplate with a `configure_openai` fixture that pre-sets a working config; allowlist accept/reject cases live in two parametrized tests; 107 → ~80 lines.
-
-## Suggested review order
-
-1. `app/agent/resolver/` — deterministic offset resolver (architecture's grounding guarantee)
-2. `app/agent/tools/` — read-only tool surface the agent calls
-3. `app/agent/` core (`loop.py`, `rewrite.py`, `tool_dispatch.py`, `dedupe.py`)
-4. `app/providers/` — LLM/Embedding abstraction + adapters
-5. `app/api/` + `app/services/` — HTTP boundary and orchestration
-6. `app/repositories/` + `app/models/` + `alembic/` — persistence layer

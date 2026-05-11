@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     sqlite_path: Path = Path("data/conviction_assistant.sqlite")
     convictions_dir: Path = Path("convictions")
 
-    llm_provider: Literal["openai", "anthropic"] = "openai"
+    llm_provider: Literal["openai"] = "openai"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.5"
     openai_timeout_seconds: float = 60.0
