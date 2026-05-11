@@ -46,6 +46,34 @@ export default function RetrievalPage() {
         </p>
       </Section>
 
+      <Section eyebrow="Why BM25">
+        <div className="max-w-prose space-y-4 text-ink-2 text-[15px] leading-relaxed">
+          <p>
+            For a corpus of this size (~30 documents, a few hundred passages), BM25 has the
+            right cost/benefit: deterministic, no embedding provider, no GPU, no per-query API
+            cost. Dense retrieval's recall advantage scales with corpus size — at small scale, a
+            well-normalized lexical retriever is typically competitive while being far simpler
+            to operate, debug, and reason about.
+          </p>
+          <p>
+            The decision matches the spirit of the challenge: ship a working assistant grounded
+            on the corpus we actually have, not the one we imagine in two years. For a broader
+            survey of retrieval strategies and when each pays off, see Akarsu, Karaman &amp;
+            Mierbach,{' '}
+            <a
+              href="https://arxiv.org/abs/2604.01733"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink-1 underline underline-offset-2 hover:text-ink-1/80"
+            >
+              "From BM25 to Corrective RAG: Benchmarking Retrieval Strategies for Text-and-Table
+              Documents"
+            </a>{' '}
+            (arXiv:2604.01733).
+          </p>
+        </div>
+      </Section>
+
       <Section eyebrow="Approach">
         <div className="max-w-prose space-y-4 text-ink-2 text-[15px] leading-relaxed">
           <p>
