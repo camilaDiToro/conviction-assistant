@@ -19,15 +19,15 @@ decade-ai-challenge/
 ├── [x] uv.lock
 │
 ├── alembic/                             [x] reviewed (consolidated to 0001)
-│   ├── [x] env.py                       — simplified to minimal bootstrap, target_metadata = None
+│   ├── [x] env.py                       — target_metadata=Base.metadata as drift safety net; sync driver for SQLite v1
 │   ├── [x] script.py.mako
 │   └── versions/
 │       └── [x] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError
 │
 ├── app/
-│   ├── [ ] __init__.py
-│   ├── [ ] errors.py
-│   ├── [ ] main.py
+│   ├── [x] __init__.py                     — empty package marker
+│   ├── [x] errors.py                       — clean DomainError hierarchy, one-way dependency from API
+│   ├── [x] main.py                         — lifespan order, fail-fast tokens, domain→HTTP handlers, SPA mount
 │   │
 │   ├── agent/
 │   │   ├── [ ] __init__.py
