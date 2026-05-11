@@ -16,9 +16,6 @@ Scope notes:
   step if the corpus of conversations grows.
 """
 
-import json
-from typing import Any, cast
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,12 +29,10 @@ from app.api.schemas import (
 from app.config.db import get_session
 from app.repositories import audit as audit_repo
 from app.services.chat_history import (
-    audit_duration_ms,
     list_item_from_summary_row,
     message_from_response_row,
-    usage_summary_from_steps,
+    steps_response_from_rows,
 )
-from app.services.debug_view import reconstruct_steps_from_audit, response_debug_step
 
 router = APIRouter(
     prefix="/chat/conversations",
@@ -103,34 +98,12 @@ async def question_steps(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"question {question_id!r} in conversation {conversation_id!r} not found",
         )
-
-    try:
-        summary = cast(dict[str, Any], json.loads(response_row["payload"]))
-    except (ValueError, TypeError):
-        summary = {}
-    retriever_name = str(summary.get("retriever") or "")
-
-    rows = await audit_repo.fetch_steps_by_question(session, conversation_id, question_id)
-    steps = reconstruct_steps_from_audit(rows, retriever_name=retriever_name)
-
-    output_dump = summary.get("output") if isinstance(summary.get("output"), dict) else None
-    if output_dump is not None:
-        resolution_entries = summary.get("resolution_entries")
-        if not isinstance(resolution_entries, list):
-            resolution_entries = None
-        steps.append(
-            response_debug_step(
-                output_dump,
-                resolution_entries=resolution_entries,
-                step_id=response_row["step_id"],
-            )
-        )
-
-    return QuestionStepsResponse(
+    step_rows = await audit_repo.fetch_steps_by_question(session, conversation_id, question_id)
+    return steps_response_from_rows(
+        response_row,
+        step_rows,
         conversation_id=conversation_id,
         question_id=question_id,
-        steps=steps,
-        usage_summary=usage_summary_from_steps(steps, duration_ms=audit_duration_ms(rows)),
     )
 
 

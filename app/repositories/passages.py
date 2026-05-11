@@ -15,9 +15,12 @@ from app.schemas.passage import DocSummary, Heading, Passage
 async def upsert_many(session: AsyncSession, items: Iterable[Passage]) -> int:
     """Insert or replace passages. Idempotent.
 
-    Ordinal is assigned by order of arrival per document_id within this call.
-    Callers re-ingesting a document should pass passages in the same order
-    they appear in the source file.
+    Ordinal is assigned by order of arrival per ``document_id`` within
+    this call. Intended for full-corpus or full-document ingest: a
+    partial upsert (a subset of one document's passages) renumbers only
+    those rows and desyncs them from the rest, breaking outline order.
+    The only caller today is :func:`app.services.ingest.ingest_corpus`,
+    which always passes every parsed passage for every document.
     """
     rows: list[dict] = []
     seen_per_doc: dict[str, int] = {}

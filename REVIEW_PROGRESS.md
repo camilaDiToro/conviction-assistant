@@ -11,18 +11,18 @@ decade-ai-challenge/
 ├── [x] .github/workflows/sync-to-hf.yml
 ├── [x] .gitignore
 ├── [x] AI_CHALLENGE.md
-├── [ ] CLAUDE.md
+├── [x] CLAUDE.md
 ├── [x] Dockerfile
 ├── [ ] README.md
 ├── [x] alembic.ini
 ├── [x] pyproject.toml
 ├── [x] uv.lock
 │
-├── alembic/                             [ ] re-review pending after recent edits
-│   ├── [ ] env.py                       — target_metadata=Base.metadata as drift safety net; sync driver for SQLite v1
+├── alembic/                             [x] reviewed
+│   ├── [x] env.py                       — target_metadata=Base.metadata as drift safety net; sync driver for SQLite v1
 │   ├── [x] script.py.mako
 │   └── versions/
-│       └── [ ] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError
+│       └── [x] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError; ck_audit_log_kind now mirrored on ORM
 │
 ├── app/
 │   ├── [x] __init__.py                     — empty package marker
@@ -83,11 +83,10 @@ decade-ai-challenge/
 │   │   ├── [x] stub.py                     — StubLLM mirror of the protocol (StubEmbedder removed)
 │   │   └── [x] text_repair.py              — gpt-5-mini unicode-escape repair (kept; defensive + cheap)
 │   │
-│   ├── repositories/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] audit.py
-│   │   ├── [ ] introspection.py
-│   │   └── [ ] passages.py
+│   ├── repositories/                       [x] reviewed
+│   │   ├── [x] __init__.py                — docstring refreshed to mention both passages.py and audit.py
+│   │   ├── [x] audit.py                   — TypedDict rows; rowid order on per-question reads is intentional (Windows clock granularity)
+│   │   └── [x] passages.py                — upsert_many docstring narrowed to whole-corpus/whole-document contract
 │   │
 │   ├── retrieval/                       [x] reviewed
 │   │   ├── [x] __init__.py

@@ -42,12 +42,6 @@ def test_factory_raises_when_openai_key_missing(configure_openai):
         get_llm_provider()
 
 
-def test_factory_anthropic_not_yet_implemented(configure_openai):
-    settings.llm_provider = "anthropic"
-    with pytest.raises(ProviderError, match="anthropic"):
-        get_llm_provider()
-
-
 @pytest.mark.parametrize(
     "model",
     [

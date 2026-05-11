@@ -53,23 +53,20 @@ Principle: review producers before consumers — types/config first, repos next,
 
 ### Follow-ups surfaced during Phase 1 (defer to later phases)
 
-- **Phase 3 (services) — audit-payload layer leak.** `app/api/chat_history.py:108` calls `json.loads(response_row["payload"])` directly on a repository row. The API shouldn't be deserializing audit-log columns; this belongs behind a `services/chat_history.py` reconstructor. Re-touch when reviewing `services/chat_history.py`.
-- **Provider re-review (already-ticked module).** Narrowing `Settings.llm_provider` to `Literal["openai"]` left dead code in already-reviewed files:
-  - `app/providers/factory.py:42-44` — the `if name == "anthropic"` branch and the trailing `raise ProviderError(f"unknown LLM provider {name!r}")` are now unreachable. The function's docstring (`Raises ProviderError when the provider is not yet implemented`) is stale.
-  - `tests/providers/test_factory.py:45-48` — `test_factory_anthropic_not_yet_implemented` mutates `settings.llm_provider = "anthropic"`; only passes because `BaseSettings` doesn't `validate_assignment`. Should be deleted when the factory branch is.
-  - Action: add a small re-review pass for `app/providers/factory.py` + its test before closing the review; drop the dead branch, drop the orphan test, refresh the docstring. Schedule between Phase 4 and Phase 6.
+- [x] Audit-payload layer leak. `app/api/chat_history.py:98-128` parsed `response_row["payload"]` directly; extracted into `services/chat_history.steps_response_from_rows`. Done during Phase 3 review pass.
+- [x] Provider factory dead branch. Dropped the unreachable `if name == "anthropic"` arm and trailing `raise` in `app/providers/factory.py`, refreshed the stale docstring, and deleted the orphan `test_factory_anthropic_not_yet_implemented` in `tests/providers/test_factory.py`. Done during Phase 3 review pass.
+- [x] ORM↔migration drift on `audit_log.kind`. `app/models/audit.py` was missing the `CheckConstraint` declared at `alembic/versions/0001_initial_schema.py:42`; mirrored on the ORM so `--autogenerate` stays a true safety net. Surfaced + fixed during Phase 2 review.
 
 ## Phase 2 — Alembic re-review (depends on models)
 
-- [ ] `alembic/env.py`
-- [ ] `alembic/versions/0001_initial_schema.py`
+- [x] `alembic/env.py`
+- [x] `alembic/versions/0001_initial_schema.py`
 
 ## Phase 3 — Repositories (only SQL layer)
 
-- [ ] `app/repositories/passages.py`
-- [ ] `app/repositories/audit.py`
-- [ ] `app/repositories/introspection.py`
-- [ ] `app/repositories/__init__.py`
+- [x] `app/repositories/passages.py`
+- [x] `app/repositories/audit.py`
+- [x] `app/repositories/__init__.py`
 
 ## Phase 4 — Services (standalone first, chat-flow last)
 
@@ -126,5 +123,5 @@ Principle: review producers before consumers — types/config first, repos next,
 - [ ] `docs/SCALE_NOTES.md`
 - [ ] `docs/TESTING.md`
 - [ ] `docs/DEPLOY.md`
-- [ ] `CLAUDE.md`
+- [x] `CLAUDE.md`
 - [ ] `README.md`

@@ -24,10 +24,12 @@ from app.api.schemas import (
     ConversationListItem,
     ConversationMessage,
     DebugStep,
+    QuestionStepsResponse,
     UsageSummary,
 )
 from app.providers.text_repair import repair_broken_unicode_escapes
 from app.repositories import audit as audit_repo
+from app.services.debug_view import reconstruct_steps_from_audit, response_debug_step
 
 _TITLE_MAX = 120
 
@@ -72,6 +74,48 @@ def audit_duration_ms(rows: list[audit_repo.AuditRow]) -> int:
         return 0
     delta = max(parsed) - min(parsed)
     return int(delta.total_seconds() * 1000)
+
+
+def steps_response_from_rows(
+    response_row: audit_repo.AuditRow,
+    step_rows: list[audit_repo.AuditRow],
+    *,
+    conversation_id: str,
+    question_id: str,
+) -> QuestionStepsResponse:
+    """Assemble the per-question debug trace from persisted audit rows.
+
+    Mirrors the live ``/chat`` path's ``debug.steps``: tool/llm/resolver
+    steps reconstructed from ``step_rows`` plus a synthetic ``response``
+    step rebuilt from the ``kind='response'`` payload.
+    """
+    try:
+        summary = cast(dict[str, Any], json.loads(response_row["payload"]))
+    except (ValueError, TypeError):
+        summary = {}
+    retriever_name = str(summary.get("retriever") or "")
+
+    steps = reconstruct_steps_from_audit(step_rows, retriever_name=retriever_name)
+
+    output_dump = summary.get("output") if isinstance(summary.get("output"), dict) else None
+    if output_dump is not None:
+        resolution_entries = summary.get("resolution_entries")
+        if not isinstance(resolution_entries, list):
+            resolution_entries = None
+        steps.append(
+            response_debug_step(
+                output_dump,
+                resolution_entries=resolution_entries,
+                step_id=response_row["step_id"],
+            )
+        )
+
+    return QuestionStepsResponse(
+        conversation_id=conversation_id,
+        question_id=question_id,
+        steps=steps,
+        usage_summary=usage_summary_from_steps(steps, duration_ms=audit_duration_ms(step_rows)),
+    )
 
 
 def usage_summary_from_steps(steps: list[DebugStep], *, duration_ms: int) -> UsageSummary:
@@ -175,5 +219,6 @@ __all__ = [
     "list_item_from_summary_row",
     "make_title",
     "message_from_response_row",
+    "steps_response_from_rows",
     "usage_summary_from_steps",
 ]
