@@ -203,20 +203,22 @@ decade-ai-challenge/
     ├── [ ] __init__.py
     ├── [ ] conftest.py
     │
-    ├── agent/
+    ├── agent/                              [x] reviewed
     │   ├── [x] __init__.py
-    │   ├── [x] conftest.py                — autouse fixture patches passages_repo.get for loop tests under tests/agent/ only
+    │   ├── [x] conftest.py                — autouse fixture patches passages_repo.get_many for loop tests under tests/agent/ only
+    │   ├── [x] test_answer_output_invariants.py  — 6 cases over the @model_validator branches on AnswerOutput
     │   ├── [x] test_dedupe.py             — 4 tests covering happy path, no-op, out-of-range markers, empty
     │   ├── [x] test_loop_with_resolver.py
-    │   ├── [ ] test_loop_with_stub.py
+    │   ├── [x] test_loop_with_stub.py     — protocol invariants (no assistant text in loop, ≥1 search, budget cap, invariant retry)
     │   ├── [x] test_rewrite.py
+    │   ├── [x] test_token_totals.py       — AgentResult.token_totals sums llm_call usages only
     │   ├── resolver/                    [x] reviewed (simplified)
     │   │   ├── [x] __init__.py
     │   │   └── [x] test_substring.py     — collapsed to 7 tests through resolve_answer; kept property test + smart-quote guard
-    │   └── tools/
-    │       ├── [ ] __init__.py
-    │       ├── [ ] test_search_convictions.py
-    │       └── [ ] test_simple_tools.py
+    │   └── tools/                       [x] reviewed
+    │       ├── [x] __init__.py
+    │       ├── [x] test_search_convictions.py  — golden-set recall@5 floors + p95 latency + empty-query guard
+    │       └── [x] test_simple_tools.py        — pure-function tests for list_documents / read_document_outline / read_passage + registry sanity
     │
     ├── api/
     │   ├── [ ] __init__.py
