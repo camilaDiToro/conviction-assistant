@@ -30,7 +30,7 @@ decade-ai-challenge/
 │   ├── [x] main.py                         — lifespan order, fail-fast tokens, domain→HTTP handlers, SPA mount
 │   │
 │   ├── agent/
-│   │   ├── [ ] __init__.py
+│   │   ├── [x] __init__.py                — public surface: `run` + structured output models; rewrite stage is the conversation-memory quarantine
 │   │   ├── [x] audit.py                   — step-record builders (llm_call / tool_call / resolver) + resolver-side passage fetch adapter
 │   │   ├── [ ] dedupe.py
 │   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
