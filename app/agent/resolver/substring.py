@@ -1,33 +1,24 @@
-"""The offset resolver itself.
+"""Offset resolver: pure substring search over Citation + Passage.
 
-Pure functions over ``Citation`` and ``Passage``: no DB, no session, no
-LLM. The agent loop's adapter (:func:`app.agent.audit.resolve_output`)
+Literal str.find — no smart-quote / NBSP / dash normalization. The
+model copies its quote from read_passage (DB-verbatim), so cosmetic
+diffs are rare; when they happen the citation surfaces without a
+highlight. The agent loop's adapter (app.agent.audit.resolve_output)
 loads passages and hands them in.
-
-``resolve_citation`` is a literal substring search — it does not apply
-the smart-quote / NBSP / dash normalization the old verifier used.
-Rationale: the model copies its quote from the result of ``read_passage``,
-which returns the DB-stored passage text verbatim, so cosmetic
-differences essentially never appear. When they do, the citation still
-surfaces with offsets ``None`` and the popup shows the passage with no
-highlight — clearer than maintaining a normalized index map.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.agent.resolver.base import CitationResolution, OffsetResolution
 from app.schemas.passage import Passage
 
 if TYPE_CHECKING:
-    from app.agent.schemas import AnswerOutput
+    from app.agent.schemas import AnswerOutput, Citation
 
 
 def resolve_citation(quote: str, passage_text: str) -> tuple[int, int] | None:
-    """Return ``(start, end)`` offsets of ``quote`` inside ``passage_text``.
-
-    Returns ``None`` if the quote is empty or is not a literal substring.
-    Half-open bounds: ``passage_text[start:end] == quote``.
-    """
+    """First (start, end) of `quote` in `passage_text`, or None if empty
+    or not a substring. Half-open: passage_text[start:end] == quote."""
     if not quote:
         return None
     idx = passage_text.find(quote)
@@ -40,75 +31,50 @@ def resolve_answer(
     answer: "AnswerOutput",
     passages: dict[str, Passage],
 ) -> OffsetResolution:
-    """Resolve every citation in ``answer`` against the passage map.
+    """Resolve every citation against the passage map. Order preserved.
 
-    ``passages`` maps ``passage_id`` → ``Passage``. A citation whose
-    ``passage_id`` is missing falls to ``failure_reason='passage_not_found'``;
-    an empty quote falls to ``'empty_quote'``; a non-substring quote
-    falls to ``'offset_not_found'``. The caller populates the map (see
-    :func:`app.agent.audit.resolve_output`).
-
-    Order is preserved one-to-one with ``answer.citations``.
+    Outcomes: empty quote → 'empty_quote'; passage_id missing →
+    'passage_not_found'; non-substring quote → 'offset_not_found';
+    match → anchored with (start, end). Caller populates the map
+    (see app.agent.audit.resolve_output).
     """
-    entries: list[CitationResolution] = []
+    return OffsetResolution(
+        entries=[_resolve_one(c, passages.get(c.passage_id)) for c in answer.citations]
+    )
 
-    for citation in answer.citations:
-        passage = passages.get(citation.passage_id)
 
-        if not citation.quote.strip():
-            entries.append(
-                CitationResolution(
-                    passage_id=citation.passage_id,
-                    document_id=passage.document_id if passage else None,
-                    document_title=passage.document_title if passage else None,
-                    heading_path=list(passage.heading_path) if passage else [],
-                    passage_text=passage.text if passage else None,
-                    failure_reason="empty_quote",
-                )
-            )
-            continue
+def _resolve_one(citation: "Citation", passage: Passage | None) -> CitationResolution:
+    """Resolve one citation. Provenance comes from `passage` if present,
+    else nullified — independent of the outcome."""
+    provenance: dict[str, Any] = (
+        {
+            "passage_id": passage.id,
+            "document_id": passage.document_id,
+            "document_title": passage.document_title,
+            "heading_path": list(passage.heading_path),
+            "passage_text": passage.text,
+        }
+        if passage is not None
+        else {
+            "passage_id": citation.passage_id,
+            "document_id": None,
+            "document_title": None,
+            "heading_path": [],
+            "passage_text": None,
+        }
+    )
 
-        if passage is None:
-            entries.append(
-                CitationResolution(
-                    passage_id=citation.passage_id,
-                    document_id=None,
-                    document_title=None,
-                    heading_path=[],
-                    passage_text=None,
-                    failure_reason="passage_not_found",
-                )
-            )
-            continue
+    if not citation.quote.strip():
+        return CitationResolution(**provenance, failure_reason="empty_quote")
+    if passage is None:
+        return CitationResolution(**provenance, failure_reason="passage_not_found")
 
-        offsets = resolve_citation(citation.quote, passage.text)
-        if offsets is None:
-            entries.append(
-                CitationResolution(
-                    passage_id=passage.id,
-                    document_id=passage.document_id,
-                    document_title=passage.document_title,
-                    heading_path=list(passage.heading_path),
-                    passage_text=passage.text,
-                    failure_reason="offset_not_found",
-                )
-            )
-            continue
+    offsets = resolve_citation(citation.quote, passage.text)
+    if offsets is None:
+        return CitationResolution(**provenance, failure_reason="offset_not_found")
 
-        start, end = offsets
-        entries.append(
-            CitationResolution(
-                passage_id=passage.id,
-                document_id=passage.document_id,
-                document_title=passage.document_title,
-                heading_path=list(passage.heading_path),
-                passage_text=passage.text,
-                start=start,
-                end=end,
-            )
-        )
-
-    return OffsetResolution(entries=entries)
+    start, end = offsets
+    return CitationResolution(**provenance, start=start, end=end)
 
 
 __all__ = ["resolve_answer", "resolve_citation"]

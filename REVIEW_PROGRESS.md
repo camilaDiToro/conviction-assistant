@@ -30,28 +30,28 @@ decade-ai-challenge/
 │   ├── [x] main.py                         — lifespan order, fail-fast tokens, domain→HTTP handlers, SPA mount
 │   │
 │   ├── agent/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] audit.py
-│   │   ├── [ ] dedupe.py
-│   │   ├── [ ] loop.py
+│   │   ├── [x] __init__.py                — public surface: `run` + structured output models; rewrite stage is the conversation-memory quarantine
+│   │   ├── [x] audit.py                   — step-record builders (llm_call / tool_call / resolver) + resolver-side passage fetch adapter
+│   │   ├── [x] dedupe.py                  — collapse duplicate citations by passage_id, remap inline [N] markers in answer text
+│   │   ├── [x] loop.py                    — split _agent_loop into short helpers; orchestrator is a 30-line readable loop
 │   │   ├── [x] rewrite.py                  — only stage that consumes history (loop quarantine), language detection, structured output
-│   │   ├── [ ] schemas.py
-│   │   ├── [ ] tool_dispatch.py
+│   │   ├── [x] schemas.py                 — pydantic models + hand-written JSON schemas (flat+discriminator pattern bc openai strict ≠ oneOf)
+│   │   ├── [x] tool_dispatch.py             — single entry execute_tool: lookup TOOLS, run via ToolEntry.func, catch DomainError/TypeError to JSON {"error":...}, serialize Pydantic results
 │   │   ├── prompts/
 │   │   │   ├── [x] rewrite.md
-│   │   │   └── [ ] system.md
-│   │   ├── resolver/
-│   │   │   ├── [ ] __init__.py
-│   │   │   ├── [ ] base.py
-│   │   │   └── [ ] substring.py
+│   │   │   └── [x] system.md
+│   │   ├── resolver/                   [x] reviewed (simplified)
+│   │   │   ├── [x] __init__.py             — shortened module doc
+│   │   │   ├── [x] base.py                 — corrected invariants doc, trimmed class docs
+│   │   │   └── [x] substring.py            — dried resolve_answer via _resolve_one + shared provenance
 │   │   └── tools/
-│   │       ├── [ ] __init__.py
-│   │       ├── [ ] context.py
-│   │       ├── [ ] list_documents.py
-│   │       ├── [ ] read_document_outline.py
-│   │       ├── [ ] read_passage.py
-│   │       ├── [ ] registry.py
-│   │       └── [ ] search_convictions.py
+│   │       ├── [x] __init__.py                — re-exports tools, ToolDefinitions, TOOLS registry, ToolContext/ToolEntry
+│   │       ├── [x] context.py                 — DI seam: ToolContext(session, retriever) + ToolEntry(definition, func), both frozen dataclasses
+│   │       ├── [x] list_documents.py          — corpus table of contents (DocSummary list ordered by document_id)
+│   │       ├── [x] read_document_outline.py   — one document's heading tree + metadata; raises DocumentNotFoundError
+│   │       ├── [x] read_passage.py            — full text of N passages by ID, order-preserving; raises PassageNotFoundError
+│   │       ├── [x] registry.py                 — hand-written JSON schemas (OpenAI strict-mode compliant) + ToolDefinitions + TOOLS dict
+│   │       └── [x] search_convictions.py      — BM25 over corpus via ctx.retriever; EmptyQueryError on blank input
 │   │
 │   ├── api/
 │   │   ├── [ ] __init__.py
@@ -204,15 +204,15 @@ decade-ai-challenge/
     ├── [ ] conftest.py
     │
     ├── agent/
-    │   ├── [ ] __init__.py
-    │   ├── [ ] conftest.py
-    │   ├── [ ] test_dedupe.py
-    │   ├── [ ] test_loop_with_resolver.py
+    │   ├── [x] __init__.py
+    │   ├── [x] conftest.py                — autouse fixture patches passages_repo.get for loop tests under tests/agent/ only
+    │   ├── [x] test_dedupe.py             — 4 tests covering happy path, no-op, out-of-range markers, empty
+    │   ├── [x] test_loop_with_resolver.py
     │   ├── [ ] test_loop_with_stub.py
-    │   ├── [ ] test_rewrite.py
-    │   ├── resolver/
-    │   │   ├── [ ] __init__.py
-    │   │   └── [ ] test_substring.py
+    │   ├── [x] test_rewrite.py
+    │   ├── resolver/                    [x] reviewed (simplified)
+    │   │   ├── [x] __init__.py
+    │   │   └── [x] test_substring.py     — collapsed to 7 tests through resolve_answer; kept property test + smart-quote guard
     │   └── tools/
     │       ├── [ ] __init__.py
     │       ├── [ ] test_search_convictions.py
@@ -279,6 +279,9 @@ decade-ai-challenge/
 
 - **`tests/retrieval/test_bm25.py`**: merged `test_normalize_strips_diacritics_for_pt` + `..._for_es` into one `@pytest.mark.parametrize`'d test (3 cases). Dropped `test_index_search_k_capped_at_corpus_size` — exercised `bm25s` library behavior, not project code.
 - **`tests/retrieval/test_protocol_conformance.py`**: dropped `test_no_match_query_returns_empty` — only asserted `isinstance(hits, list)`, no real signal.
+- **`app/agent/resolver/substring.py`**: extracted `_resolve_one(citation, passage)` so the four `CitationResolution(...)` branches share one provenance dict — cuts the function from ~60 lines of duplicated constructors to ~25.
+- **`tests/agent/resolver/test_substring.py`**: collapsed 11 tests → 7 by removing direct `resolve_citation` tests (covered transitively by `resolve_answer`) and the no-citations edge case (trivial empty-comprehension path).
+- **`app/agent/loop.py`**: split `_agent_loop` into short helpers (`_build_initial_messages`, `_llm_turn`, `_handle_tool_branch`, `_parse_output`, `_needs_search_first`, `_append_search_reminder`, `_resolve_answer`); orchestrator is now a 30-line readable loop.
 
 ## Suggested review order
 

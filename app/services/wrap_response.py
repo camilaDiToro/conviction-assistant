@@ -57,7 +57,7 @@ def wrap(
         )
     )
 
-    usage_summary = _usage_summary(result.steps, step_count=len(debug_steps))
+    usage_summary = _usage_summary(result, step_count=len(debug_steps))
     debug = DebugBlock(
         tool_calls=[d for d in debug_steps if d.kind == "tool_call"],
         steps=debug_steps,
@@ -136,16 +136,16 @@ def _question_duration_ms(steps: list[StepRecord]) -> int:
     return int(delta.total_seconds() * 1000)
 
 
-def _usage_summary(steps: list[StepRecord], *, step_count: int) -> UsageSummary:
-    usages = [s.usage for s in steps if s.kind == "llm_call" and s.usage is not None]
+def _usage_summary(result: AgentResult, *, step_count: int) -> UsageSummary:
+    totals = result.token_totals
     return UsageSummary(
-        llm_call_count=len(usages),
-        prompt_tokens=sum(u.prompt_tokens for u in usages),
-        completion_tokens=sum(u.completion_tokens for u in usages),
-        cached_tokens=sum(u.cached_tokens for u in usages),
-        reasoning_tokens=sum(u.reasoning_tokens for u in usages),
+        llm_call_count=totals.llm_call_count,
+        prompt_tokens=totals.prompt_tokens,
+        completion_tokens=totals.completion_tokens,
+        cached_tokens=totals.cached_tokens,
+        reasoning_tokens=totals.reasoning_tokens,
         step_count=step_count,
-        duration_ms=_question_duration_ms(steps),
+        duration_ms=_question_duration_ms(result.steps),
     )
 
 

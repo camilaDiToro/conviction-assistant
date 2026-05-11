@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from app.agent import (
     AgentResult,
     AnswerOutput,
-    Citation,
     ClarifyingQuestionOutput,
     StepRecord,
 )
 from app.agent.resolver import CitationResolution, OffsetResolution
+from app.agent.schemas import Citation
 from app.api.schemas import ChatAnswerResponse, ChatClarifyResponse
 from app.providers import TokenUsage
 from app.services import wrap_response
@@ -157,4 +157,3 @@ def test_wrap_non_anchoring_citation_surfaces_with_null_offsets() -> None:
     assert out.start is None
     assert out.end is None
     assert out.passage_text == entry.passage_text
-

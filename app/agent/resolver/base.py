@@ -1,23 +1,15 @@
-"""Result types for the offset resolver.
+"""Result types for the resolver.
 
-One ordered list of :class:`CitationResolution` entries, one per
-``Citation`` the model emitted, in the model's original order. The
-literal quote is **not** kept here — it is consumed during resolution
-and discarded; only ``(start, end)`` offsets survive (or ``None`` /
-``failure_reason`` when the quote did not anchor).
+One CitationResolution per citation, in the model's original order.
+The literal quote is consumed during resolution and discarded; only
+(start, end) survive — or None + failure_reason when the quote did
+not anchor.
 
-Single-type-with-nullable-fields rather than a discriminated union
-because the wire layer renders the cases uniformly: every citation
-shows the passage in the popup; the highlight is conditional on
-``start`` / ``end`` being non-null.
-
-Invariants enforced by :func:`resolve_answer`:
-
-- ``start`` and ``end`` are both ``int`` and ``failure_reason is None``
-  when the quote anchored.
-- ``start`` and ``end`` are both ``None`` and ``failure_reason`` carries
-  the reason when it did not.
-- ``passage_text`` is ``None`` only for ``failure_reason='passage_not_found'``.
+Invariants from resolve_answer:
+- anchored: start/end are ints, failure_reason is None
+- failed: start/end are None, failure_reason is set
+- provenance fields are populated iff the passage_id was in the
+  resolver's map — independent of failure_reason
 """
 
 from typing import Literal
@@ -28,14 +20,12 @@ UnresolutionReason = Literal["empty_quote", "passage_not_found", "offset_not_fou
 
 
 class CitationResolution(BaseModel):
-    """One citation after offset resolution.
+    """One citation after resolution: provenance + (start, end), or
+    provenance + failure_reason when the quote did not anchor.
 
-    Carries the passage provenance the wire response needs (so the
-    frontend popup needs no extra ``read_passage`` round-trip) plus the
-    ``(start, end)`` offsets when the model's quote anchored to a
-    literal substring of the passage. When ``failure_reason`` is set the
-    citation still surfaces in the response — the popup shows the
-    passage without a highlight.
+    Provenance lets the popup render the passage without an extra
+    read_passage round-trip; failed citations show the passage with
+    no highlight.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -51,13 +41,8 @@ class CitationResolution(BaseModel):
 
 
 class OffsetResolution(BaseModel):
-    """Outcome of resolving one ``AnswerOutput``'s citations.
-
-    ``entries`` preserves the model's original ``answer.citations``
-    order so inline ``[N]`` markers stay aligned. The wire layer maps
-    one ``CitationResolution`` to one ``ChatCitation``; the debug drawer
-    splits them by ``failure_reason`` for the operator.
-    """
+    """Resolved citations in the model's original order — keeps inline
+    [N] markers aligned with the answer text."""
 
     model_config = ConfigDict(extra="forbid")
 

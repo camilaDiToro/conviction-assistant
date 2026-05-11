@@ -54,10 +54,10 @@ def _patch_tools(
 def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _passage()
 
-    async def fake_get(_session: Any, passage_id: str) -> Passage | None:
-        return fake if passage_id == fake.id else None
+    async def fake_get_many(_session: Any, ids: Any) -> dict[str, Passage]:
+        return {pid: fake for pid in ids if pid == fake.id}
 
-    monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.audit.passages_repo.get_many", fake_get_many)
 
 
 @pytest.fixture
