@@ -16,8 +16,6 @@ Scope notes:
   step if the corpus of conversations grows.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any, cast
 

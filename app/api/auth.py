@@ -4,11 +4,6 @@ Two tokens, two FastAPI dependencies. The chat token guards ``/chat``
 (the user pastes it into the frontend gate; it is sent as
 ``X-Chat-Token`` on every request). The admin token guards ``/admin/*``
 (``X-Admin-Token``, never exposed to the browser).
-
-Tokens are loaded from ``.env`` via :mod:`app.config.settings`. If a
-configured token is empty, the corresponding dependency rejects every
-request — failing closed is the right default. Tests bypass the deps
-via ``app.dependency_overrides[...]``.
 """
 
 import hmac

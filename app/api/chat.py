@@ -4,14 +4,15 @@ Thin handler: token-gated, receives FastAPI dependencies, delegates the
 chat turn to :mod:`app.services.chat`, and returns the wire response.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import require_chat_token
-from app.api.deps import get_llm_provider_dep
+from app.api.deps import get_llm_provider_dep, get_retriever_dep
 from app.api.schemas import ChatAnswerResponse, ChatClarifyResponse, ChatRequest
 from app.config.db import get_session
 from app.providers import LLMProvider
+from app.retrieval import Retriever
 from app.services.chat import handle_chat_turn
 
 router = APIRouter(tags=["chat"])
@@ -24,16 +25,10 @@ router = APIRouter(tags=["chat"])
 )
 async def chat(
     payload: ChatRequest,
-    request: Request,
     session: AsyncSession = Depends(get_session),
     llm: LLMProvider = Depends(get_llm_provider_dep),
+    retriever: Retriever = Depends(get_retriever_dep),
 ) -> ChatAnswerResponse | ChatClarifyResponse:
-    retriever = getattr(request.app.state, "retriever", None)
-    if retriever is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="retriever is not initialized",
-        )
     return await handle_chat_turn(
         payload,
         session=session,
