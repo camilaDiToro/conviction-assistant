@@ -80,6 +80,7 @@ class TokenUsage(BaseModel):
     completion_tokens: int
     cached_tokens: int = 0
     reasoning_tokens: int = 0
+    reasoning_effort: str | None = None
 
 
 FinishReason = Literal["stop", "tool_calls", "length", "content_filter", "other"]
@@ -108,7 +109,7 @@ class EmbeddingResponse(BaseModel):
     usage: TokenUsage
 
 
-ReasoningEffort = Literal["minimal", "low", "medium", "high"]
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 Verbosity = Literal["low", "medium", "high"]
 
 
