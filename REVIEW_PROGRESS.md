@@ -56,8 +56,8 @@ decade-ai-challenge/
 │   ├── api/
 │   │   ├── [x] __init__.py
 │   │   ├── [x] admin.py
-│   │   ├── [x] auth.py
-│   │   ├── [x] chat.py                         — thin handler: token gate, deps for session/llm, retriever from app.state with 503 guard
+│   │   ├── [ ] auth.py                         — re-review pending after api-cleanup PR
+│   │   ├── [ ] chat.py                         — re-review pending after api-cleanup PR
 │   │   ├── [ ] chat_history.py
 │   │   ├── [ ] config.py
 │   │   ├── [ ] conversations.py
@@ -106,6 +106,7 @@ decade-ai-challenge/
 │       ├── [ ] __init__.py
 │       ├── [ ] audit.py
 │       ├── [ ] chat.py
+│       ├── [ ] chat_history.py             — extracted in api-cleanup PR; reconstructs ConversationMessage / ChatCitation / UsageSummary from audit_log rows
 │       ├── [ ] conversations.py
 │       ├── [ ] disclaimer.py
 │       ├── [ ] ingest.py
