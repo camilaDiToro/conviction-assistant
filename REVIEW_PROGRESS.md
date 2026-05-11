@@ -54,9 +54,9 @@ decade-ai-challenge/
 │   │       └── [x] search_convictions.py      — BM25 over corpus via ctx.retriever; EmptyQueryError on blank input
 │   │
 │   ├── api/
-│   │   ├── [ ] __init__.py
-│   │   ├── [ ] admin.py
-│   │   ├── [ ] auth.py
+│   │   ├── [x] __init__.py
+│   │   ├── [x] admin.py
+│   │   ├── [x] auth.py
 │   │   ├── [x] chat.py                         — thin handler: token gate, deps for session/llm, retriever from app.state with 503 guard
 │   │   ├── [ ] chat_history.py
 │   │   ├── [ ] config.py
@@ -137,65 +137,7 @@ decade-ai-challenge/
 │   ├── [ ] report.py
 │   └── [ ] run.py
 │
-├── frontend/
-│   ├── [ ] .env.example
-│   ├── [ ] .gitignore
-│   ├── [ ] index.html
-│   ├── [ ] package.json
-│   ├── [ ] package-lock.json
-│   ├── [ ] postcss.config.js
-│   ├── [ ] tailwind.config.ts
-│   ├── [ ] tsconfig.app.json
-│   ├── [ ] tsconfig.json
-│   ├── [ ] tsconfig.node.json
-│   ├── [ ] vite.config.ts
-│   ├── public/
-│   │   └── [ ] decade-mark.svg
-│   └── src/
-│       ├── [ ] App.tsx
-│       ├── [ ] main.tsx
-│       ├── [ ] index.css
-│       ├── [ ] vite-env.d.ts
-│       ├── components/
-│       │   ├── [ ] Callout.tsx
-│       │   ├── [ ] CodeBlock.tsx
-│       │   ├── [ ] GridMark.tsx
-│       │   ├── [ ] PassageCard.tsx
-│       │   ├── [ ] Section.tsx
-│       │   ├── [ ] Sidebar.tsx
-│       │   └── [ ] Spec.tsx
-│       ├── data/
-│       │   ├── [ ] decisions.ts
-│       │   ├── [ ] exampleConviction.ts
-│       │   ├── [ ] roadmap.ts
-│       │   └── [ ] toolSchemas.ts
-│       ├── features/
-│       │   ├── chat/
-│       │   │   ├── [ ] AccessGate.tsx
-│       │   │   ├── [ ] ChatPage.tsx
-│       │   │   ├── [ ] CitationModal.tsx
-│       │   │   ├── [ ] DebugDrawer.tsx
-│       │   │   ├── [ ] MessageList.tsx
-│       │   │   └── [ ] Sidebar.tsx
-│       │   ├── design/
-│       │   │   ├── [ ] AgentLoopPage.tsx
-│       │   │   ├── [ ] CorpusPage.tsx
-│       │   │   ├── [ ] DesignLayout.tsx
-│       │   │   ├── [ ] LayeringPage.tsx
-│       │   │   ├── [ ] OverviewPage.tsx
-│       │   │   ├── [ ] ProvidersPage.tsx
-│       │   │   ├── [ ] ResolverPage.tsx
-│       │   │   ├── [ ] RetrievalPage.tsx
-│       │   │   ├── [ ] TiersPage.tsx
-│       │   │   └── [ ] ToolsPage.tsx
-│       │   └── home/
-│       │       └── [ ] LandingPage.tsx
-│       └── lib/
-│           ├── [ ] access-gate.ts
-│           ├── [ ] api.ts
-│           ├── [ ] bm25.ts
-│           ├── [ ] resolver.ts
-│           └── [ ] types.ts
+├── frontend/                            (out of review scope)
 │
 ├── scripts/
 │
@@ -293,4 +235,3 @@ decade-ai-challenge/
 4. `app/providers/` — LLM/Embedding abstraction + adapters
 5. `app/api/` + `app/services/` — HTTP boundary and orchestration
 6. `app/repositories/` + `app/models/` + `alembic/` — persistence layer
-7. `frontend/src/`
