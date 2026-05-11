@@ -42,6 +42,7 @@ from app.agent.audit import (
     resolve_output,
 )
 from app.agent.dedupe import dedupe_citations
+from app.agent.overrides import AgentOverrides
 from app.agent.resolver import OffsetResolution
 from app.agent.rewrite import rewrite_question
 from app.agent.schemas import (
@@ -75,6 +76,7 @@ async def run(
     *,
     tool_ctx: ToolContext,
     llm: LLMProvider,
+    overrides: AgentOverrides | None = None,
 ) -> AgentResult:
     """Run one full agent turn.
 
@@ -82,16 +84,25 @@ async def run(
     classifier whose output drives the answer-language directive. With
     empty history the rewrite is a passthrough on the question text but
     still emits ``detected_language``.
+
+    ``overrides`` is optional per-request tuning. ``None`` (or any field
+    of it left as ``None``) means "use the server defaults" from
+    ``settings``. The model override is *not* in here — the caller is
+    expected to construct an ``LLMProvider`` bound to the override model
+    before calling ``run()``.
     """
+    overrides = overrides or AgentOverrides()
     steps: list[StepRecord] = []
 
-    rewritten, language, rewrite_step = await rewrite_question(user_message, history, llm=llm)
+    rewritten, language, rewrite_step = await rewrite_question(
+        user_message, history, llm=llm, overrides=overrides
+    )
     steps.append(rewrite_step)
     loop_input = rewritten
     rewritten_question = rewritten if history else None
 
     output, loop_steps, tool_count, search_count, resolution = await _agent_loop(
-        loop_input, tool_ctx=tool_ctx, llm=llm, language=language
+        loop_input, tool_ctx=tool_ctx, llm=llm, language=language, overrides=overrides
     )
     steps.extend(loop_steps)
 
@@ -112,11 +123,16 @@ async def _agent_loop(
     tool_ctx: ToolContext,
     llm: LLMProvider,
     language: Literal["pt", "es", "en"] = "en",
+    overrides: AgentOverrides | None = None,
 ) -> tuple[AgentOutput, list[StepRecord], int, int, OffsetResolution | None]:
-    # Loop bounds are read from settings at call time so .env overrides
-    # take effect without restart; see app/config/settings.py.
-    max_tool_calls = settings.agent_max_tool_calls
+    overrides = overrides or AgentOverrides()
+    # Loop bounds read from overrides → settings → default. Per-request
+    # overrides (``overrides.X``) win; otherwise the ``.env`` defaults
+    # apply.
+    max_tool_calls = overrides.agent_max_tool_calls or settings.agent_max_tool_calls
     max_iterations = settings.agent_max_iterations
+    reasoning_effort = overrides.reasoning_effort or settings.agent_reasoning_effort
+    max_output_tokens = overrides.agent_max_output_tokens or settings.agent_max_output_tokens
 
     # Deterministic language directive — the system prompt's language
     # mirroring rule is sometimes ignored by the model when the cited
@@ -149,8 +165,8 @@ async def _agent_loop(
             messages,
             tools=None if force_final else tool_definitions,
             schema=AGENT_OUTPUT_SCHEMA,
-            reasoning_effort=settings.agent_reasoning_effort,
-            max_output_tokens=settings.agent_max_output_tokens,
+            reasoning_effort=reasoning_effort,
+            max_output_tokens=max_output_tokens,
         )
         llm_dur = int((perf_counter() - t0) * 1000)
         steps.append(record_llm_call(response, stage="agent_loop", duration_ms=llm_dur))

@@ -2,7 +2,7 @@
 
 from app.agent.tools.context import ToolContext
 from app.errors import EmptyQueryError
-from app.retrieval.bm25 import _make_snippet
+from app.retrieval import make_snippet
 from app.schemas import PassageHit
 
 
@@ -22,7 +22,7 @@ async def search_convictions(
             document_id=p.document_id,
             document_title=p.document_title,
             heading_path=p.heading_path,
-            snippet=_make_snippet(p.text),
+            snippet=make_snippet(p.text),
         )
         for p, score in pairs
     ]

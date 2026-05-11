@@ -61,9 +61,12 @@ def test_matching_quote_returns_half_open_offsets() -> None:
 
 
 def test_paraphrase_returns_none() -> None:
-    assert resolve_citation(
-        "regressive table for fixed income", "CDBs follow the tabela regressiva de IR."
-    ) is None
+    assert (
+        resolve_citation(
+            "regressive table for fixed income", "CDBs follow the tabela regressiva de IR."
+        )
+        is None
+    )
 
 
 def test_empty_quote_returns_none() -> None:
@@ -73,7 +76,7 @@ def test_empty_quote_returns_none() -> None:
 def test_quote_with_smart_quotes_does_not_anchor_to_ascii_source() -> None:
     """Deliberate: the resolver is literal — cosmetic mismatches lose
     their highlight (the citation survives with offsets None upstream)."""
-    assert resolve_citation('“core”', 'A position called "core" is described.') is None
+    assert resolve_citation("“core”", 'A position called "core" is described.') is None
 
 
 def test_quote_must_be_substring_not_subset_of_words() -> None:
@@ -100,7 +103,7 @@ def test_resolve_answer_pass_emits_anchored_entry() -> None:
     assert e.passage_text == p.text
     assert e.start == 6
     assert e.end == 11
-    assert p.text[e.start:e.end] == "bravo"
+    assert p.text[e.start : e.end] == "bravo"
     assert e.failure_reason is None
 
 

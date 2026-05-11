@@ -50,6 +50,15 @@ export default function CorpusPage() {
             orchestrates the run: parse every file, upsert via the repository, delete passages
             whose ids no longer appear (orphan detection on re-ingest).
           </p>
+          <p>
+            Dispatch by file extension lives in{' '}
+            <code className="font-mono text-[13px] text-ink-1">app/services/parser/registry.py</code>:
+            an explicit{' '}
+            <code className="font-mono text-[13px] text-ink-1">{`{extension: parser_fn}`}</code>{' '}
+            dict, plus <code className="font-mono text-[13px] text-ink-1">parse_file</code> /
+            <code className="font-mono text-[13px] text-ink-1">parse_corpus</code> that look up
+            the parser for a path. Adding a new format = a new module + one dict entry.
+          </p>
         </div>
       </Section>
 
@@ -137,6 +146,13 @@ export default function CorpusPage() {
             <code className="font-mono text-[13px] text-ink-1">##</code> sectioning, so the
             parser is small and pure: same bytes in, same passages out, no I/O beyond the file
             read. The interesting work is in retrieval and grounding, not in chunking.
+          </p>
+          <p>
+            A property that's easy to miss but matters: <strong className="text-ink-1">passage
+            IDs are stable across re-ingests</strong>. The slug derives from the heading text,
+            not from position in the file — so adding a new document, or reordering existing
+            ones, does not break citations already stored against earlier passages. The offset
+            resolver and the audit log rely on this.
           </p>
           <p>
             That said, it can be extended cleanly: anything that can produce a list of{' '}

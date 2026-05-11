@@ -15,10 +15,10 @@ from __future__ import annotations
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent import ConversationTurn
+from app.agent import AgentOverrides, ConversationTurn
 from app.agent import run as run_agent
 from app.agent.tools import ToolContext
 from app.api.auth import require_chat_token
@@ -26,7 +26,7 @@ from app.api.deps import get_llm_provider_dep
 from app.api.schemas import ChatAnswerResponse, ChatClarifyResponse, ChatRequest
 from app.config import settings
 from app.config.db import get_session
-from app.providers import LLMProvider, ProviderError, TokenUsage
+from app.providers import LLMProvider, ProviderError, TokenUsage, get_llm_provider
 from app.repositories import audit as audit_repo
 from app.services import audit as audit_service
 from app.services import wrap_response
@@ -51,13 +51,38 @@ async def chat(
 
     history = [ConversationTurn(role=t.role, content=t.content) for t in payload.history]
 
+    overrides_payload = payload.overrides
+    agent_overrides: AgentOverrides | None = None
+    if overrides_payload is not None:
+        if (
+            overrides_payload.model is not None
+            and overrides_payload.model not in settings.allowed_models
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"model {overrides_payload.model!r} is not in allowed_models",
+            )
+        if overrides_payload.model and overrides_payload.model != settings.openai_model:
+            # Rebind the LLM provider to the override model. The default
+            # provider was already constructed by the Depends; we throw
+            # it away in this branch only.
+            llm = get_llm_provider(model=overrides_payload.model)
+        agent_overrides = AgentOverrides(
+            reasoning_effort=overrides_payload.reasoning_effort,
+            rewrite_reasoning_effort=overrides_payload.rewrite_reasoning_effort,
+            agent_max_tool_calls=overrides_payload.agent_max_tool_calls,
+            agent_max_output_tokens=overrides_payload.agent_max_output_tokens,
+        )
+
     prior_cost = await _prior_conversation_cost(session, conversation_id)
 
     tool_ctx = ToolContext(
         session=session,
         retriever=request.app.state.retriever,
     )
-    result = await run_agent(payload.question, history, tool_ctx=tool_ctx, llm=llm)
+    result = await run_agent(
+        payload.question, history, tool_ctx=tool_ctx, llm=llm, overrides=agent_overrides
+    )
 
     language = result.language
 

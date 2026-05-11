@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Settings as SettingsIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GridMark } from '@/components/GridMark'
 import {
+  loadConfig,
   loadConversation,
   loadQuestionSteps,
   sendChatMessage,
@@ -12,10 +13,13 @@ import type {
   ChatAnswerResponse,
   ChatClarifyResponse,
   ChatMessage,
+  ConfigResponse,
   ConversationMessage,
 } from '@/lib/types'
+import { readChatPrefs } from '@/lib/chat-prefs'
 import { MessageList } from './MessageList'
 import { DebugDrawer } from './DebugDrawer'
+import { SettingsDrawer } from './SettingsDrawer'
 import { Sidebar } from './Sidebar'
 
 const SUGGESTIONS = [
@@ -35,7 +39,22 @@ export default function ChatPage() {
   const [debugError, setDebugError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sidebarRefresh, setSidebarRefresh] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [config, setConfig] = useState<ConfigResponse | null>(null)
+  const [prefsTick, setPrefsTick] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    loadConfig().then(setConfig).catch(() => undefined)
+  }, [])
+
+  const effectivePrefs = readChatPrefs() ?? {}
+  const overrideCount = Object.keys(effectivePrefs).length
+  const effectiveModel = effectivePrefs.model ?? config?.defaults.model ?? '—'
+  const effectiveEffort = effectivePrefs.reasoning_effort ?? config?.defaults.reasoning_effort ?? ''
+  // prefsTick changes when the SettingsDrawer mutates prefs; this useless
+  // reference forces React to keep the chip in sync without a context.
+  void prefsTick
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -178,6 +197,23 @@ export default function ChatPage() {
             <span className="text-sm tracking-tight font-medium">Decade AI Chat</span>
           </Link>
         </div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="flex items-center gap-2 text-[11px] font-mono text-ink-3 hover:text-ink-1 border border-border hover:border-border-strong px-3 py-1.5 rounded-md transition-colors"
+          aria-label="Open settings"
+        >
+          <SettingsIcon size={12} />
+          <span className="text-ink-1">{effectiveModel}</span>
+          {effectiveEffort && <span className="text-ink-3">·</span>}
+          {effectiveEffort && <span>{effectiveEffort}</span>}
+          {overrideCount > 0 && (
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-ink-1"
+              aria-label={`${overrideCount} override${overrideCount === 1 ? '' : 's'} active`}
+            />
+          )}
+        </button>
       </header>
 
       <div className="flex-1 flex">
@@ -253,6 +289,14 @@ export default function ChatPage() {
           onClose={closeDebug}
           loading={debugLoading}
           loadError={debugError}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsDrawer
+          onClose={() => setSettingsOpen(false)}
+          onUnauthorized={handleUnauthorized}
+          onPrefsChange={() => setPrefsTick(t => t + 1)}
         />
       )}
     </div>

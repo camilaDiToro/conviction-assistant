@@ -27,7 +27,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import db
-from app.retrieval import RETRIEVERS, Retriever
+from app.retrieval import Retriever, available_retrievers, get_retriever
 
 # A tiny synthetic corpus written into a tmp markdown file. Real
 # convictions/ would inflate setup time; the contract doesn't care
@@ -68,14 +68,14 @@ async def populated_session(
     await engine.dispose()
 
 
-@pytest.fixture(params=sorted(RETRIEVERS))
+@pytest.fixture(params=available_retrievers())
 def retriever_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
 def test_unbuilt_search_returns_empty(retriever_name: str) -> None:
     """Before ``build`` runs, ``search`` must not crash; it returns ``[]``."""
-    retriever: Retriever = RETRIEVERS[retriever_name]()
+    retriever: Retriever = get_retriever(retriever_name)
     assert retriever.search("anything", k=5) == []
 
 
@@ -84,7 +84,7 @@ async def test_build_then_search_returns_k_or_fewer_results(
     retriever_name: str,
     populated_session: AsyncSession,
 ) -> None:
-    retriever: Retriever = RETRIEVERS[retriever_name]()
+    retriever: Retriever = get_retriever(retriever_name)
     await retriever.build(populated_session)
 
     hits = retriever.search("CDB tabela regressiva", k=5)
@@ -100,7 +100,7 @@ async def test_no_match_query_returns_empty(
     retriever_name: str,
     populated_session: AsyncSession,
 ) -> None:
-    retriever: Retriever = RETRIEVERS[retriever_name]()
+    retriever: Retriever = get_retriever(retriever_name)
     await retriever.build(populated_session)
 
     hits = retriever.search("zzzzzqqqqqxxxxx", k=5)
@@ -115,7 +115,7 @@ async def test_rebuild_is_idempotent(
     populated_session: AsyncSession,
 ) -> None:
     """``rebuild`` against the same corpus produces the same hits."""
-    retriever: Retriever = RETRIEVERS[retriever_name]()
+    retriever: Retriever = get_retriever(retriever_name)
     await retriever.build(populated_session)
     before = retriever.search("CDB", k=5)
     await retriever.rebuild(populated_session)

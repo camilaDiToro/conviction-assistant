@@ -108,7 +108,8 @@ Router → Service → Repository (never skip layers)
 - **`app/models/`** — SQLAlchemy ORM models. `Base` (DeclarativeBase) + per-table modules.
 - **`app/schemas/`** — Pydantic request/response schemas. `ConfigDict(from_attributes=True)` on schemas that mirror ORM rows.
 - **`app/errors.py`** — Domain exceptions (`DomainError`, `IngestError`, `PassageNotFoundError`, `DocumentNotFoundError`, …); mapped to HTTP at the API boundary by handlers in `app/main.py`.
-- **`app/tools/`** — Read-only tools the agent can call. Pure functions over the repository contract; storage-agnostic by rule. DI via `ToolContext`. Hand-written JSON-schema dicts. Single `TOOLS` registry. See `docs/ARCHITECTURES.md` § "Tools layer" and `docs/b5-decisions.md`.
+- **`app/agent/`** — Agent loop, tool dispatch, audit, and the read-only tools it can call (`app/agent/tools/`). Tools are pure functions over the repository contract; storage-agnostic by rule. DI via `ToolContext`. Hand-written JSON-schema dicts. Single `TOOLS` registry. See `docs/ARCHITECTURES.md` § "Tools layer" and `docs/b5-decisions.md`.
+- **`app/retrieval/`** — `Retriever` Protocol + interchangeable strategies (BM25 today, hybrid as ROADMAP B6 level-up). Top-level (not under `services/`) because it mirrors the `app/providers/` shape: one `base.py` contract, N adapters, lifecycle owned by the FastAPI app (built at lifespan, rebuilt at admin ingest). Services orchestrate; retrieval is consumed via `ToolContext`.
 - **`alembic/`** — Schema-of-record. Imperative migrations (op.create_table / op.execute); autogenerate is intentionally disabled until every table has an ORM model (audit_log lands in B9).
 
 ### Backend layout
@@ -126,8 +127,8 @@ app/
     # later: chat.py (B9), …
   services/
     ingest.py         # parser → repo orchestration
-    parser/           # pure: markdown -> passages; no I/O beyond file reads
-    # later: agent/, verifier/, retrieval/, …
+    parser/           # pure: markdown -> passages; dispatch by extension in registry.py
+    # later: verifier/, …
   repositories/
     passages.py       # SQLAlchemy 2.x async repo for passages
     introspection.py  # list_tables / list_views — schema diagnostics (uses raw text() SQL)
@@ -140,8 +141,11 @@ app/
     ingest.py         # Pydantic IngestResponse
   providers/          # B4: LLMProvider + EmbeddingProvider protocols + adapters
                       # *** SINGLE POINT OF LLM INTERACTION ***
-  tools/              # B5: read-only tools the agent calls (storage-agnostic, ToolContext DI)
-                      # list_documents, read_document_outline, read_passage; +search_convictions in B6
+  retrieval/          # B6: Retriever protocol + adapters (bm25 today, hybrid later)
+                      # base.py contract; registry.py explicit dispatch; snippet.py shared helper
+  agent/              # B8: agent loop, tool dispatch, rewrite, audit
+    tools/            # read-only tools (storage-agnostic, ToolContext DI)
+                      # list_documents, read_document_outline, read_passage, search_convictions
 alembic/
   env.py
   script.py.mako

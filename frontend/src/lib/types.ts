@@ -59,6 +59,38 @@ export interface TokenUsage {
   completion_tokens: number
   cached_tokens: number
   reasoning_tokens: number
+  reasoning_effort: ReasoningEffort | null
+}
+
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
+export interface ChatOverrides {
+  model?: string
+  reasoning_effort?: ReasoningEffort
+  rewrite_reasoning_effort?: ReasoningEffort
+  agent_max_tool_calls?: number
+  agent_max_output_tokens?: number
+}
+
+export interface ConfigDefaults {
+  model: string
+  reasoning_effort: ReasoningEffort
+  rewrite_reasoning_effort: ReasoningEffort
+  agent_max_tool_calls: number
+  agent_max_iterations: number
+  agent_max_output_tokens: number
+}
+
+export interface IntBounds {
+  min: number
+  max: number
+}
+
+export interface ConfigResponse {
+  defaults: ConfigDefaults
+  allowed_models: string[]
+  allowed_reasoning_efforts: ReasoningEffort[]
+  limits: Record<string, IntBounds>
 }
 
 export interface DebugStep {

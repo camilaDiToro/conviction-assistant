@@ -33,9 +33,7 @@ export default function RetrievalPage() {
         lead={
           <>
             In-memory BM25 ranking via the <code className="font-mono text-[15px] text-ink-1">bm25s</code>{' '}
-            library. Built at lifespan, rebuilt after ingest. v1 is BM25-only; the hybrid
-            level-up (BM25 + multilingual embeddings + RRF) is documented and gated on a
-            cross-language evaluation failure.
+            library. Built at lifespan, rebuilt after ingest.
           </>
         }
       />
@@ -48,46 +46,51 @@ export default function RetrievalPage() {
         </p>
       </Section>
 
-      <Section eyebrow="Constraints">
-        <SpecList>
-          <SpecItem term="Corpus size">30 documents, ~400 passages today. Index fits in memory by an order of magnitude.</SpecItem>
-          <SpecItem term="Languages">PT primary, EN secondary, ES queries possible. Diacritic-folding at the search layer is required for recall.</SpecItem>
-          <SpecItem term="Build cadence">Index built at startup from <code className="font-mono text-[13px] text-ink-1">passages_repo.iter_all</code>; rebuilt at the end of <code className="font-mono text-[13px] text-ink-1">POST /admin/ingest</code>. No incremental updates.</SpecItem>
-          <SpecItem term="Single process">FastAPI runs in one process today. No cross-replica index synchronization.</SpecItem>
-        </SpecList>
-      </Section>
-
-      <Section eyebrow="Approach">
+      <Section eyebrow="Why BM25">
         <div className="max-w-prose space-y-4 text-ink-2 text-[15px] leading-relaxed">
           <p>
-            <code className="font-mono text-[13px] text-ink-1">app/services/search.py::BM25Index</code>{' '}
-            wraps the <code className="font-mono text-[13px] text-ink-1">bm25s</code> library.{' '}
-            <code className="font-mono text-[13px] text-ink-1">build(session)</code> loads all
-            passages, normalizes their text, and builds the retriever.{' '}
-            <code className="font-mono text-[13px] text-ink-1">search(query, k)</code> normalizes
-            the query the same way and returns the top-<code className="font-mono text-[13px] text-ink-1">k</code> (passage,
-            score) pairs.
+            For a corpus of this size (~30 documents, a few hundred passages), BM25 has the
+            right cost/benefit: deterministic, no embedding provider, no GPU, no per-query API
+            cost. Dense retrieval's complexity scales with corpus size — at small scale, a
+            well-normalized lexical retriever is typically competitive while being far simpler
+            to operate, debug, and reason about.
           </p>
           <p>
-            The lifespan in <code className="font-mono text-[13px] text-ink-1">app/main.py::lifespan</code>{' '}
-            instantiates the index, calls <code className="font-mono text-[13px] text-ink-1">build</code>,
-            and stores it on <code className="font-mono text-[13px] text-ink-1">app.state.search_index</code>.
-            The admin route in <code className="font-mono text-[13px] text-ink-1">app/api/admin.py</code>{' '}
-            calls <code className="font-mono text-[13px] text-ink-1">rebuild</code> after the
-            ingest service finishes upserts.
+            There's also a domain match. Convictions are financial documents (Brazilian fixed
+            income, equities, taxation, funds, ESG) — full of precise terms, codes, and proper
+            nouns like <code className="font-mono text-[13px] text-ink-1">FGC</code>,{' '}
+            <code className="font-mono text-[13px] text-ink-1">LCI</code>,{' '}
+            <code className="font-mono text-[13px] text-ink-1">IPCA</code>,{' '}
+            <em>tabela regressiva</em>. Akarsu, Karaman &amp; Mierbach benchmark retrieval
+            strategies on financial text-and-table corpora and conclude that{' '}
+            <strong className="text-ink-1">
+              BM25 outperforms state-of-the-art dense retrieval on financial documents
+            </strong>
+            . See{' '}
+            <a
+              href="https://arxiv.org/abs/2604.01733"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink-1 underline underline-offset-2 hover:text-ink-1/80"
+            >
+              "From BM25 to Corrective RAG: Benchmarking Retrieval Strategies for Text-and-Table
+              Documents"
+            </a>{' '}
+            (arXiv:2604.01733).
+          </p>
+          <p>
+            This matches the spirit of the challenge: ship a working assistant grounded on the
+            corpus we actually have, not the one we imagine in two years.
           </p>
         </div>
       </Section>
 
-      <Section eyebrow="Reproducible reference implementation">
+      <Section eyebrow="Live example">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          The TS implementation in <code className="font-mono text-[13px] text-ink-1">frontend/src/lib/bm25.ts</code>{' '}
-          mirrors <code className="font-mono text-[13px] text-ink-1">app/services/search.py::_normalize</code>{' '}
-          and the <code className="font-mono text-[13px] text-ink-1">bm25s</code> tokenization defaults. It runs over a
-          9-passage subset of the corpus (the LCI/LCA document) so a reader can verify the
-          algorithm in the browser. The Portuguese preset queries return the right passage at
-          rank 1; the English query "tax exemption LCI" demonstrates the cross-language failure
-          mode that motivates the hybrid level-up.
+          Below is BM25 running live over a 9-passage subset of the corpus (the LCI/LCA
+          document). Try the Portuguese preset queries to see the right passage returned at
+          rank 1, or type your own and watch how the normalized query, tokens, and scores
+          update.
         </p>
 
         <input
@@ -172,9 +175,10 @@ export default function RetrievalPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-4">
           Tokenization uses <code className="font-mono text-[13px] text-ink-1">bm25s.tokenize</code>{' '}
           defaults: regex split on <code className="font-mono text-[13px] text-ink-1">\W+</code>,
-          no stopwords, no stemmer. Snippets returned by{' '}
-          <code className="font-mono text-[13px] text-ink-1">_make_snippet(text, max_chars=200)</code>{' '}
-          cut at the last word boundary and append <code className="font-mono text-[13px] text-ink-1">…</code>.
+          no stopwords, no stemmer. Snippets (in{' '}
+          <code className="font-mono text-[13px] text-ink-1">app/retrieval/snippet.py::make_snippet</code>)
+          cut at the last word boundary and append <code className="font-mono text-[13px] text-ink-1">…</code>{' '}
+          — strategy-agnostic so a future hybrid retriever reuses it.
         </p>
       </Section>
 
@@ -196,35 +200,242 @@ export default function RetrievalPage() {
         />
       </Section>
 
-      <Section eyebrow="Failure modes">
+      <Section eyebrow="How this scales">
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
+          BM25 doesn't fail because of corpus size — it fails because query vocabulary stops
+          matching document vocabulary. Compute and memory are not the bottleneck until very
+          large N. The right level-up depends on{' '}
+          <em>which failure your eval is reporting</em>, not on a doc count. Symptom → fix,
+          ordered by what typically breaks first and what's cheapest to add.
+        </p>
         <SpecList>
-          <SpecItem term="Empty index">
-            <code className="font-mono text-[13px] text-ink-1">search</code> returns{' '}
-            <code className="font-mono text-[13px] text-ink-1">[]</code>. The retriever is{' '}
-            <code className="font-mono text-[13px] text-ink-1">None</code> until <code className="font-mono text-[13px] text-ink-1">build</code> is called.
+          <SpecItem term="Right passage ranked too low (top-20 but not top-5)">
+            The most common first failure. BM25 found the relevant passage but other passages
+            with similar token frequencies outranked it.{' '}
+            <strong className="text-ink-1">Fix: cross-encoder reranker</strong> over BM25's
+            top-50. Wraps <code className="font-mono text-[13px] text-ink-1">.search()</code>{' '}
+            results; the <code className="font-mono text-[13px] text-ink-1">Retriever</code>{' '}
+            Protocol and <code className="font-mono text-[13px] text-ink-1">PassageHit</code>{' '}
+            schema don't change. ~50–200 ms in CPU. Reversible.
           </SpecItem>
-          <SpecItem term="Empty / whitespace query">The tool wrapper raises <code className="font-mono text-[13px] text-ink-1">EmptyQueryError</code> before it reaches the index.</SpecItem>
-          <SpecItem term="No matching passages">Returns an empty list. Score-zero passages are filtered.</SpecItem>
-          <SpecItem term="Cross-language query">Diacritic-folded BM25 cannot bridge "tax" → "tributação". Recall degrades. This is the level-up trigger.</SpecItem>
+          <SpecItem term="Score-driven false positives in top-5">
+            Passages that incidentally repeat the query's terms in irrelevant context. Same
+            fix as above — the reranker catches both.
+          </SpecItem>
+          <SpecItem term="Right passage not in top-50 (recall fail)">
+            Query uses different words than the doc.{' '}
+            <strong className="text-ink-1">Fix: hybrid retrieval</strong> — BM25 + dense
+            embeddings + Reciprocal Rank Fusion. A new file under{' '}
+            <code className="font-mono text-[13px] text-ink-1">app/retrieval/</code>, registered
+            in <code className="font-mono text-[13px] text-ink-1">registry.py</code>. Call
+            sites don't change.
+          </SpecItem>
+          <SpecItem term="Cross-language queries fail">
+            EN query, PT corpus (or any cross-lingual pair). Diacritic-folding doesn't bridge
+            languages. <strong className="text-ink-1">Fix: hybrid with multilingual dense</strong>{' '}
+            (e.g. <code className="font-mono text-[13px] text-ink-1">multilingual-e5</code> or{' '}
+            <code className="font-mono text-[13px] text-ink-1">bge-m3</code>). Synonyms don't
+            help here.
+          </SpecItem>
+          <SpecItem term="Latency or memory becomes the bottleneck">
+            Only at hundreds of thousands of passages or more. BM25 itself stays fast longer
+            than people expect.{' '}
+            <strong className="text-ink-1">Fix: persistent search engine</strong> (Tantivy,
+            Lucene) for the lexical side;{' '}
+            <strong className="text-ink-1">ANN</strong> (HNSW / IVF, in pgvector or Qdrant) for
+            the dense side. Two-stage retrieval — cheap recall, expensive rerank — becomes
+            mandatory at this point.
+          </SpecItem>
         </SpecList>
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          The prerequisite for all of the above is{' '}
+          <strong className="text-ink-1">an eval set</strong> (~30–100 hand-curated queries
+          with expected passage IDs, scored by{' '}
+          <code className="font-mono text-[13px] text-ink-1">recall@K</code> and MRR). Today:{' '}
+          <code className="font-mono text-[13px] text-ink-1">tests/eval/</code> with 29 cases.
+          Without it every "level-up" is guesswork; with it, the highest-leverage fix is
+          obvious from the failure breakdown.
+        </p>
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          Size is a weak proxy: a homogeneous 5k-doc corpus with stable jargon often outlasts a
+          heterogeneous 50-doc one. Standard "hybrid at 1k docs" rules of thumb are empirical
+          averages, not laws — let the eval decide.
+        </p>
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          The finance-domain twist: precise vocabulary (codes, indices, tax tables) favors
+          lexical matching over semantic embeddings, which flatten exactly the distinctions that
+          grounded citations need to preserve. These thresholds are conservative for this
+          domain — BM25 likely stays competitive further than for a generic prose corpus.
+        </p>
       </Section>
 
-      <Section eyebrow="Trade-offs and alternatives considered">
+      <Section eyebrow="Eval results">
+        <div className="border-l-4 border-amber-400 bg-amber-400/10 px-6 py-5 my-2 rounded-r">
+          <div className="text-amber-300 text-sm font-semibold uppercase tracking-wider mb-2">
+            ⚠ Update pending — partial evalset
+          </div>
+          <p className="text-amber-100/90 text-[14px] leading-relaxed">
+            Numbers below come from <strong>three partial runs</strong> (limit3 covering q01 /
+            q13 / q17, the cross_lang bucket q21–q23, and the q17 verification re-run after the
+            prompt fix). The <strong>full 30-question golden set has not been re-run
+            end-to-end</strong> under the current prompt. When it is —{' '}
+            <code className="font-mono text-[13px] text-amber-200">uv run python -m evals.run</code>{' '}
+            — replace the report cards and per-bucket commentary below with the aggregate
+            from the new MD report under{' '}
+            <code className="font-mono text-[13px] text-amber-200">evals/results/current/</code>.
+          </p>
+        </div>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-8 mb-6">
+          Hand-authored golden set under{' '}
+          <code className="font-mono text-[13px] text-ink-1">evals/golden_set.yaml</code> — 30
+          questions across six buckets, mixed PT / EN / ES. Headline metric is{' '}
+          <strong className="text-ink-1">anchor rate</strong>: the share of model-emitted
+          quotes that the resolver pinned to a literal{' '}
+          <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region inside
+          the cited passage. Canonical post-prompt-fix reports live under{' '}
+          <code className="font-mono text-[13px] text-ink-1">evals/results/current/</code>;
+          historical model-comparison sweeps stay one level up at{' '}
+          <code className="font-mono text-[13px] text-ink-1">evals/results/</code>.
+        </p>
+
         <SpecList>
-          <SpecItem term="Hybrid (BM25 + dense + RRF) as v1">Rejected. Two retrieval paths, fusion weights, and an embeddings provider before any eval signal that one path is insufficient.</SpecItem>
-          <SpecItem term="Cross-encoder reranker as v1">Rejected. A second model and an additional ~100 ms per query, justified at hundreds of documents.</SpecItem>
-          <SpecItem term="Evidence-selector model">Rejected. A small LLM picking the best 4–8 of the fused top-30. Correct technique at thousands+ of documents; premature at 30.</SpecItem>
-          <SpecItem term="Persistent on-disk index">Rejected. The cost of rebuilding 400 passages at startup is sub-second; persistence adds invalidation surface for no observable win.</SpecItem>
+          <SpecItem term="factual (12)">
+            Direct lookup with verified expected passage IDs. Scores both anchor rate and
+            citation precision.
+          </SpecItem>
+          <SpecItem term="rule_a (4)">
+            Topic is mentioned only tangentially in the corpus. Agent should cite the mention
+            and set{' '}
+            <code className="font-mono text-[13px] text-ink-1">general_knowledge_used: true</code>{' '}
+            for the rest.
+          </SpecItem>
+          <SpecItem term="rule_b (4)">
+            Two convictions disagree. Agent must cite both sides and state the conflict
+            explicitly.
+          </SpecItem>
+          <SpecItem term="cross_lang (3)">
+            Spanish queries against a corpus that is PT and EN only — BM25 alone can't bridge.
+          </SpecItem>
+          <SpecItem term="out_of_scope (4)">
+            Off-corpus topics. Agent must refuse, not fall back to training data.
+          </SpecItem>
+          <SpecItem term="clarify (3)">
+            Genuinely ambiguous. Agent should ask, not guess.
+          </SpecItem>
         </SpecList>
-      </Section>
 
-      <Section eyebrow="Future work">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
-          Hybrid retrieval lands at ROADMAP B6 inside{' '}
-          <code className="font-mono text-[13px] text-ink-1">app/services/search.py</code>. The
-          repository contract and the <code className="font-mono text-[13px] text-ink-1">PassageHit</code>{' '}
-          schema do not change. The promotion gate is a measurable cross-language eval failure
-          plus an explicit decision; not auto-triggered.
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-12 mb-4">
+          <strong className="text-ink-1">Specific reports.</strong> Three MD files captured under{' '}
+          <code className="font-mono text-[13px] text-ink-1">evals/results/current/</code> — each
+          card cites the file the numbers came from, so the reader can open it directly.
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-border border border-border mb-6">
+          <div className="bg-bg p-5">
+            <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">limit3 baseline</div>
+            <div className="text-ink-1 font-mono text-[22px] mb-1">1.000</div>
+            <div className="text-ink-3 text-[12px] mb-3">
+              anchor · 7/7 across q01 / q13 / q17 · $0.054 total · 2.33 tool calls mean
+            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">
+              evals/results/current/<br />2026-05-11_14-39-49_…_limit3.md
+            </div>
+          </div>
+          <div className="bg-bg p-5">
+            <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">cross_lang bucket</div>
+            <div className="text-ink-1 font-mono text-[22px] mb-1">1.000</div>
+            <div className="text-ink-3 text-[12px] mb-3">
+              anchor · 11/11 across q21 / q22 / q23 · $0.124 total · 2.67 tool calls mean
+            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">
+              evals/results/current/<br />2026-05-11_14-11-49_…_bucket-cross_lang.md
+            </div>
+          </div>
+          <div className="bg-bg p-5">
+            <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">q17 verification</div>
+            <div className="text-ink-1 font-mono text-[22px] mb-1">0.800 → 1.000</div>
+            <div className="text-ink-3 text-[12px] mb-3">
+              anchor · 4/5 pre-fix, 5/5 after prompt change · isolates the contiguous-quote fix
+            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">
+              evals/results/current/<br />2026-05-11_14-16-48_…_id-q17.md
+            </div>
+          </div>
+        </div>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-2">
+          The q17 verification matters because the original pre-fix run on that question had
+          one of five citations fail to anchor. Inspection of the trace showed a model-output
+          issue, not a resolver bug: the quote concatenated two non-contiguous regions of a
+          passage (skipping an inline "exemplo ilustrativo" block between them), so the
+          literal-substring resolver correctly refused to anchor. Strengthening the citation
+          contract in the system prompt to require a single contiguous run brought q17 to
+          1.000 on the re-run. Citation precision on cross_lang is 0.400, lower than anchor
+          rate — the agent cites valid grounded passages but not always the ones the golden
+          set tagged as expected. On a 30-doc corpus where several passages can legitimately
+          answer the same question, that's noise, not a regression.
+        </p>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-10">
+          <strong className="text-ink-1">Why the cross_lang anchor rate is the more
+          interesting number.</strong> The card above says 11/11 anchored — but that hides the
+          comparison. <em>By design</em>, BM25 should fail this bucket completely: the corpus
+          is PT/EN, the questions are in ES, and the retriever has no cross-language bridge.
+          The next block shows what BM25 would actually have to match against, and what the
+          agent ended up asking it for.
+        </p>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-4">
+          <strong className="text-ink-1">What BM25 alone cannot bridge.</strong>{' '}
+          Diacritic-folding turns PT{' '}
+          <code className="font-mono text-[13px] text-ink-1">tributação</code> into{' '}
+          <code className="font-mono text-[13px] text-ink-1">tributacao</code> — useful within
+          PT/EN — but it does not bridge ES{' '}
+          <code className="font-mono text-[13px] text-ink-1">impuestos</code> ↔ PT{' '}
+          <code className="font-mono text-[13px] text-ink-1">impostos</code>, or ES{' '}
+          <code className="font-mono text-[13px] text-ink-1">dolarización</code> ↔ EN{' '}
+          <code className="font-mono text-[13px] text-ink-1">dollarization</code>. A pure
+          lexical retriever fed the ES question verbatim would return zero hits.
+        </p>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-4 mb-4">
+          <strong className="text-ink-1">What the agent actually asked it for.</strong> The
+          system prompt names the corpus languages and the model reformulates the query before
+          searching. The five real{' '}
+          <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls
+          below come straight from the cross_lang run trace
+          (<code className="font-mono text-[13px] text-ink-1">evals/results/current/2026-05-11_14-11-49_…_bucket-cross_lang_traces.jsonl</code>).
+          The ES question is shown above each PT/EN query the agent actually issued:
+        </p>
+        <CodeBlock
+          lang="text"
+          code={`# q21 — ES: "¿Cómo se calculan los impuestos sobre los CDB en Brasil?"
+search_convictions(query="CDB impostos imposto de renda IOF Brasil tabela regressiva", k=5)
+
+# q22 — ES: "¿Qué son los fondos inmobiliarios brasileños (FII) y cómo se gravan?"
+search_convictions(query="fundos imobiliários FII tributação dividendos imposto renda cotas", k=5)
+search_convictions(query="FII o que são fundos investimento imobiliário cotas imóveis", k=5)
+
+# q23 — ES: "Estrategias de dolarización para inversores brasileños"
+search_convictions(query="dolarização investidores brasileiros dólar estratégias", k=5)
+search_convictions(query="investimento exterior BDR ETF dólar S&P 500 B3", k=5)`}
+        />
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          All three Spanish questions anchored every citation. q23 — ES against an EN doc, the
+          one tagged in the golden set as "toughest BM25 case" — cited{' '}
+          <code className="font-mono text-[13px] text-ink-1">currency_exposure_strategies#dollarization-strategies-available-in-brazil</code>{' '}
+          via a PT search query. The retriever didn't change; the agent did the translation
+          before calling it.
+        </p>
+
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
+          The honest caveat: this is emergent behavior from a frontier model plus the prompt
+          contract, not a guarantee. The engineering fix listed above —{' '}
+          <em>hybrid retrieval with a multilingual dense index</em> — is still the correct
+          level-up for a stack that must guarantee cross-language recall at the retrieval
+          layer, independent of which model is wired in.
         </p>
       </Section>
     </article>

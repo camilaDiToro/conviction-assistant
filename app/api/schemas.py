@@ -26,12 +26,37 @@ class ChatHistoryTurn(BaseModel):
     content: str
 
 
+ReasoningEffortLiteral = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+
+
+class ChatOverrides(BaseModel):
+    """Optional per-request overrides for agent loop tuning.
+
+    Every field is optional. ``None`` means "use the server default"
+    (``settings.X``). Validation:
+
+    - ``model`` is checked against ``settings.allowed_models`` in the
+      router (not here, since the schema doesn't see settings).
+    - The numeric bounds match the limits surfaced by ``GET /api/config``,
+      so the frontend slider ranges are authoritative.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    model: str | None = None
+    reasoning_effort: ReasoningEffortLiteral | None = None
+    rewrite_reasoning_effort: ReasoningEffortLiteral | None = None
+    agent_max_tool_calls: int | None = Field(default=None, ge=1, le=10)
+    agent_max_output_tokens: int | None = Field(default=None, ge=256, le=16384)
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1)
     conversation_id: str | None = None
     history: list[ChatHistoryTurn] = Field(default_factory=list)
+    overrides: ChatOverrides | None = None
 
 
 # ---- Response — shared blocks ----------------------------------------
@@ -249,6 +274,7 @@ __all__ = [
     "ChatCitation",
     "ChatClarifyResponse",
     "ChatHistoryTurn",
+    "ChatOverrides",
     "ChatRequest",
     "ChatResponse",
     "ConversationCostQuestion",
