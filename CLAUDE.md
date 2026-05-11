@@ -70,7 +70,7 @@ When two or more convictions contradict each other on a topic:
 ## In scope for v1
 
 - Markdown ingestion → SQLite passage store with stable IDs. **Triggered via `POST /admin/ingest`**, not a CLI.
-- `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter first** (`gpt-5`; `text-embedding-3-large` ships in the adapter even though current retrieval doesn't use embeddings — keeps the adapter complete), Anthropic adapter second (portability proof)
+- `LLMProvider` and `EmbeddingProvider` abstractions; **OpenAI adapter** (`gpt-5.5` by default; `text-embedding-3-large` ships in the adapter even though current retrieval doesn't use embeddings — keeps the adapter complete). The Anthropic adapter is designed but not implemented in v1 — `app/providers/factory.py` raises `ProviderError("anthropic adapter is not yet implemented")`; portability is proved by the protocol shape in `app/providers/base.py`, not by a second live adapter.
 - Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output
 - Deterministic offset resolver: turns each cited quote into `(start, end)` offsets in the passage, drops the literal text; non-anchoring citations survive without a highlight

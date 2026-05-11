@@ -29,15 +29,6 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Plumbing',
-    caret: true,
-    items: [
-      { to: '/design/plumbing/providers', label: 'Provider abstraction' },
-      { to: '/design/plumbing/usage', label: 'Token usage' },
-      { to: '/design/plumbing/layering', label: 'Layering rules' },
-    ],
-  },
-  {
     label: 'Framing',
     caret: true,
     items: [

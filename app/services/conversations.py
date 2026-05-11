@@ -21,9 +21,7 @@ from app.api.schemas import (
 from app.repositories import audit as audit_repo
 
 
-def build_trace(
-    conversation_id: str, rows: list[audit_repo.AuditRow]
-) -> ConversationTraceResponse:
+def build_trace(conversation_id: str, rows: list[audit_repo.AuditRow]) -> ConversationTraceResponse:
     by_question: dict[str, list[audit_repo.AuditRow]] = defaultdict(list)
     for row in rows:
         by_question[row["question_id"]].append(row)

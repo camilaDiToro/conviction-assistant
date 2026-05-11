@@ -175,13 +175,13 @@ All four tools are defined once with JSON schemas and reused across every provid
 
 ### Tools layer (rules a reviewer should be able to grep for)
 
-The four tools live under `app/tools/`. The rules below are non-negotiable; they survive every later step.
+The four tools live under `app/agent/tools/`. The rules below are non-negotiable; they survive every later step.
 
-1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector) changes only `app/repositories/` and migrations.
-2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/tools/context.py`). It carries `session: AsyncSession` plus the retriever. The agent loop's call shape `execute_tool(name, args, ctx)` is stable — adding a new dependency never changes tool signatures.
+1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/agent/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector) changes only `app/repositories/` and migrations.
+2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/agent/tools/context.py`). It carries `session: AsyncSession` plus the retriever. The agent loop's call shape `execute_tool(name, args, ctx)` is stable — adding a new dependency never changes tool signatures.
 3. **`ToolContext` is the DI seam, not a SQLite holder.** If a future repo backend exposes something other than an `AsyncSession`, `ToolContext` carries that instead. The tools see only what they need.
-4. **Tool input schemas are hand-written JSON-schema dicts** in `app/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
-5. **Single tool registry.** `app/tools/__init__.py` exports `TOOLS: dict[str, ToolEntry]` where `ToolEntry = (definition: ToolDefinition, func: Callable)`. The agent loop reads `TOOLS` once to advertise definitions to the LLM and to dispatch tool calls by name. `TOOLS[name].definition.name == name` is enforced by test.
+4. **Tool input schemas are hand-written JSON-schema dicts** in `app/agent/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
+5. **Single tool registry.** `app/agent/tools/__init__.py` exports `TOOLS: dict[str, ToolEntry]` where `ToolEntry = (definition: ToolDefinition, func: Callable)`. The agent loop reads `TOOLS` once to advertise definitions to the LLM and to dispatch tool calls by name. `TOOLS[name].definition.name == name` is enforced by test.
 6. **Tools raise typed `DomainError` subclasses on bad inputs** (`PassageNotFoundError`, `DocumentNotFoundError`). The agent loop catches these and feeds the error back to the LLM as a tool-error message; it never returns `None` from a tool that promised a value.
 
 ### Loop bounds (operational discipline)
@@ -398,7 +398,7 @@ Each level-up is described in the step where it would land. Promotion from "simp
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
 7. **Disclaimer + audit log + token usage** wired into the orchestrator. SQLite is the storage; token usage is visible per LLM step and summarized per question.
 8. **Eval suite.** See `TESTING.md`. Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
-9. **Anthropic adapter (second provider)** — proves portability; demonstrates the architecture is provider-agnostic. May add Citations API as a per-adapter optimization.
+9. **Anthropic adapter (documented level-up, not built in v1)** — the protocol shape in `app/providers/base.py` proves portability today; `app/providers/factory.py` raises `ProviderError("anthropic adapter is not yet implemented")` when the provider is selected. The adapter slot is the demonstration; a live second provider is a follow-up. Citations API would slot in here as a per-adapter optimization.
 10. **Optional promotion to hybrid retrieval** if eval shows BM25 misses cross-cutting / cross-language questions. Beyond hybrid: cross-encoder reranker, then Anthropic-style Contextual Retrieval. Each promotion is a conversation, not auto-triggered.
 11. **Bonus (out of scope for v1): upload pipeline** — see `ASSUMPTIONS.md` § "Source formats" for the parser-interface design.
 
