@@ -1,12 +1,4 @@
-"""Alembic environment for the Decade conviction assistant.
-
-We don't use SQLAlchemy ORM models — migrations are imperative
-(op.create_table / op.execute on raw SQL). target_metadata stays None;
-autogenerate is therefore not supported, which is intentional.
-
-The `alembic/` directory is the schema-of-record for the store/ layer.
-SQLite-specific render_as_batch is enabled so future ALTER-style migrations
-work despite SQLite's limitations.
+"""Alembic bootstrap.
 """
 
 from sqlalchemy import engine_from_config, pool

@@ -1,0 +1,310 @@
+# Review progress
+
+Tracking which modules + tests have been reviewed file-by-file.
+
+Legend: `[x]` = reviewed, `[ ]` = pending.
+
+```
+decade-ai-challenge/
+├── [x] .dockerignore
+├── [x] .env.example
+├── [x] .github/workflows/sync-to-hf.yml
+├── [x] .gitignore
+├── [x] AI_CHALLENGE.md
+├── [ ] CLAUDE.md
+├── [x] Dockerfile
+├── [ ] README.md
+├── [x] alembic.ini
+├── [x] pyproject.toml
+├── [x] uv.lock
+│
+├── alembic/                             [x] reviewed (consolidated to 0001)
+│   ├── [x] env.py                       — simplified to minimal bootstrap, target_metadata = None
+│   ├── [x] script.py.mako
+│   └── versions/
+│       └── [x] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError
+│
+├── app/
+│   ├── [ ] __init__.py
+│   ├── [ ] errors.py
+│   ├── [ ] main.py
+│   │
+│   ├── agent/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] audit.py
+│   │   ├── [ ] dedupe.py
+│   │   ├── [ ] loop.py
+│   │   ├── [ ] overrides.py
+│   │   ├── [ ] rewrite.py
+│   │   ├── [ ] schemas.py
+│   │   ├── [ ] tool_dispatch.py
+│   │   ├── prompts/
+│   │   │   ├── [ ] rewrite.md
+│   │   │   └── [ ] system.md
+│   │   ├── resolver/
+│   │   │   ├── [ ] __init__.py
+│   │   │   ├── [ ] base.py
+│   │   │   └── [ ] substring.py
+│   │   └── tools/
+│   │       ├── [ ] __init__.py
+│   │       ├── [ ] context.py
+│   │       ├── [ ] list_documents.py
+│   │       ├── [ ] read_document_outline.py
+│   │       ├── [ ] read_passage.py
+│   │       ├── [ ] registry.py
+│   │       └── [ ] search_convictions.py
+│   │
+│   ├── api/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] admin.py
+│   │   ├── [ ] auth.py
+│   │   ├── [ ] chat.py
+│   │   ├── [ ] chat_history.py
+│   │   ├── [ ] config.py
+│   │   ├── [ ] conversations.py
+│   │   ├── [ ] deps.py
+│   │   ├── [ ] health.py
+│   │   └── [ ] schemas.py
+│   │
+│   ├── config/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] db.py
+│   │   └── [ ] settings.py
+│   │
+│   ├── models/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] audit.py
+│   │   ├── [ ] base.py
+│   │   └── [ ] passage.py
+│   │
+│   ├── providers/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] _model_prices.json
+│   │   ├── [ ] base.py
+│   │   ├── [ ] factory.py
+│   │   ├── [ ] openai.py
+│   │   ├── [ ] stub.py
+│   │   └── [ ] text_repair.py
+│   │
+│   ├── repositories/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] audit.py
+│   │   ├── [ ] introspection.py
+│   │   └── [ ] passages.py
+│   │
+│   ├── retrieval/                       [x] reviewed
+│   │   ├── [x] __init__.py
+│   │   ├── [x] base.py
+│   │   ├── [x] bm25.py
+│   │   ├── [x] registry.py
+│   │   └── [x] snippet.py
+│   │
+│   ├── schemas/
+│   │   ├── [ ] __init__.py
+│   │   ├── [ ] ingest.py
+│   │   └── [ ] passage.py
+│   │
+│   └── services/
+│       ├── [ ] __init__.py
+│       ├── [ ] audit.py
+│       ├── [ ] cost.py
+│       ├── [ ] disclaimer.py
+│       ├── [ ] ingest.py
+│       ├── [ ] wrap_response.py
+│       └── parser/                      [x] reviewed
+│           ├── [x] __init__.py
+│           ├── [x] markdown.py
+│           ├── [x] registry.py
+│           └── [x] text.py
+│
+├── convictions/                         (30 markdown corpus files — not code)
+│
+├── docs/
+│   ├── [ ] ARCHITECTURES.md
+│   ├── [ ] ASSUMPTIONS.md
+│   ├── [ ] DEPLOY.md
+│   ├── [ ] DEPLOYMENT.md
+│   ├── [ ] MODEL_CONFIG.md
+│   ├── [ ] RETRIEVAL_SCALE.md
+│   ├── [ ] ROADMAP.md
+│   ├── [ ] SCALING.md
+│   ├── [ ] TESTING.md
+│   ├── [ ] b5-decisions.md
+│   ├── [ ] b6-decisions.md
+│   ├── [ ] b7-decisions.md
+│   ├── [ ] b8-decisions.md
+│   └── reports/
+│       ├── [ ] b6-eval-methodology.md
+│       ├── [ ] b6-eval-results.md
+│       └── [ ] b6-improvement-proposals.md
+│
+├── evals/
+│   ├── [ ] __init__.py
+│   ├── [ ] README.md
+│   ├── [ ] RAGAS_USAGE.md
+│   ├── [ ] SUMMARY.md
+│   ├── [ ] compare.py
+│   ├── [ ] dataset.py
+│   ├── [ ] golden_set.yaml
+│   ├── [ ] metrics.py
+│   ├── [ ] report.py
+│   └── [ ] run.py
+│
+├── frontend/
+│   ├── [ ] .env.example
+│   ├── [ ] .gitignore
+│   ├── [ ] index.html
+│   ├── [ ] package.json
+│   ├── [ ] package-lock.json
+│   ├── [ ] postcss.config.js
+│   ├── [ ] tailwind.config.ts
+│   ├── [ ] tsconfig.app.json
+│   ├── [ ] tsconfig.json
+│   ├── [ ] tsconfig.node.json
+│   ├── [ ] vite.config.ts
+│   ├── public/
+│   │   └── [ ] decade-mark.svg
+│   └── src/
+│       ├── [ ] App.tsx
+│       ├── [ ] main.tsx
+│       ├── [ ] index.css
+│       ├── [ ] vite-env.d.ts
+│       ├── components/
+│       │   ├── [ ] Callout.tsx
+│       │   ├── [ ] CodeBlock.tsx
+│       │   ├── [ ] GridMark.tsx
+│       │   ├── [ ] PassageCard.tsx
+│       │   ├── [ ] Section.tsx
+│       │   ├── [ ] Sidebar.tsx
+│       │   └── [ ] Spec.tsx
+│       ├── data/
+│       │   ├── [ ] decisions.ts
+│       │   ├── [ ] exampleConviction.ts
+│       │   ├── [ ] roadmap.ts
+│       │   └── [ ] toolSchemas.ts
+│       ├── features/
+│       │   ├── chat/
+│       │   │   ├── [ ] AccessGate.tsx
+│       │   │   ├── [ ] ChatPage.tsx
+│       │   │   ├── [ ] CitationModal.tsx
+│       │   │   ├── [ ] DebugDrawer.tsx
+│       │   │   ├── [ ] MessageList.tsx
+│       │   │   ├── [ ] SettingsDrawer.tsx
+│       │   │   └── [ ] Sidebar.tsx
+│       │   ├── design/
+│       │   │   ├── [ ] AgentLoopPage.tsx
+│       │   │   ├── [ ] CorpusPage.tsx
+│       │   │   ├── [ ] CostPage.tsx
+│       │   │   ├── [ ] DesignLayout.tsx
+│       │   │   ├── [ ] LayeringPage.tsx
+│       │   │   ├── [ ] OverviewPage.tsx
+│       │   │   ├── [ ] ProvidersPage.tsx
+│       │   │   ├── [ ] ResolverPage.tsx
+│       │   │   ├── [ ] RetrievalPage.tsx
+│       │   │   ├── [ ] TiersPage.tsx
+│       │   │   └── [ ] ToolsPage.tsx
+│       │   └── home/
+│       │       └── [ ] LandingPage.tsx
+│       └── lib/
+│           ├── [ ] access-gate.ts
+│           ├── [ ] api.ts
+│           ├── [ ] bm25.ts
+│           ├── [ ] chat-prefs.ts
+│           ├── [ ] resolver.ts
+│           └── [ ] types.ts
+│
+├── scripts/
+│   └── [ ] refresh_prices.py
+│
+└── tests/
+    ├── [ ] __init__.py
+    ├── [ ] conftest.py
+    │
+    ├── agent/
+    │   ├── [ ] __init__.py
+    │   ├── [ ] conftest.py
+    │   ├── [ ] test_dedupe.py
+    │   ├── [ ] test_loop_with_resolver.py
+    │   ├── [ ] test_loop_with_stub.py
+    │   ├── [ ] test_rewrite.py
+    │   ├── resolver/
+    │   │   ├── [ ] __init__.py
+    │   │   └── [ ] test_substring.py
+    │   └── tools/
+    │       ├── [ ] __init__.py
+    │       ├── [ ] test_search_convictions.py
+    │       └── [ ] test_simple_tools.py
+    │
+    ├── api/
+    │   ├── [ ] __init__.py
+    │   ├── [ ] test_admin.py
+    │   ├── [ ] test_chat.py
+    │   ├── [ ] test_chat_history.py
+    │   ├── [ ] test_chat_overrides.py
+    │   ├── [ ] test_config.py
+    │   └── [ ] test_conversations.py
+    │
+    ├── eval/
+    │   ├── [ ] __init__.py
+    │   ├── [ ] test_dataset.py
+    │   ├── [ ] test_eval_suite.py
+    │   └── [ ] test_metrics.py
+    │
+    ├── fixtures/
+    │   ├── [ ] retrieval_golden.yaml
+    │   ├── [ ] stub_responses_example.yaml
+    │   └── agent_scenarios/
+    │       ├── [ ] basic_search.yaml
+    │       ├── [ ] clarifying.yaml
+    │       ├── [ ] multi_turn_with_rewrite.yaml
+    │       ├── [ ] out_of_scope_no_search.yaml
+    │       ├── [ ] over_budget.yaml
+    │       ├── [ ] pre_search_answer.yaml
+    │       ├── [ ] resolver_offset_not_found.yaml
+    │       ├── [ ] resolver_pass.yaml
+    │       ├── [ ] rewrite_pt.yaml
+    │       └── [ ] tool_error_feedback.yaml
+    │
+    ├── providers/
+    │   ├── [ ] __init__.py
+    │   ├── [ ] test_factory.py
+    │   ├── [ ] test_openai_adapter.py
+    │   └── [ ] test_stub.py
+    │
+    ├── repositories/
+    │   ├── [ ] __init__.py
+    │   ├── [ ] test_audit.py
+    │   └── [ ] test_repo.py
+    │
+    ├── retrieval/                       [x] reviewed (simplified)
+    │   ├── [x] __init__.py
+    │   ├── [x] test_bm25.py             — parametrized _normalize, dropped k-cap test
+    │   ├── [x] test_protocol_conformance.py — dropped weak no-match test
+    │   └── [x] test_snippet.py
+    │
+    └── services/
+        ├── [ ] test_audit.py
+        ├── [ ] test_cost.py
+        ├── [ ] test_ingest.py
+        ├── [ ] test_wrap_response.py
+        └── parser/                      [x] reviewed
+            ├── [x] __init__.py
+            ├── [x] test_corpus_snapshot.py
+            ├── [x] test_markdown.py
+            └── [x] test_registry.py
+```
+
+## Notes on simplifications applied
+
+- **`tests/retrieval/test_bm25.py`**: merged `test_normalize_strips_diacritics_for_pt` + `..._for_es` into one `@pytest.mark.parametrize`'d test (3 cases). Dropped `test_index_search_k_capped_at_corpus_size` — exercised `bm25s` library behavior, not project code.
+- **`tests/retrieval/test_protocol_conformance.py`**: dropped `test_no_match_query_returns_empty` — only asserted `isinstance(hits, list)`, no real signal.
+
+## Suggested review order
+
+1. `app/agent/resolver/` — deterministic offset resolver (architecture's grounding guarantee)
+2. `app/agent/tools/` — read-only tool surface the agent calls
+3. `app/agent/` core (`loop.py`, `rewrite.py`, `tool_dispatch.py`, `dedupe.py`)
+4. `app/providers/` — LLM/Embedding abstraction + adapters
+5. `app/api/` + `app/services/` — HTTP boundary and orchestration
+6. `app/repositories/` + `app/models/` + `alembic/` — persistence layer
+7. `frontend/src/`
