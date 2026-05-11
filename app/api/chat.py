@@ -4,8 +4,6 @@ Thin handler: token-gated, receives FastAPI dependencies, delegates the
 chat turn to :mod:`app.services.chat`, and returns the wire response.
 """
 
-from __future__ import annotations
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
