@@ -179,27 +179,6 @@ if tool_call_count + len(response.tool_calls) > max_tool_calls:
         />
       </Section>
 
-      <Section eyebrow="Failure modes">
-        <SpecList>
-          <SpecItem term="Schema-violating output"><code className="font-mono text-[13px] text-ink-1">response_format=strict</code> prevents at the provider; if it leaks through (e.g. provider drift), validation against the agent output Pydantic model raises <code className="font-mono text-[13px] text-ink-1">AgentError</code>.</SpecItem>
-          <SpecItem term="Tool call to a missing passage_id">The tool raises <code className="font-mono text-[13px] text-ink-1">PassageNotFoundError</code>. The orchestrator surfaces it to the agent as a tool-result error so the agent can self-correct within the remaining tool budget.</SpecItem>
-          <SpecItem term="Non-anchoring citation">The resolver did not find the verbatim quote in the cited passage. The citation survives in the wire response with <code className="font-mono text-[13px] text-ink-1">start = end = null</code>; the frontend popup shows the passage without a highlight.</SpecItem>
-          <SpecItem term="Citation to a passage that cannot be loaded">Dropped before reaching the wire — without <code className="font-mono text-[13px] text-ink-1">passage_text</code> there is nothing to show.</SpecItem>
-          <SpecItem term="Upstream rate-limit / 5xx">Bubbled as <code className="font-mono text-[13px] text-ink-1">ProviderError</code>; mapped to 503 at the boundary. No internal retry today.</SpecItem>
-          <SpecItem term="Iteration cap exceeded">If the loop hits <code className="font-mono text-[13px] text-ink-1">agent_max_iterations</code> without producing parsed output, the orchestrator raises <code className="font-mono text-[13px] text-ink-1">AgentError</code> (500 at the boundary). Should be unreachable in practice — the tool-budget rule forces a final answer well before this.</SpecItem>
-        </SpecList>
-      </Section>
-
-      <Section eyebrow="Trade-offs and alternatives considered">
-        <SpecList>
-          <SpecItem term="Pass full conversation history to the agent loop">Rejected. Letting the loop see prior assistant text lets the model self-anchor on its own past answers, which compounds grounding errors across turns; it bloats every turn's token usage; and it pollutes retrieval — embeddings and BM25 both pick up on assistant phrasing rather than the user's actual question. The rewrite stage compresses history into one self-contained question and feeds the loop <code className="font-mono text-[13px] text-ink-1">[system, user(rewritten)]</code> only. Trade-off: one extra LLM call per turn, and rewrite quality determines retrieval quality.</SpecItem>
-          <SpecItem term="Verifier-with-retry loop instead of a deterministic resolver">Rejected. A verifier-with-retry costs extra LLM calls per turn and can still ship paraphrased quotes after a successful "retry" pass. The resolver runs once, deterministically, and drops the literal quote so what reaches the user is always anchored or explicitly un-anchored. Non-anchoring citations are surfaced — not hidden — so the analyst can audit them.</SpecItem>
-          <SpecItem term="Prompt-only enforcement of bounds">Rejected. A model can reinterpret prompt instructions; bounds that matter are counted in code.</SpecItem>
-          <SpecItem term="Higher reasoning_effort">Rejected. The deterministic resolver catches the failures higher reasoning would have caught (misquotes, hallucinated passage IDs); higher effort mainly increases token usage on the current eval set.</SpecItem>
-          <SpecItem term="Explicit 'I don't know' state">Rejected. Covered by the <code className="font-mono text-[13px] text-ink-1">out_of_scope</code> flag on <code className="font-mono text-[13px] text-ink-1">AnswerOutput</code>; not a separate transition.</SpecItem>
-          <SpecItem term="Streaming output">Deferred level-up. The resolver needs the complete citation list before it can ship the answer, so streaming the body adds UX latency only.</SpecItem>
-        </SpecList>
-      </Section>
     </article>
   )
 }
@@ -207,57 +186,66 @@ if tool_call_count + len(response.tool_calls) > max_tool_calls:
 function StateMachine() {
   return (
     <div className="my-2 border border-border rounded-md bg-surface p-6 md:p-10 overflow-x-auto">
-      <svg viewBox="0 0 900 240" className="w-full max-w-[900px] mx-auto" role="img" aria-label="Agent loop state machine">
+      <svg viewBox="0 0 960 220" className="w-full max-w-[960px] mx-auto" role="img" aria-label="Agent loop state machine">
         <defs>
           <marker id="arrow-loop" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <path d="M0,0 L0,6 L9,3 z" fill="#B5B5B5" />
           </marker>
         </defs>
 
+        {/* Rewrite */}
         <g>
-          <rect x="20" y="100" width="160" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
-          <text x="100" y="128" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Rewrite</text>
-          <text x="100" y="148" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">history → standalone Q</text>
-          <text x="100" y="166" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">+ language detect</text>
+          <rect x="20" y="120" width="150" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
+          <text x="95" y="148" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Rewrite</text>
+          <text x="95" y="168" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">history → standalone Q</text>
+          <text x="95" y="184" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">+ language detect</text>
         </g>
 
-        <line x1="180" y1="140" x2="240" y2="140" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
-        <text x="210" y="130" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">[system, user(rewritten)]</text>
+        {/* Rewrite → Gather */}
+        <line x1="170" y1="160" x2="220" y2="160" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
 
+        {/* Gather */}
         <g>
-          <rect x="240" y="100" width="160" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
-          <text x="320" y="128" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Gather</text>
-          <text x="320" y="148" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">tool calls</text>
-          <text x="320" y="166" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≤ 5 total · ≥ 1 search</text>
+          <rect x="230" y="120" width="150" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
+          <text x="305" y="148" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Gather</text>
+          <text x="305" y="168" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">tool calls</text>
+          <text x="305" y="184" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">≤ 5 tool calls</text>
         </g>
 
-        <path d="M 400 110 Q 450 60 400 100" fill="none" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
-        <text x="456" y="80" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">more tools</text>
+        {/* self-loop above Gather: more tools */}
+        <path d="M 265 120 C 265 70, 345 70, 345 120" fill="none" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
+        <text x="305" y="62" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">more tools</text>
 
-        <line x1="400" y1="140" x2="460" y2="140" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
-        <text x="430" y="130" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">enough evidence</text>
+        {/* Gather → Act */}
+        <line x1="380" y1="160" x2="430" y2="160" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
 
+        {/* Act */}
         <g>
-          <rect x="460" y="100" width="160" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
-          <text x="540" y="128" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Act</text>
-          <text x="540" y="148" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">structured answer</text>
-          <text x="540" y="166" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">strict JSON · citations</text>
+          <rect x="440" y="120" width="150" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" />
+          <text x="515" y="148" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Act</text>
+          <text x="515" y="168" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">structured answer</text>
+          <text x="515" y="184" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">strict JSON · citations</text>
         </g>
 
-        <path d="M 540 100 Q 470 30 400 100" fill="none" stroke="#B5B5B5" strokeDasharray="3 3" markerEnd="url(#arrow-loop)" />
-        <text x="470" y="40" textAnchor="middle" fill="#B5B5B5" fontSize="10" fontFamily="Inter">no search yet · reminder, retry</text>
+        {/* Act → Resolve */}
+        <line x1="590" y1="160" x2="640" y2="160" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
 
-        <line x1="620" y1="140" x2="680" y2="140" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
-
+        {/* Resolve */}
         <g>
-          <rect x="680" y="100" width="160" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="3 2" />
-          <text x="760" y="128" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Resolve</text>
-          <text x="760" y="148" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">quote → (start, end)</text>
-          <text x="760" y="166" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">deterministic · no retry</text>
+          <rect x="650" y="120" width="150" height="80" fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="3 2" />
+          <text x="725" y="148" textAnchor="middle" fill="#FFFFFF" fontSize="14" fontWeight="600" fontFamily="Inter">Resolve</text>
+          <text x="725" y="168" textAnchor="middle" fill="#B5B5B5" fontSize="11" fontFamily="Inter">quote → (start, end)</text>
+          <text x="725" y="184" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="Inter">deterministic · no retry</text>
         </g>
 
-        <line x1="760" y1="180" x2="760" y2="215" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
-        <text x="780" y="208" fill="#FFFFFF" fontSize="11" fontFamily="Inter" fontWeight="600">ship</text>
+        {/* Resolve → ship */}
+        <line x1="800" y1="160" x2="850" y2="160" stroke="#B5B5B5" markerEnd="url(#arrow-loop)" />
+
+        {/* ship terminal */}
+        <g>
+          <rect x="860" y="135" width="80" height="50" fill="none" stroke="#FFFFFF" strokeWidth="1.5" />
+          <text x="900" y="166" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600" fontFamily="Inter">ship</text>
+        </g>
       </svg>
     </div>
   )
