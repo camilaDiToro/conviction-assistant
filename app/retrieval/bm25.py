@@ -49,6 +49,9 @@ class BM25Retriever:
 
     async def build(self, session: AsyncSession) -> None:
         passages = await passages_repo.iter_all(session)
+        # Close the read transaction SQLAlchemy autobegan on iter_all so the
+        # caller gets the session back clean and free to start its own txn.
+        await session.rollback()
         self._reindex(passages)
 
     async def rebuild(self, session: AsyncSession) -> None:

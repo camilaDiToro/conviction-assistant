@@ -96,9 +96,6 @@ async def test_index_rebuild_picks_up_new_passages(session: AsyncSession):
     idx = BM25Retriever()
     await idx.build(session)
     assert idx.search("anything", k=5) == []
-    # build() leaves the session in an autobegun read transaction; close it
-    # before opening an explicit write transaction.
-    await session.commit()
 
     async with session.begin():
         await passages_repo.upsert_many(
