@@ -15,8 +15,6 @@ our four deterministic metrics, writes CSV/JSON/MD to
 Real OpenAI calls use provider quota. Smoke runs with ``--limit`` first.
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import hashlib

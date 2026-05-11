@@ -6,8 +6,6 @@ report can be reproduced without re-reading the CSV. The Markdown is
 embeddable into the README.
 """
 
-from __future__ import annotations
-
 import json
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass

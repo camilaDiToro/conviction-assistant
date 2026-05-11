@@ -22,8 +22,6 @@ hand-build them without coupling to ``AgentResult``):
   ``general_knowledge_section``. For a clarifying question, ``kind="clarifying_question"``.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from ragas.metrics import MetricResult, discrete_metric, numeric_metric

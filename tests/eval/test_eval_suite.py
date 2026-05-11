@@ -12,8 +12,6 @@ Run with:
 Do NOT add this to default CI — it burns tokens.
 """
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 

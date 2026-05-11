@@ -11,8 +11,6 @@ Emits a markdown report:
 - Per-bucket anchor-rate comparison
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
