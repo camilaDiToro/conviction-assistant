@@ -29,13 +29,13 @@ from typing import Literal
 
 import yaml
 
+from app.i18n import SUPPORTED_LANGUAGES, Language
+
 Bucket = Literal["factual", "rule_a", "rule_b", "cross_lang", "out_of_scope", "clarify"]
-Language = Literal["pt", "en", "es"]
 
 _VALID_BUCKETS: frozenset[str] = frozenset(
     {"factual", "rule_a", "rule_b", "cross_lang", "out_of_scope", "clarify"}
 )
-_VALID_LANGUAGES: frozenset[str] = frozenset({"pt", "en", "es"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +124,7 @@ def load_golden_set(path: Path | str) -> GoldenSet:
         if not isinstance(question, str) or not question.strip():
             raise ValueError(f"{path} {gold_id}: missing or empty 'question'")
         language = entry.get("language")
-        if language not in _VALID_LANGUAGES:
+        if language not in SUPPORTED_LANGUAGES:
             raise ValueError(f"{path} {gold_id}: invalid language {language!r}")
         bucket = entry.get("bucket")
         if bucket not in _VALID_BUCKETS:

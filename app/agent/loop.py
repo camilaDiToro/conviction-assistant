@@ -31,7 +31,6 @@ import asyncio
 import json
 from pathlib import Path
 from time import perf_counter
-from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -42,7 +41,6 @@ from app.agent.audit import (
     resolve_output,
 )
 from app.agent.dedupe import dedupe_citations
-from app.agent.overrides import AgentOverrides
 from app.agent.resolver import OffsetResolution
 from app.agent.rewrite import rewrite_question
 from app.agent.schemas import (
@@ -57,9 +55,10 @@ from app.agent.tool_dispatch import execute_tool
 from app.agent.tools import TOOLS, ToolContext
 from app.config import settings
 from app.errors import AgentError
+from app.i18n import Language
 from app.providers import LLMProvider, LLMResponse, Message
 
-_LANGUAGE_NAME: dict[Literal["pt", "es", "en"], str] = {
+_LANGUAGE_NAME: dict[Language, str] = {
     "pt": "Portuguese",
     "es": "Spanish",
     "en": "English",
@@ -76,7 +75,6 @@ async def run(
     *,
     tool_ctx: ToolContext,
     llm: LLMProvider,
-    overrides: AgentOverrides | None = None,
 ) -> AgentResult:
     """Run one full agent turn.
 
@@ -85,24 +83,19 @@ async def run(
     empty history the rewrite is a passthrough on the question text but
     still emits ``detected_language``.
 
-    ``overrides`` is optional per-request tuning. ``None`` (or any field
-    of it left as ``None``) means "use the server defaults" from
-    ``settings``. The model override is *not* in here — the caller is
-    expected to construct an ``LLMProvider`` bound to the override model
-    before calling ``run()``.
+    Runtime tuning comes from server settings. The public ``/chat``
+    contract intentionally has no request-level knobs; one deployed
+    server exposes one configured agent behavior.
     """
-    overrides = overrides or AgentOverrides()
     steps: list[StepRecord] = []
 
-    rewritten, language, rewrite_step = await rewrite_question(
-        user_message, history, llm=llm, overrides=overrides
-    )
+    rewritten, language, rewrite_step = await rewrite_question(user_message, history, llm=llm)
     steps.append(rewrite_step)
     loop_input = rewritten
     rewritten_question = rewritten if history else None
 
     output, loop_steps, tool_count, search_count, resolution = await _agent_loop(
-        loop_input, tool_ctx=tool_ctx, llm=llm, language=language, overrides=overrides
+        loop_input, tool_ctx=tool_ctx, llm=llm, language=language
     )
     steps.extend(loop_steps)
 
@@ -122,17 +115,13 @@ async def _agent_loop(
     *,
     tool_ctx: ToolContext,
     llm: LLMProvider,
-    language: Literal["pt", "es", "en"] = "en",
-    overrides: AgentOverrides | None = None,
+    language: Language = "en",
 ) -> tuple[AgentOutput, list[StepRecord], int, int, OffsetResolution | None]:
-    overrides = overrides or AgentOverrides()
-    # Loop bounds read from overrides → settings → default. Per-request
-    # overrides (``overrides.X``) win; otherwise the ``.env`` defaults
-    # apply.
-    max_tool_calls = overrides.agent_max_tool_calls or settings.agent_max_tool_calls
+    # Loop bounds read from settings. There are no request-level tuning knobs.
+    max_tool_calls = settings.agent_max_tool_calls
     max_iterations = settings.agent_max_iterations
-    reasoning_effort = overrides.reasoning_effort or settings.agent_reasoning_effort
-    max_output_tokens = overrides.agent_max_output_tokens or settings.agent_max_output_tokens
+    reasoning_effort = settings.agent_reasoning_effort
+    max_output_tokens = settings.agent_max_output_tokens
 
     # Deterministic language directive — the system prompt's language
     # mirroring rule is sometimes ignored by the model when the cited

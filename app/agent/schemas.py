@@ -24,6 +24,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.resolver import OffsetResolution
+from app.i18n import Language
 from app.providers import StructuredOutputSchema, TokenUsage
 
 
@@ -92,9 +93,8 @@ class StepRecord(BaseModel):
 
     The agent emits one record per LLM call and one per tool call; the
     HTTP layer wraps these with ``question_id`` / ``conversation_id`` and
-    persists them into ``audit_log``. Cost USD is **not** stored —
-    derived in ``app/services/cost.py`` from ``usage`` at audit-log read
-    time.
+    persists them into ``audit_log``. LLM-call records carry raw token
+    usage so debug views can show exactly what the provider reported.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -128,7 +128,7 @@ class AgentResult(BaseModel):
 
     output: AgentOutput
     rewritten_question: str | None
-    language: Literal["pt", "es", "en"]
+    language: Language
     steps: list[StepRecord]
     tool_call_count: int
     search_count: int

@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.i18n import Language
 from app.providers import TokenUsage
 
 # ---- Request ----------------------------------------------------------
@@ -26,37 +27,12 @@ class ChatHistoryTurn(BaseModel):
     content: str
 
 
-ReasoningEffortLiteral = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
-
-
-class ChatOverrides(BaseModel):
-    """Optional per-request overrides for agent loop tuning.
-
-    Every field is optional. ``None`` means "use the server default"
-    (``settings.X``). Validation:
-
-    - ``model`` is checked against ``settings.allowed_models`` in the
-      router (not here, since the schema doesn't see settings).
-    - The numeric bounds match the limits surfaced by ``GET /api/config``,
-      so the frontend slider ranges are authoritative.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    model: str | None = None
-    reasoning_effort: ReasoningEffortLiteral | None = None
-    rewrite_reasoning_effort: ReasoningEffortLiteral | None = None
-    agent_max_tool_calls: int | None = Field(default=None, ge=1, le=10)
-    agent_max_output_tokens: int | None = Field(default=None, ge=256, le=16384)
-
-
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1)
     conversation_id: str | None = None
     history: list[ChatHistoryTurn] = Field(default_factory=list)
-    overrides: ChatOverrides | None = None
 
 
 # ---- Response — shared blocks ----------------------------------------
@@ -103,15 +79,17 @@ class DebugStep(BaseModel):
     detail: str
     duration_ms: int = 0
     usage: TokenUsage | None = None
-    cost_usd: float | None = None
     result: dict[str, Any] | None = None
 
 
 class UsageSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    question_total_cost_usd: float
-    conversation_total_cost_usd: float
+    llm_call_count: int
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    reasoning_tokens: int
     step_count: int
     duration_ms: int = 0
 
@@ -169,7 +147,7 @@ class ConversationQuestionSummary(BaseModel):
 
     question_id: str
     timestamp: datetime
-    language: Literal["pt", "en", "es"]
+    language: Language
     rewritten_question: str | None
     answer_or_question: dict[str, Any]
     step_count: int
@@ -183,27 +161,6 @@ class ConversationTraceResponse(BaseModel):
     conversation_id: str
     questions: list[ConversationQuestionSummary]
     step_count_total: int
-
-
-class ConversationCostQuestion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    question_id: str
-    llm_call_count: int
-    prompt_tokens: int
-    completion_tokens: int
-    cached_tokens: int
-    reasoning_tokens: int
-    cost_usd: float
-
-
-class ConversationCostResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    conversation_id: str
-    questions: list[ConversationCostQuestion]
-    total_cost_usd: float
-    total_llm_calls: int
 
 
 ## ---- Chat-side history (frontend sidebar) -----------------------------
@@ -235,7 +192,7 @@ class ConversationMessage(BaseModel):
     question_id: str
     timestamp: datetime
     user_question: str
-    language: Literal["pt", "en", "es"]
+    language: Language
     kind: Literal["answer", "clarifying_question"]
     answer: str | None = None
     citations: list[ChatCitation] = Field(default_factory=list)
@@ -274,11 +231,8 @@ __all__ = [
     "ChatCitation",
     "ChatClarifyResponse",
     "ChatHistoryTurn",
-    "ChatOverrides",
     "ChatRequest",
     "ChatResponse",
-    "ConversationCostQuestion",
-    "ConversationCostResponse",
     "ConversationListItem",
     "ConversationListResponse",
     "ConversationMessage",

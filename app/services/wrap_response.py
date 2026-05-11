@@ -8,8 +8,8 @@ the request-level identifiers, it produces:
 2. A summary dict the caller stores as the ``kind='response'`` audit row.
 
 Citation enrichment uses the ``CitationResolution`` entries the agent
-already produced — no extra DB hits at response time. Cost is computed
-per LLM-call step via :func:`app.services.cost.compute_call_cost_usd`.
+already produced — no extra DB hits at response time. Token usage is kept
+as raw provider counts.
 """
 
 import json
@@ -26,10 +26,10 @@ from app.api.schemas import (
     DebugStep,
     UsageSummary,
 )
-from app.providers import ProviderError, TokenUsage
+from app.i18n import Language
+from app.providers import TokenUsage
 from app.repositories import audit as audit_repo
-from app.services.cost import compute_call_cost_usd
-from app.services.disclaimer import Language, disclaimer_for
+from app.services.disclaimer import disclaimer_for
 
 
 def wrap(
@@ -40,20 +40,15 @@ def wrap(
     question_id: str,
     user_question: str,
     retriever_name: str,
-    prior_conversation_cost_usd: float = 0.0,
 ) -> tuple[ChatAnswerResponse | ChatClarifyResponse, dict[str, Any]]:
     """Wrap one agent turn into the wire response + the audit summary.
 
-    ``prior_conversation_cost_usd`` is the sum of LLM-call costs already
-    persisted for ``conversation_id`` before this question. Pass 0.0 for
-    a new conversation. ``user_question`` is the verbatim text the user
-    sent — persisted in the audit summary so the conversation list
-    endpoint can render a title without re-running the agent.
+    ``user_question`` is the verbatim text the user sent — persisted in
+    the audit summary so the conversation list endpoint can render a
+    title without re-running the agent.
     """
     resolution_entries = list(result.resolution.entries) if result.resolution else []
     debug_steps = [_step_to_debug(s, retriever_name) for s in result.steps]
-    question_cost = round(sum(d.cost_usd or 0.0 for d in debug_steps), 8)
-    conversation_cost = round(prior_conversation_cost_usd + question_cost, 8)
 
     debug_steps.append(
         _response_debug_step(
@@ -62,12 +57,7 @@ def wrap(
         )
     )
 
-    usage_summary = UsageSummary(
-        question_total_cost_usd=question_cost,
-        conversation_total_cost_usd=conversation_cost,
-        step_count=len(debug_steps),
-        duration_ms=_question_duration_ms(result.steps),
-    )
+    usage_summary = _usage_summary(result.steps, step_count=len(debug_steps))
     debug = DebugBlock(
         tool_calls=[d for d in debug_steps if d.kind == "tool_call"],
         steps=debug_steps,
@@ -134,15 +124,6 @@ def _resolution_to_chat(entry: CitationResolution) -> ChatCitation | None:
 
 def _step_to_debug(step: StepRecord, retriever_name: str) -> DebugStep:
     name, detail = _name_and_detail(step, retriever_name)
-    cost_usd: float | None = None
-    if step.kind == "llm_call" and step.usage is not None:
-        # Cost is a derived metric — an unpriced model (e.g. `stub-llm`
-        # in CI fixtures, or a brand-new model not yet in the vendored
-        # price table) shouldn't break the response. Surface as `None`.
-        try:
-            cost_usd = compute_call_cost_usd(step.usage)
-        except ProviderError:
-            cost_usd = None
     return DebugStep(
         step_id=step.step_id,
         kind=step.kind,
@@ -150,7 +131,6 @@ def _step_to_debug(step: StepRecord, retriever_name: str) -> DebugStep:
         detail=detail,
         duration_ms=step.duration_ms,
         usage=step.usage,
-        cost_usd=cost_usd,
         result=_step_result_summary(step),
     )
 
@@ -213,7 +193,6 @@ def _response_debug_step(
         detail=detail,
         duration_ms=0,
         usage=None,
-        cost_usd=None,
         result=result,
     )
 
@@ -263,6 +242,19 @@ def _question_duration_ms(steps: list[StepRecord]) -> int:
     return int(delta.total_seconds() * 1000)
 
 
+def _usage_summary(steps: list[StepRecord], *, step_count: int) -> UsageSummary:
+    usages = [s.usage for s in steps if s.kind == "llm_call" and s.usage is not None]
+    return UsageSummary(
+        llm_call_count=len(usages),
+        prompt_tokens=sum(u.prompt_tokens for u in usages),
+        completion_tokens=sum(u.completion_tokens for u in usages),
+        cached_tokens=sum(u.cached_tokens for u in usages),
+        reasoning_tokens=sum(u.reasoning_tokens for u in usages),
+        step_count=step_count,
+        duration_ms=_question_duration_ms(steps),
+    )
+
+
 def _audit_summary(
     *,
     result: AgentResult,
@@ -302,7 +294,7 @@ def reconstruct_steps_from_audit(
     The live request emits ``StepRecord``s through :func:`_step_to_debug`.
     Historical requests are read back as :class:`audit_repo.AuditRow` —
     this function deserializes the JSON columns into a transient
-    :class:`StepRecord` and reuses the same name/detail/cost logic so the
+    :class:`StepRecord` and reuses the same name/detail logic so the
     historical drawer renders identically to the live one.
 
     Rows whose ``kind`` is not in the current literal (e.g. legacy

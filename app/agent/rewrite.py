@@ -30,9 +30,8 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
-from typing import Literal, cast
+from typing import cast
 
-from app.agent.overrides import AgentOverrides
 from app.agent.schemas import (
     REWRITE_OUTPUT_SCHEMA,
     ConversationTurn,
@@ -40,13 +39,12 @@ from app.agent.schemas import (
 )
 from app.config import settings
 from app.errors import AgentError
+from app.i18n import SUPPORTED_LANGUAGES, Language
 from app.providers import LLMProvider, Message
 
 REWRITE_SYSTEM_PROMPT: str = (Path(__file__).parent / "prompts" / "rewrite.md").read_text(
     encoding="utf-8"
 )
-
-_VALID_LANGUAGES: frozenset[str] = frozenset({"pt", "es", "en"})
 
 
 async def rewrite_question(
@@ -54,16 +52,12 @@ async def rewrite_question(
     history: list[ConversationTurn],
     *,
     llm: LLMProvider,
-    overrides: AgentOverrides | None = None,
-) -> tuple[str, Literal["pt", "es", "en"], StepRecord]:
+) -> tuple[str, Language, StepRecord]:
     """Rewrite ``user_message`` into a self-contained question and detect its language.
 
     Runs on every turn. With empty ``history`` the model returns the
     question unchanged but still classifies the language.
     """
-    overrides = overrides or AgentOverrides()
-    rewrite_effort = overrides.rewrite_reasoning_effort or settings.rewrite_reasoning_effort
-
     if history:
         user_block = _format_history(history) + f"\n\nNew question: {user_message}"
     else:
@@ -78,7 +72,7 @@ async def rewrite_question(
     response = await llm.generate(
         messages,
         schema=REWRITE_OUTPUT_SCHEMA,
-        reasoning_effort=rewrite_effort,
+        reasoning_effort=settings.rewrite_reasoning_effort,
         max_output_tokens=settings.rewrite_max_output_tokens,
     )
     rewrite_dur = int((perf_counter() - t0) * 1000)
@@ -89,11 +83,11 @@ async def rewrite_question(
     if not isinstance(rewritten, str) or not rewritten.strip():
         raise AgentError("rewrite stage: model returned empty rewritten_question")
     language_raw = response.parsed.get("detected_language")
-    if language_raw not in _VALID_LANGUAGES:
+    if language_raw not in SUPPORTED_LANGUAGES:
         raise AgentError(
             f"rewrite stage: model returned invalid detected_language={language_raw!r}"
         )
-    language = cast(Literal["pt", "es", "en"], language_raw)
+    language = cast(Language, language_raw)
 
     step = StepRecord(
         step_id=str(uuid.uuid4()),
