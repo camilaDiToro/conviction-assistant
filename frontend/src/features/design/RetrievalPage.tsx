@@ -51,15 +51,22 @@ export default function RetrievalPage() {
           <p>
             For a corpus of this size (~30 documents, a few hundred passages), BM25 has the
             right cost/benefit: deterministic, no embedding provider, no GPU, no per-query API
-            cost. Dense retrieval's recall advantage scales with corpus size — at small scale, a
+            cost. Dense retrieval's complexity scales with corpus size — at small scale, a
             well-normalized lexical retriever is typically competitive while being far simpler
             to operate, debug, and reason about.
           </p>
           <p>
-            The decision matches the spirit of the challenge: ship a working assistant grounded
-            on the corpus we actually have, not the one we imagine in two years. For a broader
-            survey of retrieval strategies and when each pays off, see Akarsu, Karaman &amp;
-            Mierbach,{' '}
+            There's also a domain match. Convictions are financial documents (Brazilian fixed
+            income, equities, taxation, funds, ESG) — full of precise terms, codes, and proper
+            nouns like <code className="font-mono text-[13px] text-ink-1">FGC</code>,{' '}
+            <code className="font-mono text-[13px] text-ink-1">LCI</code>,{' '}
+            <code className="font-mono text-[13px] text-ink-1">IPCA</code>,{' '}
+            <em>tabela regressiva</em>. Akarsu, Karaman &amp; Mierbach benchmark retrieval
+            strategies on financial text-and-table corpora and conclude that{' '}
+            <strong className="text-ink-1">
+              BM25 outperforms state-of-the-art dense retrieval on financial documents
+            </strong>
+            . See{' '}
             <a
               href="https://arxiv.org/abs/2604.01733"
               target="_blank"
@@ -70,6 +77,10 @@ export default function RetrievalPage() {
               Documents"
             </a>{' '}
             (arXiv:2604.01733).
+          </p>
+          <p>
+            This matches the spirit of the challenge: ship a working assistant grounded on the
+            corpus we actually have, not the one we imagine in two years.
           </p>
         </div>
       </Section>
