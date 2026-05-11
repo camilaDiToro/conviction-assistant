@@ -82,10 +82,8 @@ cd frontend && npm run dev
 ```
 
 Visit `http://localhost:5173/chat`, paste the chat token, ask in PT/EN/ES.
-Per-request **overrides** (model, reasoning effort, max tool calls, max
-output tokens) are available from the settings gear in the chat header
-and persist in `localStorage`; effective values are visible per-step in
-the debug drawer.
+The chat UI shows the server-selected model in the header; `/chat` itself
+has one behavior, configured by the backend.
 
 ## Testing
 
@@ -102,10 +100,10 @@ Ragas-decorator-based runner. Headline metric: **anchor rate** — what
 fraction of cited quotes resolved to an offset region.
 
 ```sh
-# Smoke (3 questions, balanced across buckets, ~$0.05):
+# Smoke (3 questions, balanced across buckets):
 uv run python -m evals.run --reasoning low --limit 3
 
-# Full 30 questions (~$1-3 at gpt-5 medium):
+# Full 30 questions:
 uv run python -m evals.run --reasoning medium
 
 # Compare two runs (e.g. low vs medium):
@@ -122,39 +120,6 @@ which Ragas features the suite uses and which it deliberately skips
 A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
 (Faithfulness, AnswerRelevancy) later; not wired in this iteration.
 
-## Refreshing model prices
-
-Per-call USD cost is computed in `app/services/cost.py` from
-`app/providers/_model_prices.json`, a trimmed copy of LiteLLM's
-[`model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
-(the de-facto industry source for LLM pricing data). Prices are **per
-token**, not per million — multiply token counts directly.
-
-```sh
-uv run python scripts/refresh_prices.py
-git diff app/providers/_model_prices.json
-# review the diff — these are real money numbers
-git add app/providers/_model_prices.json
-git commit -m "refresh model prices from upstream"
-```
-
-The `WANTED_MODELS` list in the script pins what gets refreshed; it must
-cover every model in `settings.allowed_models` (the `/chat` override
-whitelist) plus the embedding models. When a wanted model isn't in
-upstream yet (a just-announced flagship like the first `gpt-5.5`
-release), the script **warns and preserves the existing manual entry**
-— confirm those numbers against
-[OpenAI's pricing page](https://openai.com/api/pricing/) by hand and
-note them with `"_note": "approximate — confirm..."` so future readers
-know they aren't upstream-verified.
-
-Refresh before any release or eval run; **don't** refresh mid-eval —
-price drift across runs muddies cost comparisons. To add a new model:
-append to `WANTED_MODELS`, run the script, add to `settings.allowed_models`
-(if it should be selectable via `/chat` overrides). We vendor the JSON
-instead of importing `litellm` because the package ships a large
-abstraction layer + dozens of transitive deps for one piece of data.
-
 ## Production-grade vs deliberately simplified
 
 This project ships two tiers of code; reviewers should be able to tell
@@ -165,7 +130,7 @@ at a glance which one any file belongs to.
 - Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
 - Offset resolver — deterministic substring → `(start, end)` mapping; the literal quote is dropped before the response is built
 - Agent loop bounds (max 5 tool calls; `≥ 1` search before answer; tools dropped on forced-final turn)
-- Audit log + 3-granularity cost tracking (per step / per question / per conversation)
+- Audit log + raw token usage in every LLM step and response summary
 - Response contract (deterministic disclaimer, language mirroring, schema-validated)
 - Tool surface (read-only, hand-written JSON schemas, pure-function tests)
 - Layering rules (Router → Service → Repository; CI-greppable — see `CLAUDE.md`)
@@ -189,11 +154,10 @@ auto-triggered by the implementer.
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `POST /api/admin/ingest` | `X-Admin-Token` | Parse `convictions/` into SQLite |
-| `POST /api/chat` | `X-Chat-Token` | Run one agent turn; accepts optional `overrides` body |
-| `GET  /api/config` | `X-Chat-Token` | Server defaults + allowed override values for the settings UI |
+| `POST /api/chat` | `X-Chat-Token` | Run one agent turn |
+| `GET  /api/config` | `X-Chat-Token` | Return the server-selected chat model |
 | `GET  /api/chat/conversations` | `X-Chat-Token` | List the caller's conversations (sidebar) |
 | `GET  /api/admin/conversations/{id}` | `X-Admin-Token` | Full trace of a conversation |
-| `GET  /api/admin/conversations/{id}/cost` | `X-Admin-Token` | Per-question cost rollup |
 | `GET  /health` | — | Liveness check |
 
 ## Where things live
@@ -206,13 +170,15 @@ app/
   models/          # SQLAlchemy ORM
   schemas/         # Pydantic request/response shapes
   providers/       # LLMProvider + EmbeddingProvider; only place that imports openai
-  tools/           # The four read-only tools the agent can call
+  retrieval/       # Retriever protocol + BM25 adapter; lifecycle owned by app lifespan
   agent/           # Bounded loop, rewrite stage, structured-output schemas
+    tools/         # The four read-only tools the agent can call
+    resolver/      # Deterministic substring → (start, end) offset resolver
+    prompts/       # System + rewrite prompts (markdown)
   config/          # Settings + DB engine plumbing — only place that calls os.getenv
-  verifier/        # Substring resolution policy (NFC, smart-quote folding, etc.)
 alembic/           # Schema-of-record migrations
 convictions/       # The 30-doc corpus
-docs/              # ARCHITECTURES, scaling notes, deployment, testing
+docs/              # ARCHITECTURES, ASSUMPTIONS, deploy, testing, scale notes
 evals/             # golden set + runner + metrics + comparator
 frontend/          # Vite + React + Tailwind chat UI + architecture explainer
 tests/             # Mirrors app/ + an `eval/` layer (skipped by default)

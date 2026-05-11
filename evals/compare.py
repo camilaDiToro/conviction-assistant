@@ -5,7 +5,7 @@ Usage:
     uv run python -m evals.compare evals/results/run_a.csv evals/results/run_b.csv
 
 Emits a markdown report:
-- Aggregate metric deltas (anchor_rate, cost, etc.)
+- Aggregate metric deltas (anchor_rate, tokens, etc.)
 - Questions that regressed (passed in A, failing in B)
 - Questions that improved (failing in A, passing in B)
 - Per-bucket anchor-rate comparison
@@ -47,7 +47,7 @@ def _diff_aggregate(a: dict, b: dict) -> str:
     md.append("")
     md.append("| Metric | A | B | Δ |")
     md.append("|---|---|---|---|")
-    fields = ("anchor_rate", "citation_precision", "cost_usd_total", "cost_usd_mean")
+    fields = ("anchor_rate", "citation_precision", "tokens_total", "tokens_mean")
     for f in fields:
         va = a.get(f)
         vb = b.get(f)
@@ -61,8 +61,8 @@ def _diff_aggregate(a: dict, b: dict) -> str:
 
 def _diff_questions(a: pd.DataFrame, b: pd.DataFrame) -> tuple[list[str], list[str]]:
     merged = pd.merge(
-        a[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness", "cost_usd"]],
-        b[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness", "cost_usd"]],
+        a[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness"]],
+        b[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness"]],
         on="id",
         how="outer",
         suffixes=("_a", "_b"),

@@ -5,10 +5,8 @@ The contract above provider adapters is identical: every adapter
 ``Message`` / ``ToolDefinition`` / ``StructuredOutputSchema`` inputs and
 returns the same ``LLMResponse`` / ``EmbeddingResponse`` shape.
 
-Cost in USD is *not* a field on ``TokenUsage`` — adapters return raw
-token counts and ``app/services/cost.py`` derives USD from
-``app/providers/_model_prices.json`` at audit-log read time. This keeps
-prices out of the hot path and makes price corrections retroactive.
+Adapters return raw token counts in ``TokenUsage``. The app surfaces
+those counts for debugging and audit review.
 """
 
 from typing import Any, Literal, Protocol
@@ -70,9 +68,8 @@ class Message(BaseModel):
 class TokenUsage(BaseModel):
     """Token counts for one provider call.
 
-    USD pricing lives in ``app/services/cost.py`` — adapters never compute
-    cost. ``model`` must match a key in ``app/providers/_model_prices.json``
-    so the cost layer can look up the input, output, and cached-token rates.
+    ``model`` is the provider model name used for the call; the remaining
+    fields are the raw token counters reported by that provider.
     """
 
     model: str

@@ -1,8 +1,8 @@
 """Smoke test for the eval runner.
 
 Marked ``@pytest.mark.eval`` so it stays out of the default CI run.
-Skipped unless ``OPENAI_API_KEY`` is set. The runner is expensive
-(real OpenAI calls); this only runs 3 questions to confirm the pipeline
+Skipped unless ``OPENAI_API_KEY`` is set. The runner uses real provider
+tokens; this only runs 3 questions to confirm the pipeline
 end-to-end doesn't crash.
 
 Run with:
@@ -125,7 +125,7 @@ def test_row_from_result_with_synthetic_data(tmp_path: Path) -> None:
 )
 def test_runner_smoke_three_questions(tmp_path: Path) -> None:
     """Hits real OpenAI. Only runs when explicitly requested via
-    ``pytest -m eval``. Caps to 3 questions to keep cost bounded."""
+    ``pytest -m eval``. Caps to 3 questions to keep token usage bounded."""
     import subprocess
     import sys
 

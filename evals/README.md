@@ -46,7 +46,7 @@ questions that regressed (passed in A, failing in B) and improvements.
 | **citation_precision** | numeric 0-1 | cited passage_id ∈ `expected_passage_ids` |
 | **refusal_correctness** | discrete | did the agent refuse iff golden expected it? |
 | **general_knowledge_correctness** | discrete | Rule A: was general_knowledge_used flagged correctly? |
-| **cost_usd** | numeric | sum of step token-usage costs |
+| **prompt_tokens / completion_tokens / cached_tokens / reasoning_tokens** | numeric | raw provider token counters summed across LLM steps |
 | **tool_calls** | numeric | number of executed tool calls |
 | **duration_ms** | numeric | wall-clock per question |
 

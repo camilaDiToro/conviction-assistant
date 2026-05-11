@@ -38,10 +38,10 @@ def _stub_ctx() -> ToolContext:
 
 def _patch_tools(
     monkeypatch: pytest.MonkeyPatch,
-    overrides: dict[str, Callable[..., Awaitable[Any]]],
+    replacements: dict[str, Callable[..., Awaitable[Any]]],
 ) -> None:
     """Replace `func` on the named TOOLS entries; preserve `definition`."""
-    for name, func in overrides.items():
+    for name, func in replacements.items():
         original = TOOLS[name]
         monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
 

@@ -12,7 +12,7 @@ Loads ``evals/golden_set.yaml``, runs each entry end-to-end through
 our four deterministic metrics, writes CSV/JSON/MD to
 ``evals/results/``.
 
-Real OpenAI calls cost money. Smoke runs with ``--limit`` first.
+Real OpenAI calls use provider quota. Smoke runs with ``--limit`` first.
 """
 
 from __future__ import annotations
@@ -23,7 +23,6 @@ import hashlib
 import json
 import subprocess
 import sys
-import warnings
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,9 +36,8 @@ from app.agent.schemas import AgentResult, AnswerOutput, ClarifyingQuestionOutpu
 from app.agent.tools import ToolContext
 from app.config import db, settings
 from app.providers import get_llm_provider
-from app.providers.base import LLMProvider, ProviderError
+from app.providers.base import LLMProvider
 from app.retrieval import get_retriever
-from app.services.cost import compute_call_cost_usd
 from evals.dataset import Golden, GoldenSet, load_golden_set
 from evals.metrics import (
     anchor_rate,
@@ -87,7 +85,10 @@ class _QuestionRow:
     refusal_correctness_reason: str
     general_knowledge_correctness: str
     general_knowledge_correctness_reason: str
-    cost_usd: float
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    reasoning_tokens: int
     tool_calls: int
     duration_ms: int
     output_kind: str
@@ -106,7 +107,7 @@ async def _run_question(
     async with factory() as session:
         tool_ctx = ToolContext(session=session, retriever=retriever)
         t0 = perf_counter()
-        result = await run_agent(golden.question, [], tool_ctx=tool_ctx, llm=llm, overrides=None)
+        result = await run_agent(golden.question, [], tool_ctx=tool_ctx, llm=llm)
         duration_ms = int((perf_counter() - t0) * 1000)
     return _row_from_result(golden, result, duration_ms=duration_ms), result, duration_ms
 
@@ -160,19 +161,7 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
 
     output_dict = _output_to_dict(result.output)
 
-    # Cost summed from every audit-grade step usage.
-    cost_usd = 0.0
-    for step in result.steps:
-        if step.usage is None:
-            continue
-        try:
-            cost_usd += compute_call_cost_usd(step.usage)
-        except ProviderError as e:
-            warnings.warn(
-                f"pricing missing for model={step.usage.model}: {e}",
-                stacklevel=2,
-            )
-
+    token_usage = _sum_token_usage(result)
     tool_calls = sum(1 for s in result.steps if s.kind == "tool_call")
 
     anchor = anchor_rate.score(citations=citations)
@@ -202,12 +191,32 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
         refusal_correctness_reason=refusal.reason or "",
         general_knowledge_correctness=str(gen_know.value),
         general_knowledge_correctness_reason=gen_know.reason or "",
-        cost_usd=round(cost_usd, 6),
+        prompt_tokens=token_usage["prompt_tokens"],
+        completion_tokens=token_usage["completion_tokens"],
+        cached_tokens=token_usage["cached_tokens"],
+        reasoning_tokens=token_usage["reasoning_tokens"],
         tool_calls=tool_calls,
         duration_ms=duration_ms,
         output_kind=str(output_dict.get("kind", "")),
         output_summary=_summarize_output(output_dict),
     )
+
+
+def _sum_token_usage(result: AgentResult) -> dict[str, int]:
+    totals = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+    }
+    for step in result.steps:
+        if step.usage is None:
+            continue
+        totals["prompt_tokens"] += step.usage.prompt_tokens
+        totals["completion_tokens"] += step.usage.completion_tokens
+        totals["cached_tokens"] += step.usage.cached_tokens
+        totals["reasoning_tokens"] += step.usage.reasoning_tokens
+    return totals
 
 
 def _output_to_dict(output: AnswerOutput | ClarifyingQuestionOutput) -> dict[str, Any]:
@@ -287,8 +296,8 @@ async def _amain(args: argparse.Namespace) -> int:
     if not settings.openai_api_key:
         raise SystemExit("OPENAI_API_KEY must be set (in .env or env) to run the eval")
 
-    # Apply the loop-tuning overrides for *the whole run* by patching
-    # settings BEFORE building the LLM provider — the openai client
+    # Apply loop tuning for the whole run by patching settings BEFORE
+    # building the LLM provider — the openai client
     # locks in the timeout at construction time.
     if args.reasoning:
         settings.agent_reasoning_effort = args.reasoning  # type: ignore[assignment]
@@ -297,8 +306,8 @@ async def _amain(args: argparse.Namespace) -> int:
     if args.timeout is not None:
         settings.openai_timeout_seconds = float(args.timeout)
 
-    llm = get_llm_provider(model=args.model)
-    settings_model = args.model or settings.openai_model
+    llm = get_llm_provider()
+    settings_model = settings.openai_model
 
     db.migrate(settings.sqlite_path)
     engine = db.make_engine(settings.async_database_url)
@@ -389,7 +398,10 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
         refusal_correctness_reason="error",
         general_knowledge_correctness="n/a",
         general_knowledge_correctness_reason="error",
-        cost_usd=0.0,
+        prompt_tokens=0,
+        completion_tokens=0,
+        cached_tokens=0,
+        reasoning_tokens=0,
         tool_calls=0,
         duration_ms=0,
         output_kind="error",
@@ -400,18 +412,17 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the eval suite (OpenAI only).")
     parser.add_argument("--provider", default="openai", choices=["openai"])
-    parser.add_argument("--model", default=None, help="override openai_model")
     parser.add_argument(
         "--reasoning",
         default=None,
         choices=["none", "minimal", "low", "medium", "high", "xhigh"],
-        help="override agent_reasoning_effort",
+        help="set agent_reasoning_effort for this eval run",
     )
     parser.add_argument(
         "--rewrite-reasoning",
         default=None,
         choices=["none", "minimal", "low", "medium", "high", "xhigh"],
-        help="override rewrite_reasoning_effort",
+        help="set rewrite_reasoning_effort for this eval run",
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="run a balanced sample of N questions"
@@ -426,7 +437,7 @@ def main() -> int:
         "--timeout",
         type=int,
         default=None,
-        help="override openai client timeout in seconds (default 60). "
+        help="set openai client timeout in seconds (default 60). "
         "Raise to 180-240 for medium/high reasoning to avoid mid-call timeouts.",
     )
     parser.add_argument(

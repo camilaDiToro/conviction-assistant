@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Settings as SettingsIcon } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GridMark } from '@/components/GridMark'
 import {
@@ -16,10 +16,8 @@ import type {
   ConfigResponse,
   ConversationMessage,
 } from '@/lib/types'
-import { readChatPrefs } from '@/lib/chat-prefs'
 import { MessageList } from './MessageList'
 import { DebugDrawer } from './DebugDrawer'
-import { SettingsDrawer } from './SettingsDrawer'
 import { Sidebar } from './Sidebar'
 
 const SUGGESTIONS = [
@@ -39,22 +37,14 @@ export default function ChatPage() {
   const [debugError, setDebugError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sidebarRefresh, setSidebarRefresh] = useState(0)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [config, setConfig] = useState<ConfigResponse | null>(null)
-  const [prefsTick, setPrefsTick] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadConfig().then(setConfig).catch(() => undefined)
   }, [])
 
-  const effectivePrefs = readChatPrefs() ?? {}
-  const overrideCount = Object.keys(effectivePrefs).length
-  const effectiveModel = effectivePrefs.model ?? config?.defaults.model ?? '—'
-  const effectiveEffort = effectivePrefs.reasoning_effort ?? config?.defaults.reasoning_effort ?? ''
-  // prefsTick changes when the SettingsDrawer mutates prefs; this useless
-  // reference forces React to keep the chip in sync without a context.
-  void prefsTick
+  const effectiveModel = config?.model ?? 'loading'
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -197,23 +187,13 @@ export default function ChatPage() {
             <span className="text-sm tracking-tight font-medium">Decade AI Chat</span>
           </Link>
         </div>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="flex items-center gap-2 text-[11px] font-mono text-ink-3 hover:text-ink-1 border border-border hover:border-border-strong px-3 py-1.5 rounded-md transition-colors"
-          aria-label="Open settings"
+        <div
+          className="flex items-center gap-2 text-[11px] font-mono text-ink-3 border border-border px-3 py-1.5 rounded-md"
+          aria-label={`Default model: ${effectiveModel}`}
         >
-          <SettingsIcon size={12} />
+          <span>model</span>
           <span className="text-ink-1">{effectiveModel}</span>
-          {effectiveEffort && <span className="text-ink-3">·</span>}
-          {effectiveEffort && <span>{effectiveEffort}</span>}
-          {overrideCount > 0 && (
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full bg-ink-1"
-              aria-label={`${overrideCount} override${overrideCount === 1 ? '' : 's'} active`}
-            />
-          )}
-        </button>
+        </div>
       </header>
 
       <div className="flex-1 flex">
@@ -292,13 +272,6 @@ export default function ChatPage() {
         />
       )}
 
-      {settingsOpen && (
-        <SettingsDrawer
-          onClose={() => setSettingsOpen(false)}
-          onUnauthorized={handleUnauthorized}
-          onPrefsChange={() => setPrefsTick(t => t + 1)}
-        />
-      )}
     </div>
   )
 }
@@ -326,14 +299,17 @@ function rebuildTurn(msg: ConversationMessage): ChatMessage[] {
 }
 
 function synthesizeResponse(msg: ConversationMessage): ChatAnswerResponse | ChatClarifyResponse {
-  // Historical view doesn't replay token usage / cost / debug steps —
+  // Historical view doesn't replay token usage / debug steps —
   // those are visible via the admin trace endpoint. The chat surface
   // shows the answer text + citations, which is what was originally
   // displayed. Disclaimer left empty (already seen at original send time).
   const baseDebug = { tool_calls: [], steps: [] }
   const baseUsage = {
-    question_total_cost_usd: 0,
-    conversation_total_cost_usd: 0,
+    llm_call_count: 0,
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    cached_tokens: 0,
+    reasoning_tokens: 0,
     step_count: 0,
     duration_ms: 0,
   }

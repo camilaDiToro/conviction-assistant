@@ -50,8 +50,8 @@ export default function RetrievalPage() {
         <div className="max-w-prose space-y-4 text-ink-2 text-[15px] leading-relaxed">
           <p>
             For a corpus of this size (~30 documents, a few hundred passages), BM25 has the
-            right cost/benefit: deterministic, no embedding provider, no GPU, no per-query API
-            cost. Dense retrieval's complexity scales with corpus size — at small scale, a
+            right operational trade-off: deterministic, no embedding provider, no GPU, no
+            network dependency per query. Dense retrieval's complexity scales with corpus size — at small scale, a
             well-normalized lexical retriever is typically competitive while being far simpler
             to operate, debug, and reason about.
           </p>
@@ -282,7 +282,7 @@ export default function RetrievalPage() {
             <code className="font-mono text-[13px] text-amber-200">uv run python -m evals.run</code>{' '}
             — replace the report cards and per-bucket commentary below with the aggregate
             from the new MD report under{' '}
-            <code className="font-mono text-[13px] text-amber-200">evals/results/current/</code>.
+            <code className="font-mono text-[13px] text-amber-200">evals/results/</code>.
           </p>
         </div>
 
@@ -293,9 +293,7 @@ export default function RetrievalPage() {
           <strong className="text-ink-1">anchor rate</strong>: the share of model-emitted
           quotes that the resolver pinned to a literal{' '}
           <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region inside
-          the cited passage. Canonical post-prompt-fix reports live under{' '}
-          <code className="font-mono text-[13px] text-ink-1">evals/results/current/</code>;
-          historical model-comparison sweeps stay one level up at{' '}
+          the cited passage. Reports are generated on demand under{' '}
           <code className="font-mono text-[13px] text-ink-1">evals/results/</code>.
         </p>
 
@@ -326,9 +324,10 @@ export default function RetrievalPage() {
         </SpecList>
 
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-12 mb-4">
-          <strong className="text-ink-1">Specific reports.</strong> Three MD files captured under{' '}
-          <code className="font-mono text-[13px] text-ink-1">evals/results/current/</code> — each
-          card cites the file the numbers came from, so the reader can open it directly.
+          <strong className="text-ink-1">Generated reports.</strong> Running{' '}
+          <code className="font-mono text-[13px] text-ink-1">uv run python -m evals.run</code>{' '}
+          writes CSV, JSON, Markdown, and trace JSONL files under{' '}
+          <code className="font-mono text-[13px] text-ink-1">evals/results/</code>.
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-border border border-border mb-6">
@@ -336,21 +335,17 @@ export default function RetrievalPage() {
             <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">limit3 baseline</div>
             <div className="text-ink-1 font-mono text-[22px] mb-1">1.000</div>
             <div className="text-ink-3 text-[12px] mb-3">
-              anchor · 7/7 across q01 / q13 / q17 · $0.054 total · 2.33 tool calls mean
+              anchor · 7/7 across q01 / q13 / q17 · token totals in report · 2.33 tool calls mean
             </div>
-            <div className="text-ink-3 font-mono text-[10px] break-all">
-              evals/results/current/<br />2026-05-11_14-39-49_…_limit3.md
-            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">regenerate with evals.run --limit 3</div>
           </div>
           <div className="bg-bg p-5">
             <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">cross_lang bucket</div>
             <div className="text-ink-1 font-mono text-[22px] mb-1">1.000</div>
             <div className="text-ink-3 text-[12px] mb-3">
-              anchor · 11/11 across q21 / q22 / q23 · $0.124 total · 2.67 tool calls mean
+              anchor · 11/11 across q21 / q22 / q23 · token totals in report · 2.67 tool calls mean
             </div>
-            <div className="text-ink-3 font-mono text-[10px] break-all">
-              evals/results/current/<br />2026-05-11_14-11-49_…_bucket-cross_lang.md
-            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">regenerate with evals.run --bucket cross_lang</div>
           </div>
           <div className="bg-bg p-5">
             <div className="text-ink-3 text-[11px] uppercase tracking-tight mb-2">q17 verification</div>
@@ -358,9 +353,7 @@ export default function RetrievalPage() {
             <div className="text-ink-3 text-[12px] mb-3">
               anchor · 4/5 pre-fix, 5/5 after prompt change · isolates the contiguous-quote fix
             </div>
-            <div className="text-ink-3 font-mono text-[10px] break-all">
-              evals/results/current/<br />2026-05-11_14-16-48_…_id-q17.md
-            </div>
+            <div className="text-ink-3 font-mono text-[10px] break-all">regenerate with evals.run --id q17</div>
           </div>
         </div>
 
@@ -404,8 +397,7 @@ export default function RetrievalPage() {
           system prompt names the corpus languages and the model reformulates the query before
           searching. The five real{' '}
           <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls
-          below come straight from the cross_lang run trace
-          (<code className="font-mono text-[13px] text-ink-1">evals/results/current/2026-05-11_14-11-49_…_bucket-cross_lang_traces.jsonl</code>).
+          below are representative of the cross_lang trace JSONL generated by the eval runner.
           The ES question is shown above each PT/EN query the agent actually issued:
         </p>
         <CodeBlock

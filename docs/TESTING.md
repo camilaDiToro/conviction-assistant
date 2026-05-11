@@ -82,7 +82,7 @@ Integration tests with `FakeProvider` covering:
 ### 6. Orchestrator obligations (deterministic, non-LLM)
 
 - **Disclaimer is appended to every `kind: "answer"` response**, with the right language (PT / EN / ES) for the response. Test that the disclaimer field is never empty and never embedded inside `answer`.
-- **`usage_summary` is populated** on every response (per-question + per-conversation totals).
+- **`usage_summary` is populated** on every response (per-question token totals).
 - **Audit log** records one row per step with the full schema (`step_id`, `question_id`, `conversation_id`, `kind`, `payload`, `usage`).
 - **Multi-turn conversation memory rule** — assert that prior assistant answers are *not* injected into the source-of-truth context on later turns; only the rewritten current question reaches the agent. Regression test for the "hallucination amplification across turns" failure mode.
 
@@ -96,7 +96,7 @@ Integration tests with `FakeProvider` covering:
 
 ## Faithfulness eval suite (the LLM-in-the-loop layer)
 
-This is what answers the question *"is this thing actually grounded?"* It runs against real providers but is isolated from unit/integration CI by cost.
+This is what answers the question *"is this thing actually grounded?"* It runs against real providers but is isolated from unit/integration CI by token usage.
 
 ### Golden set design
 
@@ -134,14 +134,14 @@ Each entry has:
 | **Conflict-surfacing precision (Rule B)** | On the "conflicting convictions" bucket: cites both sides and states the disagreement. | Structured assertions on the response. |
 | **Clarifying-question precision** | On the "ambiguity" bucket: returns `kind: "clarifying_question"`. On all other buckets: does *not* over-clarify. | Response shape check. |
 | **Disclaimer presence** | Every `kind: "answer"` response carries a non-empty `disclaimer`, in the right language. | Trivial schema check; runs across the whole eval. |
-| **Cost tracking accuracy** | `usage_summary.question_total_cost_usd` equals the sum of per-step costs to within a small tolerance. | Audit log replay. |
+| **Token usage replay** | Historical debug traces rebuild the same prompt/completion/cached/reasoning counters from `audit_log`. | Audit log replay. |
 | **Multilingual parity** | Same answer quality regardless of language | Compare in-scope metrics across PT, EN, ES halves. |
 
 The verifier pass rate is the headline metric — it's deterministic, requires no LLM judge, and is the strongest faithfulness statement the system can make. Everything else complements it.
 
 ### Eval framework
 
-**DeepEval** for the LLM-as-judge metrics — `pytest`-native, fits CI gates cleanly, well-documented in 2026. `pytest -m eval` runs the suite; non-eval CI skips it by default to keep the build cheap.
+**DeepEval** for the LLM-as-judge metrics — `pytest`-native, fits CI gates cleanly, well-documented in 2026. `pytest -m eval` runs the suite; non-eval CI skips it by default.
 
 ### Refusal / general-knowledge / over-refusal calibration
 
@@ -160,7 +160,7 @@ The 2026 AAAI paper on RAG over-refusal showed retrieval noise can trick instruc
 
 Because the provider is abstracted, the same eval suite runs against multiple adapters. CI gate: every metric within 10% across providers, otherwise fail and investigate.
 
-A subset of the golden set runs in CI against the *real* Anthropic and OpenAI adapters on every release branch (cheap, ~$1–2 per run). The full suite runs nightly.
+A subset of the golden set can run against real providers on release branches. The full suite is opt-in.
 
 ---
 
@@ -170,8 +170,8 @@ A subset of the golden set runs in CI against the *real* Anthropic and OpenAI ad
 |---|---|---|
 | **Unit + integration** (no LLM) | Every commit | Must pass. <5s. |
 | **Contract tests** (recorded provider fixtures) | Every commit | Must pass. <10s. |
-| **Smoke eval** (5 golden questions, real provider) | Every release branch | Verifier pass rate = 100%. ~$1. |
-| **Full eval** (full golden set, real provider) | Nightly + before submission | All metrics within published thresholds. ~$5–10. |
+| **Smoke eval** (5 golden questions, real provider) | Release branch or manual | Verifier pass rate = 100%. |
+| **Full eval** (full golden set, real provider) | Manual before submission | All metrics within published thresholds. |
 
 ---
 

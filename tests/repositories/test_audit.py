@@ -1,4 +1,4 @@
-"""Tests for app.repositories.audit — round-trips through audit_log + cost_log."""
+"""Tests for app.repositories.audit — round-trips through audit_log."""
 
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,7 +42,7 @@ def _row(
 
 
 async def test_insert_and_fetch_round_trip(session) -> None:
-    usage_json = '{"model":"gpt-5","prompt_tokens":1,"completion_tokens":1}'
+    usage_json = '{"model":"gpt-5.5","prompt_tokens":1,"completion_tokens":1}'
     rows = [
         _row(step_id="s1", kind="llm_call", usage=usage_json),
         _row(step_id="s2", kind="tool_call"),
@@ -60,22 +60,3 @@ async def test_insert_and_fetch_round_trip(session) -> None:
 async def test_fetch_unknown_conversation_returns_empty(session) -> None:
     rows = await audit_repo.fetch_by_conversation(session, "does-not-exist")
     assert rows == []
-
-
-async def test_cost_log_view_filters_to_llm_calls(session) -> None:
-    """The cost_log view selects only kind='llm_call' rows."""
-    u1 = '{"model":"gpt-5","prompt_tokens":10,"completion_tokens":2}'
-    u5 = '{"model":"gpt-5","prompt_tokens":50,"completion_tokens":3}'
-    rows = [
-        _row(step_id="s1", kind="llm_call", usage=u1),
-        _row(step_id="s2", kind="tool_call"),
-        _row(step_id="s3", kind="verifier"),
-        _row(step_id="s4", kind="response"),
-        _row(step_id="s5", kind="llm_call", usage=u5),
-    ]
-    await audit_repo.insert_many(session, rows)
-    await session.commit()
-
-    cost_rows = await audit_repo.fetch_cost_rows_by_conversation(session, "conv-1")
-    assert {r["step_id"] for r in cost_rows} == {"s1", "s5"}
-    assert all(r["kind"] == "llm_call" for r in cost_rows)

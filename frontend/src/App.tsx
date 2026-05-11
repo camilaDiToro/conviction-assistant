@@ -8,7 +8,7 @@ import RetrievalPage from './features/design/RetrievalPage'
 import ResolverPage from './features/design/ResolverPage'
 import AgentLoopPage from './features/design/AgentLoopPage'
 import ProvidersPage from './features/design/ProvidersPage'
-import CostPage from './features/design/CostPage'
+import UsagePage from './features/design/UsagePage'
 import LayeringPage from './features/design/LayeringPage'
 import TiersPage from './features/design/TiersPage'
 import ChatPage from './features/chat/ChatPage'
@@ -28,7 +28,7 @@ export default function App() {
         <Route path="pipeline/resolver" element={<ResolverPage />} />
         <Route path="pipeline/agent-loop" element={<AgentLoopPage />} />
         <Route path="plumbing/providers" element={<ProvidersPage />} />
-        <Route path="plumbing/cost" element={<CostPage />} />
+        <Route path="plumbing/usage" element={<UsagePage />} />
         <Route path="plumbing/layering" element={<LayeringPage />} />
         <Route path="framing/tiers" element={<TiersPage />} />
       </Route>

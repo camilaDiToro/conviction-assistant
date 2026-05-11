@@ -7,7 +7,7 @@ Legend: `[x]` = reviewed, `[ ]` = pending.
 ```
 decade-ai-challenge/
 ├── [x] .dockerignore
-├── [x] .env.example
+├── [ ] .env.example
 ├── [x] .github/workflows/sync-to-hf.yml
 ├── [x] .gitignore
 ├── [x] AI_CHALLENGE.md
@@ -18,11 +18,11 @@ decade-ai-challenge/
 ├── [x] pyproject.toml
 ├── [x] uv.lock
 │
-├── alembic/                             [x] reviewed (consolidated to 0001)
-│   ├── [x] env.py                       — target_metadata=Base.metadata as drift safety net; sync driver for SQLite v1
+├── alembic/                             [ ] re-review pending after recent edits
+│   ├── [ ] env.py                       — target_metadata=Base.metadata as drift safety net; sync driver for SQLite v1
 │   ├── [x] script.py.mako
 │   └── versions/
-│       └── [x] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError
+│       └── [ ] 0001_initial_schema.py   — absorbed former 0002; downgrade raises NotImplementedError
 │
 ├── app/
 │   ├── [x] __init__.py                     — empty package marker
@@ -34,7 +34,6 @@ decade-ai-challenge/
 │   │   ├── [ ] audit.py
 │   │   ├── [ ] dedupe.py
 │   │   ├── [ ] loop.py
-│   │   ├── [ ] overrides.py
 │   │   ├── [ ] rewrite.py
 │   │   ├── [ ] schemas.py
 │   │   ├── [ ] tool_dispatch.py
@@ -79,7 +78,6 @@ decade-ai-challenge/
 │   │
 │   ├── providers/
 │   │   ├── [ ] __init__.py
-│   │   ├── [ ] _model_prices.json
 │   │   ├── [ ] base.py
 │   │   ├── [ ] factory.py
 │   │   ├── [ ] openai.py
@@ -107,7 +105,8 @@ decade-ai-challenge/
 │   └── services/
 │       ├── [ ] __init__.py
 │       ├── [ ] audit.py
-│       ├── [ ] cost.py
+│       ├── [ ] chat.py
+│       ├── [ ] conversations.py
 │       ├── [ ] disclaimer.py
 │       ├── [ ] ingest.py
 │       ├── [ ] wrap_response.py
@@ -123,26 +122,14 @@ decade-ai-challenge/
 │   ├── [ ] ARCHITECTURES.md
 │   ├── [ ] ASSUMPTIONS.md
 │   ├── [ ] DEPLOY.md
-│   ├── [ ] DEPLOYMENT.md
 │   ├── [ ] MODEL_CONFIG.md
-│   ├── [ ] RETRIEVAL_SCALE.md
-│   ├── [ ] ROADMAP.md
-│   ├── [ ] SCALING.md
-│   ├── [ ] TESTING.md
-│   ├── [ ] b5-decisions.md
-│   ├── [ ] b6-decisions.md
-│   ├── [ ] b7-decisions.md
-│   ├── [ ] b8-decisions.md
-│   └── reports/
-│       ├── [ ] b6-eval-methodology.md
-│       ├── [ ] b6-eval-results.md
-│       └── [ ] b6-improvement-proposals.md
+│   ├── [ ] SCALE_NOTES.md
+│   └── [ ] TESTING.md
 │
 ├── evals/
 │   ├── [ ] __init__.py
 │   ├── [ ] README.md
 │   ├── [ ] RAGAS_USAGE.md
-│   ├── [ ] SUMMARY.md
 │   ├── [ ] compare.py
 │   ├── [ ] dataset.py
 │   ├── [ ] golden_set.yaml
@@ -189,12 +176,10 @@ decade-ai-challenge/
 │       │   │   ├── [ ] CitationModal.tsx
 │       │   │   ├── [ ] DebugDrawer.tsx
 │       │   │   ├── [ ] MessageList.tsx
-│       │   │   ├── [ ] SettingsDrawer.tsx
 │       │   │   └── [ ] Sidebar.tsx
 │       │   ├── design/
 │       │   │   ├── [ ] AgentLoopPage.tsx
 │       │   │   ├── [ ] CorpusPage.tsx
-│       │   │   ├── [ ] CostPage.tsx
 │       │   │   ├── [ ] DesignLayout.tsx
 │       │   │   ├── [ ] LayeringPage.tsx
 │       │   │   ├── [ ] OverviewPage.tsx
@@ -209,12 +194,10 @@ decade-ai-challenge/
 │           ├── [ ] access-gate.ts
 │           ├── [ ] api.ts
 │           ├── [ ] bm25.ts
-│           ├── [ ] chat-prefs.ts
 │           ├── [ ] resolver.ts
 │           └── [ ] types.ts
 │
 ├── scripts/
-│   └── [ ] refresh_prices.py
 │
 └── tests/
     ├── [ ] __init__.py
@@ -240,7 +223,6 @@ decade-ai-challenge/
     │   ├── [ ] test_admin.py
     │   ├── [ ] test_chat.py
     │   ├── [ ] test_chat_history.py
-    │   ├── [ ] test_chat_overrides.py
     │   ├── [ ] test_config.py
     │   └── [ ] test_conversations.py
     │
@@ -284,7 +266,6 @@ decade-ai-challenge/
     │
     └── services/
         ├── [ ] test_audit.py
-        ├── [ ] test_cost.py
         ├── [ ] test_ingest.py
         ├── [ ] test_wrap_response.py
         └── parser/                      [x] reviewed

@@ -13,13 +13,8 @@ from app.providers.base import (
 from app.providers.openai import OpenAIEmbedder, OpenAILLM, OpenAIResponsesLLM
 
 
-def get_llm_provider(model: str | None = None) -> LLMProvider:
+def get_llm_provider() -> LLMProvider:
     """Return the configured LLM provider.
-
-    ``model`` is an optional per-call override. When ``None`` the
-    provider is bound to ``settings.openai_model``. Used by the /chat
-    handler to honour per-request model overrides without rebinding the
-    process-wide default.
 
     Raises ``ProviderError`` if the configured provider is not yet
     implemented — the caller should treat this as a startup error.
@@ -28,7 +23,7 @@ def get_llm_provider(model: str | None = None) -> LLMProvider:
     if name == "openai":
         if not settings.openai_api_key:
             raise ProviderError("LLM_PROVIDER=openai requires OPENAI_API_KEY to be set")
-        chosen_model = model or settings.openai_model
+        chosen_model = settings.openai_model
         cls = OpenAIResponsesLLM if _requires_responses_api(chosen_model) else OpenAILLM
         return cls(
             api_key=settings.openai_api_key,

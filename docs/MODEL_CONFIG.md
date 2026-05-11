@@ -7,7 +7,7 @@ Why each tuning param has the value it does, for *this* use case (constrained ag
 | Knob | Default | Tool-routing turns | Final-answer turn | Why |
 |---|---|---|---|---|
 | `temperature` | unset (omitted from API call) | unset | unset | gpt-5 rejects explicit `temperature`. Determinism comes from the verifier rejecting non-grounded citations, not from `temperature=0`. |
-| `reasoning_effort` | unset (provider default) | `"medium"` | `"medium"` | Bumped from `"low"` after observing shallow synthesis on broad questions ("what is the thesis on X?"). The model summarised multi-bullet sections into a single sentence under low effort, omitting evidence the analyst needs. Medium roughly doubles latency and reasoning-token spend; the comprehensiveness gain is the load-bearing tradeoff for an analyst-facing assistant. Override via `.env` (`AGENT_REASONING_EFFORT=low`) for cost-sensitive eval / CI. |
+| `reasoning_effort` | unset (provider default) | `"low"` | `"low"` | Current default after the small eval sweep showed no answer-quality gain from medium on this corpus while consuming more reasoning tokens. Tune via `.env` only when running controlled evals. |
 | `verbosity` | unset | unset | `"low"` | Schema bounds the surface; verbosity controls chattiness *within* fields. Decade analysts want signal. |
 | `max_output_tokens` | unset | `~200` | `~800` | Defense in depth. Final answer is bounded by the schema (~400 tok answer + ≤8 citations × ~30 tok). 800 = 2× natural ceiling — generous but fails loud on a runaway. |
 | `openai_timeout_seconds` (settings) | `60.0` | — | — | `reasoning_effort=medium` calls return in ~10–25s; 60s gives ~2.5× headroom. Agent loop bounded at 5 turns → worst-case 5min request budget. SDK default is 10min, wrong for an interactive `/chat`. |
@@ -16,7 +16,7 @@ The orchestrator is the only place that picks per-call values. The protocol expo
 
 ## `reasoning_tokens` capture
 
-Reported separately on `TokenUsage` but **not double-billed** — OpenAI already counts these inside `completion_tokens`. The cost path stays unchanged. The field is for visibility ("where did the tokens go on this gpt-5 call?").
+Reported separately on `TokenUsage` while `completion_tokens` stays the provider's total completion count. The field is for visibility: it shows how much of a gpt-5 call went into reasoning.
 
 ## What we did NOT do
 

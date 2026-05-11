@@ -4,8 +4,8 @@ This document records the deliberate choices behind how this project uses
 [Ragas](https://github.com/explodinggradients/ragas) for the evaluation
 suite. It exists because a reviewer should be able to verify, in two minutes,
 that we (a) understand the framework, (b) chose it over alternatives for stated
-reasons, and (c) consciously skipped features that would have cost tokens or
-pulled in transitive dependencies we didn't need.
+reasons, and (c) consciously skipped features that would have burned extra
+tokens or pulled in transitive dependencies we didn't need.
 
 ## What this eval suite does
 
@@ -19,7 +19,7 @@ For each hand-authored question in `evals/golden_set.yaml`, we:
    outcomes.
 3. Hand those samples to four custom Ragas metrics (`anchor_rate`,
    `citation_precision`, `refusal_correctness`, `general_knowledge_correctness`)
-   plus pre-computed per-question cost / tool-call / duration counters.
+   plus pre-computed per-question token / tool-call / duration counters.
 4. Persist three artefacts to `evals/results/`:
    - `…csv` — the per-question DataFrame from `EvaluationResult.to_pandas()`.
    - `…json` — run metadata (model, reasoning_effort, git SHA, settings
@@ -76,8 +76,9 @@ duplicate that work for no gain.
 ### `EvaluationResult.to_pandas()`
 
 Returns the canonical per-question DataFrame. We append our pre-computed
-per-question columns (`cost_usd`, `tool_calls`, `duration_ms`,
-`language`, `bucket`) onto it before writing the CSV.
+per-question columns (`prompt_tokens`, `completion_tokens`, `cached_tokens`,
+`reasoning_tokens`, `tool_calls`, `duration_ms`, `language`, `bucket`) onto it
+before writing the CSV.
 
 Why: pandas is already a peer dependency of Ragas, and `pd.merge` makes
 cross-run comparison trivial. No second framework needed for reports.
@@ -88,9 +89,9 @@ cross-run comparison trivial. No second framework needed for reports.
 
 Why: each one calls the LLM 1–3 times per question. They are subjectively
 scored, vary between runs at the same temperature, and this project pins
-the deterministic anchor rate as the headline metric. Activating them
-would inflate the cost of every eval run by roughly the agent's own cost
-— too high a price to pay for signal we don't need at this stage.
+the deterministic anchor rate as the headline metric. Activating them would
+roughly double the provider-token footprint for signal we don't need at this
+stage.
 
 These are available behind the future `--with-judge` flag (not yet wired).
 The runner is structured so that adding them is a one-line change to the
@@ -106,9 +107,9 @@ Langchain transitive-dependency tax.
 The golden set was hand-authored after reading the corpus end-to-end. For 30
 questions in a domain (Brazilian fixed income, mostly) where synthetic
 generators struggle with bilingual specificity (PT/EN/ES), human authorship was
-cheaper, more honest, and produced a higher floor of difficulty per question.
+more direct, more honest, and produced a higher floor of difficulty per question.
 Synthetic generation is an option once the corpus reaches hundreds of
-documents and the manual cost no longer scales.
+documents and the manual curation effort no longer scales.
 
 ### Ragas Cloud (`app.ragas.io`)
 
@@ -134,7 +135,7 @@ have no reason to detour through them.
    minimal `SingleTurnSample` and asserts the expected score.
 
 If the metric needs an LLM judge, add it behind the `--with-judge` CLI flag
-so the default run stays deterministic and free.
+so the default run stays deterministic and lightweight.
 
 ## How to add an LLM-judge metric later
 

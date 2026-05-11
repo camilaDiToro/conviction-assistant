@@ -53,9 +53,9 @@ def _hit(passage_id: str = "cdbs_quick_guide#tributacao") -> PassageHit:
 
 def _patch_tools(
     monkeypatch: pytest.MonkeyPatch,
-    overrides: dict[str, Callable[..., Awaitable[Any]]],
+    replacements: dict[str, Callable[..., Awaitable[Any]]],
 ) -> None:
-    for name, func in overrides.items():
+    for name, func in replacements.items():
         original = TOOLS[name]
         monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
 

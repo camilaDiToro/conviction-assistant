@@ -9,9 +9,6 @@ Three functions:
 - :func:`fetch_by_conversation` — read all rows for one
   ``conversation_id``, sorted by ``(timestamp, step_id)``. Drives
   ``GET /admin/conversations/{id}``.
-- :func:`fetch_cost_rows_by_conversation` — same, but selects from the
-  ``cost_log`` view (which already filters to ``kind='llm_call'``).
-  Drives ``GET /admin/conversations/{id}/cost``.
 """
 
 from collections.abc import Iterable
@@ -177,34 +174,6 @@ async def list_conversation_summaries(
     ]
 
 
-async def fetch_cost_rows_by_conversation(
-    session: AsyncSession, conversation_id: str
-) -> list[AuditRow]:
-    """Read all LLM-call rows for one conversation from the ``cost_log``
-    view. The view filters to ``kind='llm_call'``; we order to match
-    fetch_by_conversation so the audit trace and cost summary line up.
-    """
-    stmt = text(
-        "SELECT step_id, question_id, conversation_id, timestamp, "
-        "'llm_call' AS kind, payload, usage "
-        "FROM cost_log WHERE conversation_id = :cid "
-        "ORDER BY timestamp, step_id"
-    )
-    result = await session.execute(stmt, {"cid": conversation_id})
-    return [
-        AuditRow(
-            step_id=r.step_id,
-            question_id=r.question_id,
-            conversation_id=r.conversation_id,
-            timestamp=r.timestamp,
-            kind=r.kind,
-            payload=r.payload,
-            usage=r.usage,
-        )
-        for r in result.all()
-    ]
-
-
 def _orm_to_row(orm: AuditLogORM) -> AuditRow:
     return AuditRow(
         step_id=orm.step_id,
@@ -220,7 +189,6 @@ def _orm_to_row(orm: AuditLogORM) -> AuditRow:
 __all__ = [
     "AuditRow",
     "fetch_by_conversation",
-    "fetch_cost_rows_by_conversation",
     "fetch_response_rows_by_conversation",
     "insert_many",
     "list_conversation_summaries",

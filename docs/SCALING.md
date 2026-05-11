@@ -5,9 +5,9 @@ What changes in the architecture if concurrent users grow beyond v1's "small int
 ## v1 — <10 concurrent users (current)
 
 - Single FastAPI instance.
-- One Postgres (with `pgvector` and `unaccent`) holding passages, FTS index, embeddings, conversations, audit log, cost log.
+- One Postgres (with `pgvector` and `unaccent`) holding passages, FTS index, embeddings, conversations, and audit log.
 - No load balancer, no Redis, no auth beyond a simple API key, no rate limiting.
-- Cost tracking already in place (see `ASSUMPTIONS.md` § "Cost tracking — REQUIRED").
+- Token usage already visible (see `ASSUMPTIONS.md` § "Token usage — REQUIRED").
 
 ## ~10–100 concurrent users
 
@@ -19,7 +19,7 @@ What needs to change:
 - **Provider rate-limit handling** in the adapter — exponential backoff with jitter, configurable retry budget, circuit breaker per provider.
 - **Per-user / per-tenant rate limiting** at the API layer (Redis-backed token bucket).
 - **Background re-index task** for when convictions change between deploys (a `/admin/reindex` endpoint or a cron job that diffs file hashes against `passages.source_hash` and upserts changed rows).
-- **Real observability**: per-request tracing (OpenTelemetry), structured logs, cost dashboards aggregated from the audit log.
+- **Real observability**: per-request tracing (OpenTelemetry), structured logs, token-usage dashboards aggregated from the audit log.
 - **Auth & audit**: real JWT / OAuth instead of the v1 API key.
 
 What does **not** change:
@@ -35,16 +35,16 @@ Everything from the previous tier, plus:
 - **Dedicated vector store** (Qdrant / Weaviate) if pgvector hits index-build or query latency limits. Otherwise stay on pgvector with HNSW indexes.
 - **Queue-based async processing** for long-running questions or batch evals — Celery / Arq / temporal; the API enqueues, the worker runs the loop.
 - **Provider failover** — multi-provider adapter with health checks; degrade gracefully when the primary provider is down or rate-limited.
-- **Per-user cost budgets** with enforcement (the cost tracker already exists; now it gates new requests).
+- **Per-user request quotas** with enforcement.
 - **Sharding by tenant** if Decade ever multi-tenants this internally (separate corpus / separate convictions per business unit).
 - **Caching at multiple layers** — provider prompt caching, application response cache (with invalidation tied to corpus rebuilds), edge cache for static UI.
 
 ## Rule of thumb
 
-| Concurrency | What changes | Cost |
+| Concurrency | What changes | Ops footprint |
 |---|---|---|
 | <10 (v1) | Nothing — single instance is fine | Trivial infra |
 | 10–100 | Stateless instances + Redis + rate limits + rich observability | Real ops work, but no architecture change |
-| 100+ | External search/vector store + queues + failover + budget enforcement | Real production system |
+| 100+ | External search/vector store + queues + failover + quota enforcement | Real production system |
 
 The agent loop, citation contract, and verifier from `ARCHITECTURES.md` stay identical at every tier. The provider abstraction is what makes this scaling story possible — every component has clean seams.

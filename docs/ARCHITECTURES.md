@@ -106,7 +106,7 @@ The structured response is one of two shapes — a regular **answer** (with cita
 
 `general_knowledge_used` / `general_knowledge_section` carry the rule from `ASSUMPTIONS.md` § "Out-of-scope handling — IMPORTANT": when the convictions don't cover a topic, general knowledge is allowed but **must be marked very, very clearly** in a separate field, never interleaved with cited claims.
 
-**HTTP response wrapper** — adds friendly display fields, the deterministic disclaimer, and the per-step debug + cost payload:
+**HTTP response wrapper** — adds friendly display fields, the deterministic disclaimer, and the per-step debug + token-usage payload:
 
 ```json
 {
@@ -126,16 +126,20 @@ The structured response is one of two shapes — a regular **answer** (with cita
   "out_of_scope": false,
   "disclaimer": "This response is informational and does not constitute investment advice.",
   "usage_summary": {
-    "question_total_cost_usd": 0.014,
-    "conversation_total_cost_usd": 0.041,
-    "step_count": 4
+    "llm_call_count": 2,
+    "prompt_tokens": 1234,
+    "completion_tokens": 56,
+    "cached_tokens": 0,
+    "reasoning_tokens": 0,
+    "step_count": 4,
+    "duration_ms": 8200
   },
   "debug": {
     "tool_calls": [
       { "tool": "search_convictions", "arguments": { "query": "...", "k": 8 }, "returned_passage_ids": ["..."] }
     ],
     "steps": [
-      { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0 }, "cost_usd": 0.003 }
+      { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0, "reasoning_tokens": 0 } }
     ]
   }
 }
@@ -244,23 +248,22 @@ This prevents the common failure mode where an earlier hallucination becomes par
 
 Every response carries a regulatory disclaimer (*"This response is informational and does not constitute investment advice."* and PT/ES equivalents). The orchestrator appends it deterministically — never the model — so it can never be paraphrased or omitted. It lives in a dedicated `disclaimer` field on the HTTP response, separate from `answer`, so the resolver never tries to anchor it against a passage. See `ASSUMPTIONS.md` § "Compliance, security, data" for the exact text per language.
 
-### Audit log + cost tracking
+### Audit log + token usage
 
-Every step of every request is persisted. One log, two consumers (audit and cost):
+Every step of every request is persisted. LLM calls carry raw token usage:
 
 ```
 {
   step_id, question_id, conversation_id, timestamp,
   kind: "llm_call" | "tool_call" | "resolver" | "response",
   payload,        // request/response or tool args/result
-  usage           // { model, prompt_tokens, completion_tokens, cached_tokens } for llm_call
-                  // (cost_usd is NOT stored — derived on render via app/services/cost.py)
+  usage           // { model, prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens } for llm_call
 }
 ```
 
-The log lives in **SQLite** (table `audit_log`, with `cost_log` as a SQL view filtered to `llm_call` rows) — same database that holds the passages and conversations. Postgres is a documented level-up if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question and per-conversation totals. **Adapters return token counts only; USD cost is derived in `app/services/cost.py` from a vendored pricing JSON** (`app/providers/_model_prices.json`, refreshed via `scripts/refresh_prices.py`) — price corrections re-price old audit-log rows retroactively, and the adapter never owns prices. See `README.md` § "Refreshing model prices".
+The log lives in **SQLite** (table `audit_log`) — same database that holds the passages and conversations. Postgres is a documented level-up if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question token totals. Adapters return token counts only.
 
-See `ASSUMPTIONS.md` § "Cost tracking — REQUIRED" and § "Audit log".
+See `ASSUMPTIONS.md` § "Token usage — REQUIRED" and § "Audit log".
 
 ### Provider abstraction
 
@@ -281,7 +284,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 2. **Mirrors Claude Code's design (with one deliberate asymmetry).** Claude Code is a constrained tool-using agent over a filesystem (`Glob`, `Grep`, `Read`, ...); this is a constrained tool-using agent over a passage store. Same pattern, different domain. The asymmetry: Claude Code runs grep-in-the-loop with no precomputed index (its corpus is source code, where exact-token search is decisive); we keep a sparse BM25 index because the corpus is natural-language PT/EN prose where grep alone misses paraphrase. See CLAUDE.md § "A note on the Claude Code analogy" for the full reasoning.
 3. **Strongest provenance guarantee available.** Provider Citations APIs guarantee the cited text appears in the source. The resolver guarantees that *plus* every claim's quote was anchored to a specific `(start, end)` region of a passage we cited — and works on every provider.
 4. **Scales with the corpus.** No pre-built monolithic index to invalidate. `search_convictions` can be upgraded from BM25 to hybrid to reranked over time with no architectural change.
-5. **PDF/Excel uploads have a low-cost extension path.** Uploads are *not implemented in this version* (see "Not implemented in this version" below), but the design is straightforward: a `search_uploaded_files` and `read_uploaded_passage` pair would mirror the conviction tools, with uploads server-parsed into the same passage shape and scoped to a single conversation.
+5. **PDF/Excel uploads have a straightforward extension path.** Uploads are *not implemented in this version* (see "Not implemented in this version" below), but the design is straightforward: a `search_uploaded_files` and `read_uploaded_passage` pair would mirror the conviction tools, with uploads server-parsed into the same passage shape and scoped to a single conversation.
 6. **Compound questions are first-class.** Multi-step search → multi-passage citation is the natural mode of operation, not a special case.
 
 ---
@@ -302,7 +305,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 **Where it lives in the chosen design.** This pipeline is the *implementation* of the `search_convictions` tool, not the architecture. **v1 ships BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. The choice is justified by two assumptions that hold today and are likely to break later — agent loop, tool surface, citation contract, and resolver are unchanged at every step:
 
 - **Small corpus (~30 docs).** BM25 stays useful as the corpus grows (best for exact-term matches: tickers, regulation numbers, acronyms like `FGC`, `CVM`, `IR`), but new failure modes appear. *Hundreds of docs:* near-duplicates and topical neighbors crowd the top-K — add a **cross-encoder reranker** (`bge-reranker-v2-m3` or Cohere `rerank-multilingual-v3`) over the top candidates. *Thousands of docs:* chunks pulled out of context lose meaning ("revenue grew 3%" — for which company?) — add **Anthropic-style Contextual Retrieval** (prepend a 50–100 token generated context summary to each chunk before indexing). *Tens of thousands+:* move lexical to OpenSearch / ParadeDB and dense to a dedicated vector store (Qdrant) or HNSW Postgres, plus metadata filtering and tenant sharding.
-- **Internal-analyst audience.** Decade analysts speak the corpus vocabulary (PT/EN, regulatory terms), so on-vocabulary keyword queries work well with BM25. External users break that — Spanish-speaking clients ask `"tributación de CDB"` against `"tributação de CDB"` (BM25 misses on `ó`↔`ã`); English-only users ask `"how is CDB taxed?"` (zero word overlap with the PT passage); juniors paraphrase instead of using regulatory terms. The fix is a second retrieval path: a **multilingual embedding model** (OpenAI `text-embedding-3-large`, Cohere `embed-multilingual-v3`, or local `bge-m3`) over the same `passages` table with vectors in `pgvector`, fused with BM25 via Reciprocal Rank Fusion (k=60). One-time embedding pass costs ~$0.02; per-query cost ~$0.0001. Documented level-up.
+- **Internal-analyst audience.** Decade analysts speak the corpus vocabulary (PT/EN, regulatory terms), so on-vocabulary keyword queries work well with BM25. External users break that — Spanish-speaking clients ask `"tributación de CDB"` against `"tributação de CDB"` (BM25 misses on `ó`↔`ã`); English-only users ask `"how is CDB taxed?"` (zero word overlap with the PT passage); juniors paraphrase instead of using regulatory terms. The fix is a second retrieval path: a **multilingual embedding model** (OpenAI `text-embedding-3-large`, Cohere `embed-multilingual-v3`, or local `bge-m3`) over the same `passages` table with vectors in `pgvector`, fused with BM25 via Reciprocal Rank Fusion (k=60). Documented level-up.
 
 ### Hierarchical "table of contents, then zoom"
 
@@ -322,19 +325,19 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 **Why not chosen.**
 - **Direct conflict with provider portability**, which is an explicit requirement. Each provider's grounding feature has a different shape, different guarantees, and different data model. Switching providers means re-uploading, re-indexing, and rewriting the grounding layer.
 - Anthropic Citations is incompatible with strict JSON Structured Outputs, which forces awkward response handling.
-- OpenAI File Search adds per-call charges ($2.50 / 1k calls) on top of token cost.
+- OpenAI File Search is a provider-specific hosted retrieval product, so it does not fit the portable core architecture.
 - Most importantly: **the offset resolver gives a stronger provenance shape than any provider feature.** Provider citations prove "this text was in the source." The resolver proves "this claim was drawn from a passage we cited, at *these* character offsets" — and the UI shows the user that exact region.
 
 **Where it lives in the chosen design.** Behind provider adapters, as per-provider optimizations. Anthropic's Citations API is excellent and we use it inside the Anthropic adapter; we just don't *depend* on it.
 
 ### Long-context "stuff every conviction into the prompt"
 
-**Sketch.** Concatenate all convictions into a single cached system block; rely on prompt caching to amortize cost; ask the model to cite passage IDs.
+**Sketch.** Concatenate all convictions into a single cached system block; rely on prompt caching to reduce repeated input tokens; ask the model to cite passage IDs.
 
 **Why not chosen.**
 - Decade explicitly flags growth — *"as the number of documents grows, maintaining strict adherence becomes increasingly difficult."* This architecture *cannot* grow past a single model's context window; it commits us to a specific model family's limits.
 - "Lost in the middle": accuracy can drop 10–20 pp when the key passage sits mid-context.
-- Per-call input cost is high without cache hits; cold-start penalty is severe.
+- Per-call input token footprint is high without cache hits; cold-start penalty is severe.
 
 **Where it lives in the chosen design.** Nowhere. This option does not survive the growth requirement.
 
@@ -345,7 +348,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 **Why not chosen.**
 - Faithfulness is unverifiable when the model can pull from any source.
 - Power without constraint is the wrong default for a *strictly grounded* assistant — the requirement is to refuse or disclaim when convictions don't cover something, not to fall back to general capability.
-- Adds operational risk (sandboxing, cost, latency variance) without addressing the core problem.
+- Adds operational risk (sandboxing, latency variance) without addressing the core problem.
 
 ---
 
@@ -367,7 +370,7 @@ The following are designed but **out of scope for this submission**:
 4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is a documented level-up, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
 5. **Citation offset resolver.** Pure substring → `(start, end)` mapping; non-anchoring citations survive without a highlight. **Built before the agent loop** so every later step measures anchor rate from day one.
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
-7. **Disclaimer + audit log + cost tracking** wired into the orchestrator. SQLite is the storage; cost tracking is at three granularities (step, question, conversation).
+7. **Disclaimer + audit log + token usage** wired into the orchestrator. SQLite is the storage; token usage is visible per LLM step and summarized per question.
 8. **Eval suite.** See `TESTING.md`. Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
 9. **Anthropic adapter (second provider)** — proves portability; demonstrates the architecture is provider-agnostic. May add Citations API as a per-adapter optimization.
 10. **Optional promotion to hybrid retrieval** if eval shows BM25 misses cross-cutting / cross-language questions. Beyond hybrid: cross-encoder reranker, then Anthropic-style Contextual Retrieval. Each promotion is a conversation, not auto-triggered.

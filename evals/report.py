@@ -41,7 +41,10 @@ _REQUIRED_COLUMNS = (
     "citation_precision",
     "refusal_correctness",
     "general_knowledge_correctness",
-    "cost_usd",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_tokens",
+    "reasoning_tokens",
     "tool_calls",
     "duration_ms",
 )
@@ -57,7 +60,7 @@ def aggregate(df: pd.DataFrame) -> dict[str, Any]:
       with declared expected_passage_ids respectively).
     - Refusal / general-knowledge correctness are reported as
       correct-rate over questions where the metric was not 'n/a'.
-    - Cost / tool_calls / duration are summarised as mean and p95.
+    - Token usage / tool_calls / duration are summarised as mean and p95.
     """
     out: dict[str, Any] = {
         "questions": int(len(df)),
@@ -78,9 +81,14 @@ def aggregate(df: pd.DataFrame) -> dict[str, Any]:
     out["refusal_correctness"] = _discrete_rate(df["refusal_correctness"])
     out["general_knowledge_correctness"] = _discrete_rate(df["general_knowledge_correctness"])
 
-    out["cost_usd_total"] = round(float(df["cost_usd"].sum()), 6)
-    out["cost_usd_mean"] = round(float(df["cost_usd"].mean()), 6)
-    out["cost_usd_p95"] = round(float(df["cost_usd"].quantile(0.95)), 6)
+    total_tokens = df["prompt_tokens"].fillna(0) + df["completion_tokens"].fillna(0)
+    out["tokens_total"] = int(total_tokens.sum())
+    out["tokens_mean"] = round(float(total_tokens.mean()), 2) if len(df) else 0
+    out["tokens_p95"] = int(total_tokens.quantile(0.95)) if len(df) else 0
+    out["prompt_tokens_total"] = int(df["prompt_tokens"].fillna(0).sum())
+    out["completion_tokens_total"] = int(df["completion_tokens"].fillna(0).sum())
+    out["cached_tokens_total"] = int(df["cached_tokens"].fillna(0).sum())
+    out["reasoning_tokens_total"] = int(df["reasoning_tokens"].fillna(0).sum())
 
     out["tool_calls_mean"] = round(float(df["tool_calls"].mean()), 2)
     out["duration_ms_mean"] = int(df["duration_ms"].mean()) if len(df) else 0
@@ -94,7 +102,10 @@ def aggregate(df: pd.DataFrame) -> dict[str, Any]:
             "anchor_rate": (
                 round(float(citing_sub["anchor_rate"].mean()), 4) if len(citing_sub) else None
             ),
-            "cost_usd_mean": round(float(sub["cost_usd"].mean()), 6),
+            "tokens_mean": round(
+                float((sub["prompt_tokens"].fillna(0) + sub["completion_tokens"].fillna(0)).mean()),
+                2,
+            ),
         }
     out["by_bucket"] = by_bucket
     return out
@@ -176,27 +187,35 @@ def _render_markdown(metadata: RunMetadata, df: pd.DataFrame, agg: dict[str, Any
         f"| General-knowledge correctness | {_fmt_rate(gen_know)} "
         f"({gen_know['correct']}/{gen_know_scored}) |"
     )
-    md.append(f"| Cost total (USD) | ${agg['cost_usd_total']:.4f} |")
-    md.append(f"| Cost mean / p95 | ${agg['cost_usd_mean']:.5f} / ${agg['cost_usd_p95']:.5f} |")
+    md.append(f"| Tokens total | {agg['tokens_total']} |")
+    md.append(f"| Tokens mean / p95 | {agg['tokens_mean']:.2f} / {agg['tokens_p95']} |")
+    md.append(
+        f"| Prompt / completion tokens | "
+        f"{agg['prompt_tokens_total']} / {agg['completion_tokens_total']} |"
+    )
+    md.append(
+        f"| Cached / reasoning tokens | "
+        f"{agg['cached_tokens_total']} / {agg['reasoning_tokens_total']} |"
+    )
     md.append(f"| Tool calls (mean) | {agg['tool_calls_mean']:.2f} |")
     md.append(f"| Duration mean / p95 | {agg['duration_ms_mean']}ms / {agg['duration_ms_p95']}ms |")
     md.append("")
 
     md.append("## Per-bucket anchor rate")
     md.append("")
-    md.append("| Bucket | N | Anchor rate | Cost mean (USD) |")
+    md.append("| Bucket | N | Anchor rate | Tokens mean |")
     md.append("|---|---|---|---|")
     for bucket, info in sorted(agg["by_bucket"].items()):
         rate = _fmt(info["anchor_rate"])
-        cost = f"${info['cost_usd_mean']:.5f}"
-        md.append(f"| {bucket} | {info['n']} | {rate} | {cost} |")
+        tokens = f"{info['tokens_mean']:.2f}"
+        md.append(f"| {bucket} | {info['n']} | {rate} | {tokens} |")
     md.append("")
 
     md.append("## Per-question results")
     md.append("")
     md.append(
         "| id | bucket | lang | citations | anchor | precision | refusal "
-        "| gen-know | cost | tools | ms |"
+        "| gen-know | tokens | tools | ms |"
     )
     md.append("|---|---|---|---|---|---|---|---|---|---|---|")
     for _, row in df.iterrows():
@@ -212,7 +231,7 @@ def _render_markdown(metadata: RunMetadata, df: pd.DataFrame, agg: dict[str, Any
                     _fmt(row["citation_precision"]),
                     str(row["refusal_correctness"]),
                     str(row["general_knowledge_correctness"]),
-                    f"${float(row['cost_usd']):.5f}",
+                    str(int(row["prompt_tokens"]) + int(row["completion_tokens"])),
                     str(int(row["tool_calls"])),
                     str(int(row["duration_ms"])),
                 ]

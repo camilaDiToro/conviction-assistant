@@ -23,29 +23,7 @@ async def test_get_config_happy_path(client) -> None:
     assert response.status_code == 200, response.text
     body = response.json()
 
-    assert "defaults" in body
-    assert "allowed_models" in body
-    assert "allowed_reasoning_efforts" in body
-    assert "limits" in body
-
-    defaults = body["defaults"]
-    assert defaults["model"] == settings.openai_model
-    assert defaults["reasoning_effort"] == settings.agent_reasoning_effort
-    assert defaults["agent_max_tool_calls"] == settings.agent_max_tool_calls
-
-    assert set(body["allowed_reasoning_efforts"]) == {
-        "none",
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-    }
-    assert settings.openai_model in body["allowed_models"]
-
-    limits = body["limits"]
-    assert limits["agent_max_tool_calls"] == {"min": 1, "max": 10}
-    assert limits["agent_max_output_tokens"] == {"min": 256, "max": 16384}
+    assert body == {"model": settings.openai_model}
 
 
 async def test_get_config_missing_token_returns_401(client) -> None:

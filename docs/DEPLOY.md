@@ -43,10 +43,10 @@ HF builds the Docker image and starts the container. First build is ~5-8 min (np
     -H "X-Admin-Token: $ADMIN_TOKEN"
   ```
 
-## Cost
+## Usage
 
 - Space: $0/mo (free tier).
-- OpenAI: per-call, billed separately. Cap usage on platform.openai.com.
+- OpenAI: monitor token usage on platform.openai.com.
 
 ## Cold starts
 

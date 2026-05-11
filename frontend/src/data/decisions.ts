@@ -33,7 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
     caret: true,
     items: [
       { to: '/design/plumbing/providers', label: 'Provider abstraction' },
-      { to: '/design/plumbing/cost', label: 'Cost tracking' },
+      { to: '/design/plumbing/usage', label: 'Token usage' },
       { to: '/design/plumbing/layering', label: 'Layering rules' },
     ],
   },

@@ -64,33 +64,8 @@ export interface TokenUsage {
 
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
-export interface ChatOverrides {
-  model?: string
-  reasoning_effort?: ReasoningEffort
-  rewrite_reasoning_effort?: ReasoningEffort
-  agent_max_tool_calls?: number
-  agent_max_output_tokens?: number
-}
-
-export interface ConfigDefaults {
-  model: string
-  reasoning_effort: ReasoningEffort
-  rewrite_reasoning_effort: ReasoningEffort
-  agent_max_tool_calls: number
-  agent_max_iterations: number
-  agent_max_output_tokens: number
-}
-
-export interface IntBounds {
-  min: number
-  max: number
-}
-
 export interface ConfigResponse {
-  defaults: ConfigDefaults
-  allowed_models: string[]
-  allowed_reasoning_efforts: ReasoningEffort[]
-  limits: Record<string, IntBounds>
+  model: string
 }
 
 export interface DebugStep {
@@ -100,7 +75,6 @@ export interface DebugStep {
   detail: string
   duration_ms: number
   usage: TokenUsage | null
-  cost_usd: number | null
   // Step-kind-specific JSON summary of what the step produced.
   // tool_call → { result: <tool return value> }
   // llm_call  → { tool_calls?, parsed?, content? }
@@ -110,8 +84,11 @@ export interface DebugStep {
 }
 
 export interface UsageSummary {
-  question_total_cost_usd: number
-  conversation_total_cost_usd: number
+  llm_call_count: number
+  prompt_tokens: number
+  completion_tokens: number
+  cached_tokens: number
+  reasoning_tokens: number
   step_count: number
   duration_ms: number
 }

@@ -19,7 +19,7 @@ export default function AgentLoopPage() {
 
       <Section eyebrow="Problem">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
-          Drive a tool-using LLM toward a grounded, structured answer with a finite cost
+          Drive a tool-using LLM toward a grounded, structured answer with a finite tool
           budget and a finite retry budget. Detect cases where the model has not yet seen
           enough evidence (force a search), where the answer cites material it cannot
           substantiate (force a retry), and where the question has no in-corpus answer
@@ -50,7 +50,7 @@ export default function AgentLoopPage() {
           <SpecItem term="max_tool_calls = 5">A single conversation step may chain at most five tool calls. The 6th raises a synthetic <code className="font-mono text-[13px] text-ink-1">ToolBudgetExceeded</code> the agent sees as a tool-result error.</SpecItem>
           <SpecItem term="min_searches_before_answer = 1">Tracked by counting <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls. An Act response emitted before this counter is non-zero is rejected and the agent is re-prompted with a directive to search.</SpecItem>
           <SpecItem term="verifier_retries = 1">Per Act response. The retry message contains the per-citation failure reasons returned by the verifier verbatim.</SpecItem>
-          <SpecItem term='reasoning_effort = "medium"'>On gpt-5. Bumped from <code className='font-mono text-[13px] text-ink-1'>low</code> after observing shallow synthesis on broad questions; the verifier still catches paraphrase / hallucinated passage_id. Override via <code className='font-mono text-[13px] text-ink-1'>AGENT_REASONING_EFFORT=low</code> for cost-sensitive eval / CI.</SpecItem>
+          <SpecItem term='reasoning_effort = "low"'>Set at the server for the deployed model. The verifier still catches paraphrase / hallucinated passage_id, so higher effort is reserved for controlled eval runs.</SpecItem>
           <SpecItem term="temperature = 0">Where the provider honors it. OpenAI gpt-5 ignores temperature; the verifier and the structured-output schema are the determinism-relevant constraints.</SpecItem>
         </SpecList>
       </Section>
@@ -116,9 +116,9 @@ export default function AgentLoopPage() {
       <Section eyebrow="Trade-offs and alternatives considered">
         <SpecList>
           <SpecItem term="Prompt-only enforcement of bounds">Rejected. A model can reinterpret prompt instructions; bounds that matter are counted in code.</SpecItem>
-          <SpecItem term="Higher reasoning_effort">Rejected. The verifier catches the failures reasoning would have caught (misquotes, hallucinated IDs); the cost difference is ~10×.</SpecItem>
+          <SpecItem term="Higher reasoning_effort">Rejected. The verifier catches the failures reasoning would have caught (misquotes, hallucinated IDs); higher effort mainly increases token usage on the current eval set.</SpecItem>
           <SpecItem term="Explicit 'I don't know' state">Rejected. Covered by the <code className="font-mono text-[13px] text-ink-1">out_of_scope</code> flag on AnswerResponse; not a separate transition.</SpecItem>
-          <SpecItem term="Multiple verifier retries">Rejected. Two retries doubled the worst-case cost without measurable verifier-pass-rate improvement; the gain came from the first retry.</SpecItem>
+          <SpecItem term="Multiple verifier retries">Rejected. Two retries doubled worst-case latency and token usage without measurable verifier-pass-rate improvement; the gain came from the first retry.</SpecItem>
           <SpecItem term="Streaming output">Deferred level-up. The verifier needs the complete citation list before it can ship the answer, so streaming the body adds UX latency only.</SpecItem>
         </SpecList>
       </Section>

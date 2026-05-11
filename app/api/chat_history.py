@@ -31,6 +31,7 @@ from app.api.schemas import (
     ConversationListResponse,
     ConversationMessage,
     ConversationMessagesResponse,
+    DebugStep,
     QuestionStepsResponse,
     UsageSummary,
 )
@@ -143,20 +144,11 @@ async def question_steps(
             )
         )
 
-    question_cost = round(sum(s.cost_usd or 0.0 for s in steps), 8)
-    conversation_rows = await audit_repo.fetch_cost_rows_by_conversation(session, conversation_id)
-    conversation_cost = _conversation_cost(conversation_rows)
-
     return QuestionStepsResponse(
         conversation_id=conversation_id,
         question_id=question_id,
         steps=steps,
-        usage_summary=UsageSummary(
-            question_total_cost_usd=question_cost,
-            conversation_total_cost_usd=conversation_cost,
-            step_count=len(steps),
-            duration_ms=_audit_duration_ms(rows),
-        ),
+        usage_summary=_token_usage_summary(steps, duration_ms=_audit_duration_ms(rows)),
     )
 
 
@@ -178,26 +170,17 @@ def _audit_duration_ms(rows: list[audit_repo.AuditRow]) -> int:
     return int(delta.total_seconds() * 1000)
 
 
-def _conversation_cost(rows: list[audit_repo.AuditRow]) -> float:
-    """Sum priced LLM-call costs across a conversation. Mirrors
-    :func:`app.api.chat._prior_conversation_cost` but the live handler is
-    request-coupled; this helper is reused at read time."""
-    from app.providers import ProviderError, TokenUsage  # local import: keep top thin
-    from app.services.cost import compute_call_cost_usd
-
-    total = 0.0
-    for row in rows:
-        if not row["usage"]:
-            continue
-        try:
-            usage = TokenUsage.model_validate(json.loads(row["usage"]))
-        except (ValueError, TypeError):
-            continue
-        try:
-            total += compute_call_cost_usd(usage)
-        except ProviderError:
-            continue
-    return round(total, 8)
+def _token_usage_summary(steps: list[DebugStep], *, duration_ms: int) -> UsageSummary:
+    usages = [s.usage for s in steps if s.kind == "llm_call" and s.usage is not None]
+    return UsageSummary(
+        llm_call_count=len(usages),
+        prompt_tokens=sum(u.prompt_tokens for u in usages),
+        completion_tokens=sum(u.completion_tokens for u in usages),
+        cached_tokens=sum(u.cached_tokens for u in usages),
+        reasoning_tokens=sum(u.reasoning_tokens for u in usages),
+        step_count=len(steps),
+        duration_ms=duration_ms,
+    )
 
 
 def _make_title(text: str) -> str:

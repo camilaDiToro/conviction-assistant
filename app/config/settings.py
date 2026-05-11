@@ -22,20 +22,6 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.5"
     openai_embedding_model: str = "text-embedding-3-large"
     openai_timeout_seconds: float = 60.0
-    # Whitelist for per-request model overrides via /chat. Any value
-    # outside this list is rejected by the request schema; this is the
-    # gate that prevents arbitrary models from being charged.
-    # gpt-5.5 / gpt-5.4-* are routed to the /v1/responses adapter; older
-    # models stay on /v1/chat/completions. The factory picks the right
-    # adapter by model name (see _requires_responses_api).
-    allowed_models: list[str] = [
-        "gpt-5.5",
-        "gpt-5.4-mini",
-        "gpt-5.1",
-        "gpt-5",
-        "gpt-5-mini",
-        "gpt-4.1",
-    ]
 
     # Agent loop tuning.
     agent_max_tool_calls: int = 5

@@ -88,8 +88,8 @@ async def test_rewrite_passthrough_with_empty_history_still_detects_language() -
 
 @pytest.mark.asyncio
 async def test_rewrite_uses_low_reasoning_effort() -> None:
-    """Cost discipline: rewrite is a tiny task. ``low`` is the cheapest
-    effort accepted across the whole gpt-5.x family (gpt-5.5+ dropped
+    """Rewrite is a tiny task. ``low`` keeps the token footprint small
+    and is accepted across the whole gpt-5.x family (gpt-5.5+ dropped
     ``minimal``)."""
     responses = load_stub_responses(FIXTURES / "rewrite_pt.yaml")
     stub = StubLLM(responses)

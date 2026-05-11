@@ -14,6 +14,7 @@ by hand — autogenerate is a safety net, not the workflow.
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+
 # Importing the package side-effect-registers every ORM model on Base.metadata.
 from app.models import Base
 

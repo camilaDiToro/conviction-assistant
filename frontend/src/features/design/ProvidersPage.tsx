@@ -12,8 +12,8 @@ export default function ProvidersPage() {
         lead={
           <>
             One protocol, three adapters. Provider SDKs are imported in exactly one directory;
-            CI greps for violations. The orchestrator, tools, verifier, and cost calculator
-            are provider-agnostic.
+            CI greps for violations. The orchestrator, tools, and verifier are
+            provider-agnostic.
           </>
         }
       />
@@ -29,7 +29,7 @@ export default function ProvidersPage() {
       <Section eyebrow="Constraints">
         <SpecList>
           <SpecItem term="Single LLM point">SDK imports live only under <code className="font-mono text-[13px] text-ink-1">app/providers/</code>. Greppable invariant.</SpecItem>
-          <SpecItem term="Identical contract">Every adapter returns the same <code className="font-mono text-[13px] text-ink-1">LLMResponse</code> with the same <code className="font-mono text-[13px] text-ink-1">TokenUsage</code> shape. Cost is derived uniformly.</SpecItem>
+          <SpecItem term="Identical contract">Every adapter returns the same <code className="font-mono text-[13px] text-ink-1">LLMResponse</code> with the same <code className="font-mono text-[13px] text-ink-1">TokenUsage</code> shape.</SpecItem>
           <SpecItem term="Deterministic stub">A canned-response adapter is the default in tests. CI never burns provider tokens.</SpecItem>
           <SpecItem term="Schema enforcement at the adapter">Strict-mode JSON output is configured by the adapter, not by the orchestrator. The orchestrator passes a schema; the adapter chooses how to enforce it (response_format strict on OpenAI; tool-output schema on Anthropic).</SpecItem>
         </SpecList>
@@ -148,7 +148,6 @@ app/providers/factory.py
           </SpecItem>
           <SpecItem term="Rate-limit (429)">Surfaced as <code className="font-mono text-[13px] text-ink-1">ProviderError</code>; mapped at the boundary as 502/503.</SpecItem>
           <SpecItem term="Truncated response"><code className="font-mono text-[13px] text-ink-1">finish_reason == "length"</code>. The orchestrator treats this as failure.</SpecItem>
-          <SpecItem term="Unknown model in pricing"><code className="font-mono text-[13px] text-ink-1">compute_call_cost_usd</code> raises <code className="font-mono text-[13px] text-ink-1">ProviderError</code>. Audit row is still written; only the cost roll-up is affected.</SpecItem>
           <SpecItem term="Stub fixture exhausted">Test-only. <code className="font-mono text-[13px] text-ink-1">StubLLM</code> raises <code className="font-mono text-[13px] text-ink-1">ProviderError("stub: no more responses")</code>. Indicates a missing fixture entry.</SpecItem>
         </SpecList>
       </Section>
@@ -157,7 +156,7 @@ app/providers/factory.py
         <SpecList>
           <SpecItem term="Anthropic Citations API as the architecture">Rejected. Each provider's grounding semantics differ; the deterministic substring verifier is stronger and portable. Native APIs may live behind adapters as optimizations only.</SpecItem>
           <SpecItem term="LiteLLM-the-package as a unifier">Rejected. It carries a much larger surface than this project needs and couples us to its release cadence and quirks. The protocol here is small enough to maintain directly.</SpecItem>
-          <SpecItem term="A single SDK imported in the orchestrator">Rejected and CI-greppable. The cost is too low to skip and the upside (testability with stubs, portability) is too high.</SpecItem>
+          <SpecItem term="A single SDK imported in the orchestrator">Rejected and CI-greppable. The implementation effort is low and the upside (testability with stubs, portability) is high.</SpecItem>
           <SpecItem term="Streaming as a first-class adapter feature">Deferred. A streaming variant would change the LLMResponse type to an async iterator; not needed until UX latency outweighs simplicity.</SpecItem>
         </SpecList>
       </Section>

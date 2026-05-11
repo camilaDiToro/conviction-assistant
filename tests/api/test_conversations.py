@@ -1,4 +1,4 @@
-"""Tests for GET /admin/conversations/{id} and /cost."""
+"""Tests for GET /admin/conversations/{id}."""
 
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -44,9 +44,9 @@ def _hit() -> PassageHit:
 
 def _patch_tools(
     monkeypatch: pytest.MonkeyPatch,
-    overrides: dict[str, Callable[..., Awaitable[Any]]],
+    replacements: dict[str, Callable[..., Awaitable[Any]]],
 ) -> None:
-    for name, func in overrides.items():
+    for name, func in replacements.items():
         original = TOOLS[name]
         monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
 
@@ -149,40 +149,3 @@ async def test_get_conversation_trace_wrong_token_returns_401(client) -> None:
     assert response.status_code == 401
 
 
-# ---- cost endpoint ---------------------------------------------------
-
-
-async def test_get_conversation_cost_rolls_up_llm_calls(
-    client, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    conv_id = await _seed_one_chat(client, monkeypatch)
-    response = await client.get(
-        f"/api/admin/conversations/{conv_id}/cost",
-        headers={"X-Admin-Token": "test-admin-token"},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["conversation_id"] == conv_id
-    assert body["total_llm_calls"] >= 1
-    # Token totals are populated; USD cost is 0.0 because the stub
-    # fixtures use the unpriced `stub-llm` model name. The endpoint
-    # surfaces both — token counts are the source of truth, cost is
-    # a derived view that requires a priced model.
-    assert len(body["questions"]) == 1
-    q0 = body["questions"][0]
-    assert q0["llm_call_count"] >= 1
-    assert q0["prompt_tokens"] > 0
-    assert q0["completion_tokens"] > 0
-
-
-async def test_get_conversation_cost_unknown_id_returns_404(client) -> None:
-    response = await client.get(
-        "/api/admin/conversations/does-not-exist/cost",
-        headers={"X-Admin-Token": "test-admin-token"},
-    )
-    assert response.status_code == 404
-
-
-async def test_get_conversation_cost_requires_admin_token(client) -> None:
-    response = await client.get("/api/admin/conversations/x/cost")
-    assert response.status_code == 401

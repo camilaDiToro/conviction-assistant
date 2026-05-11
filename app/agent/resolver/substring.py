@@ -10,7 +10,7 @@ Rationale: the model copies its quote from the result of ``read_passage``,
 which returns the DB-stored passage text verbatim, so cosmetic
 differences essentially never appear. When they do, the citation still
 surfaces with offsets ``None`` and the popup shows the passage with no
-highlight — better than the cost of a normalized index map.
+highlight — clearer than maintaining a normalized index map.
 """
 
 from typing import TYPE_CHECKING

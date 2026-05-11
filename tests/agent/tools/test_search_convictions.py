@@ -45,8 +45,8 @@ BUCKET_FLOORS: dict[str, float] = {
 @pytest.fixture(scope="module")
 async def ctx_for_real_corpus(tmp_path_factory):
     """Ingest the real convictions/ once; build the BM25 index; yield a
-    ToolContext bound to that session + index. Module-scoped so we pay the
-    ~30-doc parse + index cost once per pytest invocation.
+    ToolContext bound to that session + index. Module-scoped so we run the
+    ~30-doc parse + index build once per pytest invocation.
     """
     tmp_path = tmp_path_factory.mktemp("search_acceptance")
     db_path = tmp_path / "search.sqlite"

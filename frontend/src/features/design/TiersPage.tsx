@@ -26,9 +26,9 @@ const ROWS = [
     levelUp: null,
   },
   {
-    label: 'Cost tracking',
-    built: 'Three granularities (step / question / conversation). Vendored prices. Retroactive re-pricing.',
-    simplified: '—',
+    label: 'Token usage',
+    built: 'Per-step TokenUsage plus per-question token totals in the response summary.',
+    simplified: 'Raw counters only; no enforcement gate.',
     levelUp: null,
   },
   {
@@ -52,8 +52,8 @@ const ROWS = [
   {
     label: 'Auth & rate limiting',
     built: '—',
-    simplified: 'No auth, no rate limit, no per-user budgets. Demo gate on the chat surface only.',
-    levelUp: { text: 'Real auth (OIDC) and per-user / per-conversation budget limits when productized.' },
+    simplified: 'No auth, no rate limit, no per-user quotas. Demo gate on the chat surface only.',
+    levelUp: { text: 'Real auth (OIDC) and per-user / per-conversation request quotas when productized.' },
   },
   {
     label: 'Streaming',
@@ -63,7 +63,7 @@ const ROWS = [
   },
   {
     label: 'Testing',
-    built: 'Unit (parser, search, cost, tools — pure functions) + integration (FastAPI test client + tmp SQLite) + provider-adapter tests against StubLLM. No LLM in the request path of CI.',
+    built: 'Unit (parser, search, tools — pure functions) + integration (FastAPI test client + tmp SQLite) + provider-adapter tests against StubLLM. No LLM in the request path of CI.',
     simplified: '—',
     levelUp: null,
   },

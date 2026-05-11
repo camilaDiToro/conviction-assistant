@@ -63,9 +63,9 @@ When two or more convictions contradict each other on a topic:
 2. **No provider-native grounding feature is the architecture.** They live behind adapters as optimizations only. The contract above the adapter is identical across Anthropic, OpenAI, Gemini.
 3. **BM25-only is the v1 retrieval baseline.** The corpus is 30 docs; plain BM25 (with unicode-fold + accent-strip + lowercase normalization) may be sufficient. Hybrid (BM25 + multilingual embeddings + RRF) is a documented level-up, gated on eval failure *and* a conversation with the project owner — never auto-promoted. See `docs/ARCHITECTURES.md` § "Classic hybrid retrieval pipeline" for the corpus-growth and audience-expansion reasoning.
 4. **No prior assistant answers in the source-of-truth context.** Each turn runs fresh tool calls. Prior conversation is used only to rewrite the current question.
-5. **The agent loop is bounded.** Max 5 tool calls, `reasoning_effort="medium"` on gpt-5 (overridable via `AGENT_REASONING_EFFORT` in `.env`), no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
+5. **The agent loop is bounded.** Max 5 tool calls, `reasoning_effort="low"` on the default model, no final answer until at least one search has run. Enforced by the orchestrator, not the prompt.
 6. **Tests run without an LLM by default.** LLM-in-the-loop is isolated to the eval pipeline. Unit + integration CI never burns provider tokens.
-7. **Cost tracking is mandatory at three granularities** — per step, per question, per conversation. Every LLM call returns a `usage` block; the orchestrator stamps every step with IDs; the HTTP response includes per-step usage in `debug` and a `usage_summary` at the top. See `docs/ASSUMPTIONS.md` § "Cost tracking — REQUIRED" for the schema.
+7. **Token usage is visible.** Every LLM call returns a `usage` block; the orchestrator stamps every step with IDs; the HTTP response includes per-step usage in `debug` and token totals in `usage_summary`.
 
 ## In scope for v1
 
@@ -74,7 +74,7 @@ When two or more convictions contradict each other on a topic:
 - Four read-only tools: `list_documents`, `read_document_outline`, `search_convictions` (BM25-only at v1), `read_passage`
 - Bounded agent loop with structured-JSON output
 - Deterministic offset resolver: turns each cited quote into `(start, end)` offsets in the passage, drops the literal text; non-anchoring citations survive without a highlight
-- Disclaimer + audit log + cost tracking on every response (PT / EN / **ES** disclaimers — Spanish users may ask in Spanish even though the corpus is PT/EN)
+- Disclaimer + audit log + token usage on every response (PT / EN / **ES** disclaimers — Spanish users may ask in Spanish even though the corpus is PT/EN)
 - `POST /chat` endpoint
 - Lightweight React frontend (Vite + React + TypeScript + Tailwind; built to static files and mounted under FastAPI); citation popup with the cited region highlighted in the passage
 - Eval suite (~30 hand-written Q/A) with **anchor rate** (% of citations that resolved) as headline metric
@@ -111,40 +111,63 @@ Router → Service → Repository (never skip layers)
 
 ```
 app/
-  config/
-    __init__.py       # Settings class + settings instance — only place env-var loading happens
-    db.py             # async engine + session factory + sync alembic migrate (no SQL — engine plumbing only)
   errors.py           # domain exceptions; mapped to HTTP at the API boundary
-  main.py             # lifespan (engine setup), router include, exception handlers
+  main.py             # lifespan (engine setup + auto-ingest), router include, exception handlers
+  config/
+    settings.py       # Settings class — only place env-var loading happens; re-exported from __init__
+    db.py             # async engine + session factory + sync alembic migrate (no SQL — engine plumbing)
   api/
     health.py         # GET /health
-    admin.py          # POST /admin/ingest (and future admin endpoints)
-    chat.py
+    admin.py          # POST /api/admin/ingest, GET /api/admin/conversations/*
+    chat.py           # POST /api/chat
+    chat_history.py   # GET /api/chat/conversations (user-facing list + load)
+    conversations.py  # GET /api/admin/conversations/{id} (admin trace)
+    config.py         # GET /api/config — surfaces the server-selected chat model
+    auth.py           # X-Chat-Token / X-Admin-Token validation
+    deps.py           # FastAPI Depends factories (provider DI; test patch point)
+    schemas.py        # HTTP request/response Pydantic models (ChatRequest, ChatResponse, …)
   services/
     ingest.py         # parser → repo orchestration
+    audit.py          # persist_question — serialize agent steps into audit_log rows
+    chat.py           # one /chat turn: IDs → agent → response wrapping → audit
+    disclaimer.py     # localized disclaimer strings (PT / EN / ES)
+    wrap_response.py  # AgentResult → wire response + audit summary
     parser/           # pure: markdown -> passages; dispatch by extension in registry.py
   repositories/
     passages.py       # SQLAlchemy 2.x async repo for passages
+    audit.py          # audit_log access (insert_many, fetch_by_*)
     introspection.py  # list_tables / list_views — schema diagnostics (uses raw text() SQL)
-    audit.py
   models/
     base.py           # DeclarativeBase
     passage.py        # PassageORM
+    audit.py          # AuditLogORM
   schemas/
-    passage.py        # Pydantic Passage / DocSummary / Heading / DocumentOutline
+    passage.py        # Pydantic Passage / DocSummary / Heading / DocumentOutline / PassageHit
     ingest.py         # Pydantic IngestResponse
-  providers/          # LLMProvider + EmbeddingProvider protocols + adapters
-                      # *** SINGLE POINT OF LLM INTERACTION ***
-  retrieval/          # Retriever protocol + adapters (bm25 today, hybrid later)
+  providers/          # *** SINGLE POINT OF LLM INTERACTION ***
+    base.py           # LLMProvider + EmbeddingProvider Protocols, TokenUsage
+    factory.py        # get_llm_provider() / get_embedding_provider() — dispatch on settings
+    openai.py         # OpenAI adapter
+    stub.py           # StubLLM / StubEmbedder for CI (no provider tokens burned)
+    text_repair.py    # post-hoc unicode-escape fixer (gpt-5-mini quirk)
+  retrieval/          # Retriever protocol + adapters (BM25 today, hybrid later)
                       # base.py contract; registry.py explicit dispatch; snippet.py shared helper
-  agent/              # agent loop, tool dispatch, rewrite, audit
+  agent/              # bounded loop, rewrite, dispatch, audit, dedupe
+    loop.py           # gather → act → resolve orchestrator (max-tool-calls, ≥1-search-before-answer)
+    rewrite.py        # multi-turn question rewrite + language detection
+    tool_dispatch.py  # executes one tool call via TOOLS registry
+    schemas.py        # AgentOutput, AnswerOutput, ClarifyingQuestionOutput, StepRecord
+    audit.py          # step recording + resolver adapter
+    dedupe.py         # collapse duplicate citations by passage_id, remap [N] markers
+    prompts/          # system.md, rewrite.md
+    resolver/         # deterministic substring → (start, end); literal quote dropped
     tools/            # read-only tools (storage-agnostic, ToolContext DI)
                       # list_documents, read_document_outline, read_passage, search_convictions
 alembic/
   env.py
   script.py.mako
   versions/
-    0001_initial_schema.py    # passages, audit_log, cost_log view
+    0001_initial_schema.py    # passages, audit_log
 ```
 
 ### Hard rules (CI-greppable)

@@ -1,4 +1,4 @@
-"""initial schema: passages, audit_log, cost_log
+"""initial schema: passages, audit_log
 
 Revision ID: 0001
 Revises:
@@ -16,14 +16,6 @@ depends_on = None
 
 
 _AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'response')"
-
-_COST_LOG_VIEW = """
-CREATE VIEW cost_log AS
-SELECT step_id, question_id, conversation_id, timestamp, payload, usage
-FROM audit_log
-WHERE kind = 'llm_call'
-"""
-
 
 def upgrade() -> None:
     op.create_table(
@@ -51,8 +43,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_audit_question", "audit_log", ["question_id"])
     op.create_index("ix_audit_conversation", "audit_log", ["conversation_id"])
-
-    op.execute(_COST_LOG_VIEW)
 
 
 def downgrade() -> None:

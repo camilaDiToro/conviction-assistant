@@ -79,8 +79,14 @@ def test_factory_routes_gpt5_5_to_responses_adapter(reset_settings):
     settings.openai_api_key = "sk-test"
     settings.openai_model = "gpt-5.5"
     assert isinstance(get_llm_provider(), OpenAIResponsesLLM)
-    assert isinstance(get_llm_provider(model="gpt-5.4-mini"), OpenAIResponsesLLM)
+
+    settings.openai_model = "gpt-5.4-mini"
+    assert isinstance(get_llm_provider(), OpenAIResponsesLLM)
+
     # Older reasoning models stay on chat completions.
-    assert isinstance(get_llm_provider(model="gpt-5.1"), OpenAILLM)
-    assert isinstance(get_llm_provider(model="gpt-5"), OpenAILLM)
-    assert isinstance(get_llm_provider(model="gpt-4o"), OpenAILLM)
+    settings.openai_model = "gpt-5.1"
+    assert isinstance(get_llm_provider(), OpenAILLM)
+    settings.openai_model = "gpt-5"
+    assert isinstance(get_llm_provider(), OpenAILLM)
+    settings.openai_model = "gpt-4o"
+    assert isinstance(get_llm_provider(), OpenAILLM)

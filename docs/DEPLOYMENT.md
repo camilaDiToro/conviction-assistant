@@ -52,7 +52,6 @@ The concrete deploy plan: technologies, where things run, the architecture diagr
 │  Operational state:                │  │  └──────────────────────────────┘  │
 │   • conversations                  │  └────────────────────────────────────┘
 │   • audit_log                      │
-│   • cost_log                       │
 │                                    │
 │  ONE DATABASE_URL — local docker   │
 │  for dev, Neon when hosted.        │
@@ -73,14 +72,13 @@ postgres ←── all schema below ──→
   conversations ( id, created_at, ... )
   conversation_messages ( id, conversation_id, role, content, created_at )
   audit_log ( step_id, question_id, conversation_id, kind, payload, usage, ts )
-  cost_log  ( ... mirror of audit_log restricted to llm_call rows ... )
 ```
 
 #### How the conviction knowledge base lives in this DB
 
 At startup, the service reads `convictions/*.md`, parses each file into passages, computes embeddings via OpenAI, and **upserts** into the `passages` table. To avoid pointless re-embedding on every restart we hash each `.md` file and skip rows whose source hash matches what's already in the DB. So:
 
-- **Cold start (first deploy or after a corpus edit):** ~2 seconds parsing + ~$0.02 OpenAI embedding cost. Persisted once.
+- **Cold start (first deploy or after a corpus edit):** ~2 seconds parsing plus one embedding pass. Persisted once.
 - **Warm restart (no corpus change):** instantaneous; the DB already has the passages and vectors.
 
 Both BM25 and dense retrieval run as **SQL queries** against this same table:
@@ -94,7 +92,7 @@ Both BM25 and dense retrieval run as **SQL queries** against this same table:
 | Concern | Two stores (in-memory + Postgres) | Single Postgres |
 |---|---|---|
 | Mental model | Two stores, sync rules, hash-check at boot | One store, one ORM, one URL |
-| Restart cost | Re-embed every cold start (~$0.02) | Pay once; warm restarts are free |
+| Restart behavior | Re-embed every cold start | Embed once; warm restarts reuse persisted vectors |
 | Multi-instance scaling | Each worker re-builds in-memory indexes | Workers share one DB; trivial |
 | Hosting | Local SQLite vs. cloud Postgres branching | Same Postgres everywhere |
 | Vector store | numpy in-memory | `pgvector` (idiomatic, indexable with HNSW) |
@@ -128,7 +126,7 @@ Same `DATABASE_URL`, same SQLAlchemy code, same schema in both places.
 | Vector index | **`pgvector`** in the same Postgres | Idiomatic; one DB; HNSW index when scale demands; works on Neon out-of-the-box. |
 | Provider SDKs | **`openai`, `anthropic`** | Direct SDKs; no LangChain (per `CLAUDE.md` design principles). |
 | HTTP client | **httpx** | What both SDKs use; consistent. |
-| Database | **Postgres 16+ with `pgvector` and `unaccent` extensions** | One DB for passages, FTS index, embeddings, conversations, audit, cost. Local dev via docker compose; hosted via Neon free tier (pgvector built-in). |
+| Database | **Postgres 16+ with `pgvector` and `unaccent` extensions** | One DB for passages, FTS index, embeddings, conversations, and audit. Local dev via docker compose; hosted via Neon free tier (pgvector built-in). |
 | ORM | **SQLAlchemy 2.0** | Five tables. The pgvector column type has a SQLAlchemy adapter (`pgvector.sqlalchemy.Vector`). |
 | Logging | **structlog** | JSON-line output; same payload powers the audit log. |
 | Tests | **pytest + pytest-asyncio** | Standard. |
@@ -155,7 +153,7 @@ frontend/
     components/
       Chat.tsx
       Message.tsx         # citations + general-knowledge banner + conflict callout
-      DebugDrawer.tsx     # tool trace, per-step cost, verifier result
+      DebugDrawer.tsx     # tool trace, per-step token usage, verifier result
       Disclaimer.tsx
 ```
 
@@ -176,8 +174,7 @@ What the page renders (unchanged from the previous plan):
 - **General-knowledge banner** (Rule A): when `general_knowledge_used: true`, render a visually distinct block above the answer.
 - **Conflict callout** (Rule B): when the response cites contradictory convictions, render them side-by-side.
 - **Disclaimer footer**, always visible.
-- **Debug drawer** (collapsed by default): tool trace + per-step cost + verifier pass/fail. **Single highest-ROI feature — makes the whole architecture visible in 5 seconds during the demo.**
-- **Cost meter** badge: "this conversation cost $0.04" from `usage_summary.conversation_total_cost_usd`.
+- **Debug drawer** (collapsed by default): tool trace + per-step token usage + verifier pass/fail. **Single highest-ROI feature — makes the whole architecture visible in 5 seconds during the demo.**
 
 The build step is the only complexity added vs. plain HTML; in return you get TypeScript types, sane component decomposition, and a stack the interviewer recognizes immediately.
 
@@ -187,7 +184,7 @@ The build step is the only complexity added vs. plain HTML; in return you get Ty
 
 Ranked from simplest to most production-shaped.
 
-| Option | Cost | Persistent state? | Cold-start | Pick for |
+| Option | Plan | Persistent state? | Cold-start | Pick for |
 |---|---|---|---|---|
 | **Local + ngrok** | $0 | Trivially (your laptop) | n/a | **Recommended for the demo.** No surprises, can poke around live. |
 | **Render (free tier)** | $0 | Postgres add-on free | Sleeps after 15 min idle | If you want a stable hosted URL. |
@@ -245,7 +242,7 @@ decade-ai-challenge/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                        # FastAPI app + static mount + /chat /health
-│   ├── config.py                      # env vars, model picks, prices
+│   ├── config.py                      # env vars, model picks
 │   ├── parser/
 │   │   ├── markdown.py                # markdown → passages
 │   │   └── interface.py               # DocumentParser protocol
@@ -256,7 +253,6 @@ decade-ai-challenge/
 │   │   ├── conversations.py           # Postgres conversation state
 │   │   └── audit.py                   # Postgres per-step audit log (token counts only)
 │   ├── services/
-│   │   └── cost.py                    # USD via vendored model prices (read-time)
 │   ├── tools/
 │   │   ├── definitions.py             # JSON schemas for the four tools
 │   │   └── runtime.py                 # dispatch tool calls to store
@@ -307,11 +303,11 @@ This shape maps 1:1 to `ARCHITECTURES.md` and `TESTING.md` so the interviewer ca
 
 ### 2. OpenAI as primary, Anthropic as second adapter
 
-**Why:** Per `ASSUMPTIONS.md`, no provider is restricted. Picking OpenAI as primary gives one provider for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`) — single credential, single billing line. The Anthropic adapter is implemented second specifically to prove the portability requirement isn't theoretical.
+**Why:** Per `ASSUMPTIONS.md`, no provider is restricted. Picking OpenAI as primary gives one provider for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`) — a single credential and one adapter family. The Anthropic adapter is implemented second specifically to prove the portability requirement isn't theoretical.
 
 ### 3. One Postgres for everything, no SQLite, no in-memory store
 
-**Why:** A single Postgres database (with `pgvector` and `unaccent`) holds the passage table, the FTS index, the embeddings, conversations, the audit log, and the cost log. One mental model, one connection string, one ORM, one schema migration story. Local dev runs Postgres via docker compose; hosted runs Neon (free tier with pgvector built-in). This removes the awkward "in-memory store + persistent store" split, removes the "what happens on cold start" question (warm restarts are instant; embeddings persist), and matches what scaling looks like — at every tier we still have one Postgres, just bigger.
+**Why:** A single Postgres database (with `pgvector` and `unaccent`) holds the passage table, the FTS index, the embeddings, conversations, and the audit log. One mental model, one connection string, one ORM, one schema migration story. Local dev runs Postgres via docker compose; hosted runs Neon (free tier with pgvector built-in). This removes the awkward "in-memory store + persistent store" split, removes the "what happens on cold start" question (warm restarts are instant; embeddings persist), and matches what scaling looks like — at every tier we still have one Postgres, just bigger.
 
 ### 4. pgvector + Postgres FTS, not a separate vector DB or search engine
 
@@ -368,7 +364,7 @@ The agent loop, citation contract, and verifier are **unchanged**. The provider 
 | Vector store | numpy in-process | **pgvector / Qdrant / Weaviate** |
 | Workload | Sync per request | **Queue** (Celery / Arq / Temporal) — API enqueues, worker runs |
 | Provider | Single primary | Multi-provider with health checks + failover |
-| Costs | Tracked | **Enforced** — per-user budgets gate new requests |
+| Request quotas | Not enforced | **Enforced** — per-user quotas gate new requests |
 
 Again, the agent loop and verifier stay identical. The seams are designed for exactly this kind of swap.
 
@@ -385,7 +381,7 @@ See `docs/SCALING.md` for the full breakdown and `docs/RETRIEVAL_SCALE.md` for t
 - [ ] An in-scope question in EN over a PT-only document still finds the right passage (cross-language sanity).
 - [ ] An out-of-scope question returns a `general_knowledge_section` with the unambiguous marker.
 - [ ] A constructed conflict question cites both convictions and states the disagreement.
-- [ ] The debug drawer in the FE shows the tool trace and per-step cost.
+- [ ] The debug drawer in the FE shows the tool trace and per-step token usage.
 - [ ] `pytest` (no LLM) is green.
 - [ ] `pytest -m eval` (real provider) hits 100% verifier pass rate on the smoke subset.
 - [ ] README links to `docs/`, names the chosen architecture in the first paragraph, and has a "production-readiness" section pointing at `SCALING.md`.

@@ -159,7 +159,6 @@ async def test_migrate_creates_schema(session: AsyncSession):
     """Migrate-then-use must work end-to-end."""
     assert "passages" in await introspection.list_tables(session)
     assert "audit_log" in await introspection.list_tables(session)
-    assert "cost_log" in await introspection.list_views(session)
 
 
 async def test_migrate_is_idempotent(tmp_path):

@@ -76,17 +76,6 @@ async def run(
     tool_ctx: ToolContext,
     llm: LLMProvider,
 ) -> AgentResult:
-    """Run one full agent turn.
-
-    The rewrite stage runs on **every** turn — it doubles as the language
-    classifier whose output drives the answer-language directive. With
-    empty history the rewrite is a passthrough on the question text but
-    still emits ``detected_language``.
-
-    Runtime tuning comes from server settings. The public ``/chat``
-    contract intentionally has no request-level knobs; one deployed
-    server exposes one configured agent behavior.
-    """
     steps: list[StepRecord] = []
 
     rewritten, language, rewrite_step = await rewrite_question(user_message, history, llm=llm)

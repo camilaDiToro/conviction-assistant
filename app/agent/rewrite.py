@@ -1,29 +1,11 @@
-"""Question rewrite + language detection — runs on every turn.
+"""Rewrite the user message into a self-contained question and detect its language.
 
-Architectural commitment (``docs/ARCHITECTURES.md`` § Conversation memory):
-prior assistant answers are **never** injected into the agent loop's
-tool-call context. The rewrite stage is the only place that *can* see
-prior assistant text — and its single output is a self-contained
-question. Whatever the assistant said in the past does not flow into
-the grounded retrieval path.
-
-This stage runs on **every turn** (turn 1 included) for one extra
-reason: it doubles as the language detector. The model's classification
-of the user's language drives the answer-language directive in the
-agent loop. On turn 1 with no history the rewrite is a passthrough; the
-language signal is the load-bearing output.
-
-The 2026 RAG community consensus on conversational query rewriting:
-
-- Naive blind always-rewriting introduces noise.
-- Brute-force full-history hurts via "Lost in the Middle".
-- Selective rewriting (only when there is history to resolve against)
-  outperforms both — the prompt enforces the "echo unchanged" rule
-  whenever the new question is already self-contained.
-
-Claude Code uses compaction, not rewriting (different trust model); the
-OpenAI Agents SDK uses full-history sessions (same trust model, also
-wrong fit for grounded RAG).
+Takes the new message plus prior turns and produces one question with
+all the context inlined — so the agent loop can search without seeing
+any prior assistant text (grounding stays anchored to the corpus, not
+to past answers). Runs on every turn because the same call also
+classifies the user's language, which drives the answer-language
+directive downstream.
 """
 
 import uuid

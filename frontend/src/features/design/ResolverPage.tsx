@@ -227,8 +227,8 @@ class OffsetResolution(BaseModel):
             Rejected. Would require maintaining an index map from normalized offsets back to
             the original passage so the popup highlight stays correct, for a class of failures
             that essentially never appears once the model copies from{' '}
-            <code className="font-mono text-[13px] text-ink-1">read_passage</code>. Net cost
-            beats net benefit.
+            <code className="font-mono text-[13px] text-ink-1">read_passage</code>. The added
+            complexity beats the benefit.
           </SpecItem>
           <SpecItem term="LLM-as-judge entailment">
             Rejected for grounding. Introduces a non-deterministic dependency on the very
@@ -241,7 +241,7 @@ class OffsetResolution(BaseModel):
           <SpecItem term="Reject and retry on non-anchor">
             Rejected. Reading{' '}
             <code className="font-mono text-[13px] text-ink-1">read_passage</code> first and
-            then copying makes failures rare; the cost of a retry round-trip outweighs the
+            then copying makes failures rare; retrying the round trip adds latency for little
             marginal recall gain. Non-anchoring citations surviving without highlight is the
             chosen graceful degradation.
           </SpecItem>

@@ -64,7 +64,7 @@ Required behavior:
 
 **Projected corpus size:** design for the **current scale (~30–50 docs)**. **But BM25-only is not sufficient** because the corpus is PT/EN and queries are PT/EN/ES (Spanish queries against PT documents fail with bag-of-words alone). The v1 retrieval stack is **hybrid BM25 + multilingual dense embeddings, fused with RRF** — see `RETRIEVAL_SCALE.md` for the embedding-model alternatives and the full tier-by-tier scaling story.
 
-**Default embedding model for v1:** OpenAI `text-embedding-3-large` (multilingual, ~$0.02 to embed the whole corpus). Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) are documented in `RETRIEVAL_SCALE.md` and slot in behind the same `EmbeddingProvider` interface.
+**Default embedding model for v1:** OpenAI `text-embedding-3-large` (multilingual). Alternatives (`bge-m3` local, Cohere `embed-multilingual-v3`) are documented in `RETRIEVAL_SCALE.md` and slot in behind the same `EmbeddingProvider` interface.
 
 **Conviction update cadence:** assumed **rare** (published once, occasional edits). Index is **rebuilt on deploy / container start** — no watched-folder, no webhook, no live-update path.
 
@@ -117,7 +117,7 @@ The eval suite must include at least one bucket per shape, and the bilingual spl
 - (3) is enforced by an LLM-as-judge entailment step (RAGAS / DeepEval `faithfulness`) that asks "is this claim entailed by the cited passage?"
 - The README must report all three numbers separately so a reader can see where any failure lives.
 
-## Performance, cost, scale
+## Performance, token usage, scale
 
 ### ⚠️ STRONG ASSUMPTION — Latency target ~5–10 seconds per response
 
@@ -133,27 +133,26 @@ This assumption is documented prominently because pivoting away from it later is
 
 See `SCALING.md` for what changes if the user count grows to ~10–100 or 100+.
 
-### Cost tracking — REQUIRED
+### Token usage — REQUIRED
 
-Cost tracking is a first-class architectural concern, even though no hard ceiling is enforced for v1. Every LLM call must be tracked at **three levels of granularity**:
+Token usage is a first-class debugging and audit concern. Every LLM call must expose raw provider counters:
 
-1. **Per step** — every LLM call records its own input tokens, output tokens, cached tokens, and derived cost.
-2. **Per question** — the cost of a single user-message round-trip (sum of all steps from request to verified response).
-3. **Per chat / conversation** — aggregate across all turns in a conversation.
+1. **Per step** — every LLM call records its own prompt tokens, completion tokens, cached tokens, and reasoning tokens.
+2. **Per question** — the response summary aggregates those counters across the current turn.
+3. **Audit replay** — persisted `llm_call` rows keep raw `usage` JSON so historical debug traces can be reconstructed.
 
 *Architectural impact:*
 
-- The `LLMProvider` interface returns a raw `usage` block on every call: `{model, prompt_tokens, completion_tokens, cached_tokens}`.
+- The `LLMProvider` interface returns a raw `usage` block on every call: `{model, prompt_tokens, completion_tokens, cached_tokens, reasoning_tokens}`.
 - The orchestrator stamps every step with a `step_id`, `question_id`, and `conversation_id`.
-- The `debug` payload in the HTTP response (already documented in `ARCHITECTURES.md` § "Citation contract") includes per-step usage; a `usage_summary` block at the top of the response carries the per-question and per-conversation totals.
-- USD cost is derived outside the provider adapter by `app/services/cost.py`, using the vendored model-price table at `app/providers/_model_prices.json`.
-- A persistent log in Postgres (`audit_log`, the same table that records every step) carries raw `usage` so per-conversation totals can be recomputed and audited later.
+- The `debug` payload in the HTTP response (already documented in `ARCHITECTURES.md` § "Citation contract") includes per-step usage; a `usage_summary` block at the top of the response carries per-question token totals.
+- A persistent log (`audit_log`, the same table that records every step) carries raw `usage` so historical traces can be audited later.
 
-This must work identically across providers — adapters expose token counts, and the shared cost service owns price lookup and USD math.
+This must work identically across providers: adapters expose token counts, and nothing above the adapter depends on provider-specific usage details.
 
 **Streaming:** not required. Wait-for-full-answer is acceptable. The verifier runs cleanly post-hoc this way; no UX complications around mid-stream verification.
 
-**Model choice:** no cost-driven restriction. **Primary provider for v1: OpenAI** (default model `gpt-5`); the Anthropic adapter (default `claude-opus-4-7`) is the second adapter implemented to prove portability. Default to the strongest model per provider; downgrade only if eval shows a smaller model meets the bar at lower cost.
+**Model choice:** **Primary provider for v1: OpenAI** (default model `gpt-5.5`); the Anthropic adapter is documented as the second adapter path to prove portability. Keep the chat route on the backend-selected default model; use evals, not per-request model controls, to justify changing it.
 
 ## Compliance, security, data
 
@@ -173,7 +172,7 @@ This must work identically across providers — adapters expose token counts, an
 **Audit log:** every tool call and every citation must be persisted.
 
 *Architectural impact:*
-- A Postgres `audit_log` table records every step: `{step_id, question_id, conversation_id, timestamp, kind: "llm_call" | "tool_call" | "verifier" | "response", payload, usage}`. Same database that holds passages and conversations. This is also the cost-tracking source-of-truth — one log, two consumers.
+- An `audit_log` table records every step: `{step_id, question_id, conversation_id, timestamp, kind: "llm_call" | "tool_call" | "verifier" | "response", payload, usage}`. Same database that holds passages and conversations.
 - Citations are persisted as part of the final response record so they can be replayed and re-verified later (e.g., if a conviction is edited and we want to know which past responses cited it).
 - For v1, the log is local. Production would forward to a structured log destination and add retention policies (see `SCALING.md`).
 
@@ -224,9 +223,9 @@ This must work identically across providers — adapters expose token counts, an
 
 This framing is mirrored in `../CLAUDE.md` § "Project framing".
 
-**Observability infrastructure:** no existing infra. We add minimal in-house logging via the per-step audit log already documented in this file (cost tracking + audit log are the same Postgres `audit_log` table). No Langfuse / Arize integration in v1.
+**Observability infrastructure:** no existing infra. We add minimal in-house logging via the per-step audit log already documented in this file. No Langfuse / Arize integration in v1.
 
-*Brief note for the project owner:* "observability" tooling here means platforms that capture LLM call traces, latency, cost, and prompt/response pairs (Langfuse, Arize, LangSmith are common ones). They give you a dashboard view of every agent run. We don't need one for v1 — the audit log gives the same data, just without the dashboard.
+*Brief note for the project owner:* "observability" tooling here means platforms that capture LLM call traces, latency, token usage, and prompt/response pairs (Langfuse, Arize, LangSmith are common ones). They give you a dashboard view of every agent run. We don't need one for v1 — the audit log gives the same data, just without the dashboard.
 
 **Dry-run mode:** **not implemented.** The `debug` payload already exposes the tool trace and verifier result on every real response, which gives the same debugging value with less code. If the project owner asks for dry-run during the demo, it is a one-day add: short-circuit before the answer-generation step and return the planned tool sequence.
 
