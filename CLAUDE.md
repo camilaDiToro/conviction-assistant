@@ -130,13 +130,13 @@ app/
     ingest.py         # parser → repo orchestration
     audit.py          # persist_question — serialize agent steps into audit_log rows
     chat.py           # one /chat turn: IDs → agent → response wrapping → audit
+    conversations.py  # build_trace — group audit rows by question for admin review
     disclaimer.py     # localized disclaimer strings (PT / EN / ES)
     wrap_response.py  # AgentResult → wire response + audit summary
     parser/           # pure: markdown -> passages; dispatch by extension in registry.py
   repositories/
     passages.py       # SQLAlchemy 2.x async repo for passages
     audit.py          # audit_log access (insert_many, fetch_by_*)
-    introspection.py  # list_tables / list_views — schema diagnostics (uses raw text() SQL)
   models/
     base.py           # DeclarativeBase
     passage.py        # PassageORM
