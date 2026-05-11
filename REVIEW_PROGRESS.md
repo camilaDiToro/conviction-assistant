@@ -53,17 +53,16 @@ decade-ai-challenge/
 │   │       ├── [x] registry.py                 — hand-written JSON schemas (OpenAI strict-mode compliant) + ToolDefinitions + TOOLS dict
 │   │       └── [x] search_convictions.py      — BM25 over corpus via ctx.retriever; EmptyQueryError on blank input
 │   │
-│   ├── api/
+│   ├── api/                                [x] reviewed
 │   │   ├── [x] __init__.py
 │   │   ├── [x] admin.py
-│   │   ├── [ ] auth.py                         — re-review pending after api-cleanup PR
-│   │   ├── [ ] chat.py                         — re-review pending after api-cleanup PR
-│   │   ├── [ ] chat_history.py
-│   │   ├── [ ] config.py
-│   │   ├── [ ] conversations.py
-│   │   ├── [ ] deps.py
-│   │   ├── [ ] health.py
-│   │   └── [ ] schemas.py
+│   │   ├── [x] auth.py                         — hmac.compare_digest + fail-closed on missing token; two-token model
+│   │   ├── [x] chat.py                         — thin handler; session / llm / retriever via deps
+│   │   ├── [x] chat_history.py                 — three GET endpoints; delegates reconstruction to services/chat_history
+│   │   ├── [x] config.py                       — surfaces server-selected chat model (X-Chat-Token)
+│   │   ├── [x] deps.py                         — get_llm_provider_dep + get_retriever_dep seams for tests
+│   │   ├── [x] health.py                       — liveness probe (Docker / HF Space)
+│   │   └── [x] schemas.py                      — StrictModel base; ConversationMessage as discriminated union
 │   │
 │   ├── config/
 │   │   ├── [ ] __init__.py
@@ -107,7 +106,6 @@ decade-ai-challenge/
 │       ├── [ ] audit.py
 │       ├── [ ] chat.py
 │       ├── [ ] chat_history.py             — extracted in api-cleanup PR; reconstructs ConversationMessage / ChatCitation / UsageSummary from audit_log rows
-│       ├── [ ] conversations.py
 │       ├── [ ] disclaimer.py
 │       ├── [ ] ingest.py
 │       ├── [ ] wrap_response.py
