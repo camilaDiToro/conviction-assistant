@@ -15,7 +15,7 @@ Three responsibilities:
 
 import json
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from app.api.schemas import (
     ChatCitation,
@@ -37,8 +37,10 @@ _TITLE_MAX = 120
 def list_item_from_summary_row(row: audit_repo.ConversationSummaryRow) -> ConversationListItem:
     """Map one ``list_conversation_summaries`` row to the wire item."""
     try:
-        payload = cast(dict[str, Any], json.loads(row["first_payload"]))
+        payload = json.loads(row["first_payload"])
     except (ValueError, TypeError):
+        payload = {}
+    if not isinstance(payload, dict):
         payload = {}
     title = make_title(payload.get("user_question") or payload.get("rewritten_question") or "")
     return ConversationListItem(
@@ -54,8 +56,10 @@ def message_from_response_row(row: audit_repo.AuditRow) -> ConversationMessage |
     """Reconstruct one ``ConversationMessage`` from a ``kind='response'``
     row. Returns ``None`` if the row payload won't parse as JSON."""
     try:
-        payload = cast(dict[str, Any], json.loads(row["payload"]))
+        payload = json.loads(row["payload"])
     except (ValueError, TypeError):
+        return None
+    if not isinstance(payload, dict):
         return None
     return _message_from_payload(row, payload)
 
@@ -90,8 +94,10 @@ def steps_response_from_rows(
     step rebuilt from the ``kind='response'`` payload.
     """
     try:
-        summary = cast(dict[str, Any], json.loads(response_row["payload"]))
+        summary = json.loads(response_row["payload"])
     except (ValueError, TypeError):
+        summary = {}
+    if not isinstance(summary, dict):
         summary = {}
     retriever_name = str(summary.get("retriever") or "")
 

@@ -103,8 +103,8 @@ def reconstruct_steps_from_audit(
             payload = {}
         if not isinstance(payload, dict):
             payload = {}
-        tool_name = payload.pop("tool_name", None) if isinstance(payload, dict) else None
-        duration_ms_raw = payload.pop("duration_ms", 0) if isinstance(payload, dict) else 0
+        tool_name = payload.pop("tool_name", None)
+        duration_ms_raw = payload.pop("duration_ms", 0)
         try:
             duration_ms = int(duration_ms_raw)
         except (TypeError, ValueError):
