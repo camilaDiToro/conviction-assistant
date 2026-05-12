@@ -44,16 +44,32 @@ def test_anchor_rate_no_citations() -> None:
     assert "no citations" in (r.reason or "").lower()
 
 
-def test_citation_precision_perfect() -> None:
+def test_citation_precision_perfect_with_extras_not_penalised() -> None:
+    # All expected are cited; one extra outside the expected set must not
+    # lower the score (extras are treated as neutral).
+    citations = [
+        {"passage_id": "p1", "failure_reason": None},
+        {"passage_id": "p2", "failure_reason": None},
+        {"passage_id": "p99", "failure_reason": None},
+    ]
+    r = citation_precision.score(citations=citations, expected_passage_ids=["p1", "p2"])
+    assert float(r) == 1.0
+    assert "not penalised" in (r.reason or "")
+
+
+def test_citation_precision_subset_of_expected() -> None:
+    # Agent cited 2 of 3 expected ids with no extras → 2/3.
     citations = [
         {"passage_id": "p1", "failure_reason": None},
         {"passage_id": "p2", "failure_reason": None},
     ]
     r = citation_precision.score(citations=citations, expected_passage_ids=["p1", "p2", "p3"])
-    assert float(r) == 1.0
+    assert abs(float(r) - (2 / 3)) < 1e-9
 
 
-def test_citation_precision_one_wrong() -> None:
+def test_citation_precision_missing_one_expected_with_extra() -> None:
+    # Agent missed one expected id but added an unrelated cite; the missing
+    # one drops the score, the extra does not.
     citations = [
         {"passage_id": "p1", "failure_reason": None},
         {"passage_id": "p99", "failure_reason": None},
