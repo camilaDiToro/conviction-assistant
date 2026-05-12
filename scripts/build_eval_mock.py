@@ -29,13 +29,13 @@ DET_METRICS = [
     "clarify_correctness",
     "meets_min_citations",
     "conflict_min_citations",
+    "conflict_disclosure_det",
     "language_match",
 ]
 
 JUDGE_RUBRICS = [
     "faithfulness",
     "answer_relevancy",
-    "conflict_disclosure",
     "rule_a_purity",
     "citation_attribution",
     "completeness",

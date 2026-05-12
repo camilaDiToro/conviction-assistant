@@ -177,10 +177,10 @@ def _render(
     md.append("## Judge per-bucket")
     md.append("")
     md.append(
-        "| Bucket | N | faithfulness | answer_relevancy | conflict | "
+        "| Bucket | N | faithfulness | answer_relevancy | "
         "rule_a_purity | citation_attribution | completeness |"
     )
-    md.append("|---|---|---|---|---|---|---|---|")
+    md.append("|---|---|---|---|---|---|---|")
     for bucket in sorted(judge_by_bucket):
         b = judge_by_bucket[bucket]
         md.append(
@@ -191,7 +191,6 @@ def _render(
                     str(b["n"]),
                     _fmt(b.get("faithfulness")),
                     _fmt(b.get("answer_relevancy")),
-                    _fmt(b.get("conflict_disclosure")),
                     _fmt(b.get("rule_a_purity")),
                     _fmt(b.get("citation_attribution")),
                     _fmt(b.get("completeness")),

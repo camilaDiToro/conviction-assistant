@@ -54,9 +54,11 @@ answer text is actually supported by the cited passages**.
 
 For that signal, the project ships a separate **LLM-as-judge layer**
 under `evals/judge/` (see that module's docstrings). The judge runs
-manually from Claude Code against the trace JSONL the deterministic
-runner already produces, validates against a fixed Pydantic schema,
-and feeds into a combined report alongside the deterministic numbers.
+manually from a code assistant against the trace JSONL the deterministic
+runner already produces. There is no Ragas, subprocess, or CLI code path
+that calls a judge model. The manually produced judge JSONL validates
+against a fixed Pydantic schema and feeds into a combined report
+alongside the deterministic numbers.
 
 The split is intentional: the deterministic suite gives a fast,
 reproducible, token-free signal on every CI run; the judge gives a

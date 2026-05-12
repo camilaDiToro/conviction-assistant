@@ -29,7 +29,7 @@ export default function EvalDatasetPage() {
         title="The set, and the latest run."
         lead={
           <>
-            The 35 hand-authored questions on the left, and the most recent deterministic
+            The 34 hand-authored questions on the left, and the most recent deterministic
             run report on the right. Source files:{' '}
             <code className="font-mono text-[14px] text-ink-1">evals/golden_set.yaml</code>{' '}
             and{' '}
@@ -136,7 +136,7 @@ function ResultsPanel() {
     <>
       <Section eyebrow="Run metadata">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          Most recent full run on the 35-question set. The same run produces three artifacts
+          Most recent full run on the 34-question set. The same run produces three artifacts
           alongside a raw <code className="font-mono text-[12px] text-ink-1">_traces.jsonl</code>{' '}
           that feeds the LLM-as-judge layer.
         </p>
@@ -267,10 +267,9 @@ const DATASET: DatasetEntry[] = [
   { id: 'q14', bucket: 'rule_a', lang: 'en', question: 'What are the typical pros and cons of dynamic versus static hedging for portfolio currency risk?', expected: 0, flags: 'gen-knowledge expected' },
   { id: 'q15', bucket: 'factual', lang: 'en', question: 'How do Brazilian exporters typically hedge USD revenues when their costs are in BRL?', expected: 0, flags: 're-bucketed v2' },
   { id: 'q16', bucket: 'factual', lang: 'en', question: 'What protections does B3 provide if a broker defaults during a trade settlement?', expected: 0, flags: 're-bucketed v2' },
-  { id: 'q17', bucket: 'rule_b', lang: 'pt', question: 'Vale mais a pena montar o núcleo de ações em ETFs passivos como BOVA11 e SMAL11, ou um gestor ativo de small caps consegue entregar retorno superior consistente após taxas?', expected: 0, flags: 'conflict expected' },
-  { id: 'q18', bucket: 'rule_b', lang: 'pt', question: 'Os FIIs operam como classe de renda recorrente sob a regra de distribuição compulsória de 95% dos resultados, ou os FIIs de desenvolvimento são incompatíveis com um mandato de renda?', expected: 0, flags: 'conflict expected' },
-  { id: 'q19', bucket: 'rule_b', lang: 'en', question: 'For a 30-year-old Brazilian investor with only BRL liabilities, is dollar exposure via IVVB11 a portfolio necessity or an optional diversification?', expected: 0, flags: 'conflict expected' },
-  { id: 'q20', bucket: 'rule_b', lang: 'pt', question: 'Para um colchão de longo prazo, é melhor concentrar em Tesouro IPCA+ direto ou priorizar debêntures incentivadas que oferecem IPCA+ sem IR e taxas reais superiores?', expected: 0, flags: 'conflict expected' },
+  { id: 'q17', bucket: 'rule_b', lang: 'pt', question: 'Para um investidor brasileiro sem passivos em moeda estrangeira, a exposição cambial deve ser tratada como uma necessidade estrutural do portfólio ou como uma diversificação opcional dimensionada em 5–15%?', expected: 0, flags: 'conflict expected' },
+  { id: 'q18', bucket: 'rule_b', lang: 'pt', question: 'Faz sentido manter exposição estratégica a FIIs de lajes corporativas no portfólio dado o trabalho híbrido pós-COVID, ou Decade vê o subsegmento como estruturalmente deprimido a ponto de inviabilizar a alocação?', expected: 0, flags: 'conflict expected' },
+  { id: 'q19', bucket: 'rule_b', lang: 'en', question: 'Should a Brazilian income investor systematically overweight high-yield dividend stocks — Decade frames a clear dividend policy as a governance-quality signal, but the same playbook warns the dividend trap is the most dangerous feature of dividend investing?', expected: 0, flags: 'conflict expected' },
   { id: 'q21', bucket: 'cross_lang', lang: 'es', question: '¿Cómo se calculan los impuestos sobre los CDB en Brasil?', expected: 1 },
   { id: 'q22', bucket: 'cross_lang', lang: 'es', question: '¿Qué son los fondos inmobiliarios brasileños (FII) y cómo se gravan?', expected: 2 },
   { id: 'q23', bucket: 'cross_lang', lang: 'es', question: 'Estrategias de dolarización para inversores brasileños', expected: 1 },
@@ -299,7 +298,7 @@ const RUN_META: ReadonlyArray<[string, string]> = [
 ]
 
 const AGGREGATE: ReadonlyArray<[string, string]> = [
-  ['Questions evaluated', '35'],
+  ['Questions evaluated', '34'],
   ['Anchor rate (headline)', '1.000 (across 31 citing questions)'],
   ['Citation precision', '0.875 (across 20 questions with expected ids)'],
   ['Citation recall', '0.875 (across 20 questions with expected ids)'],
@@ -307,8 +306,9 @@ const AGGREGATE: ReadonlyArray<[string, string]> = [
   ['General-knowledge correctness', '0.935 (29/31)'],
   ['Clarify correctness', '0.667 (2/3)'],
   ['Meets min citations', '1.000 (29/29)'],
-  ['Conflict min citations (Rule B precondition)', '1.000 (4/4)'],
-  ['Language match', '1.000 (35/35)'],
+  ['Conflict min citations (Rule B precondition)', '1.000 (3/3) — stale snapshot, rerun pending'],
+  ['Conflict disclosure (Rule B semantic)', '— (rerun pending)'],
+  ['Language match', '1.000 (34/34)'],
   ['Tokens total', '629,606'],
   ['Tokens mean / p95', '17,989 / 26,282'],
   ['Prompt / completion tokens', '579,622 / 49,984'],
@@ -323,7 +323,7 @@ const BUCKET_RESULTS = [
   { bucket: 'factual', n: 17, anchor: '1.000', tokens: '17,883' },
   { bucket: 'out_of_scope', n: 2, anchor: '—', tokens: '3,830' },
   { bucket: 'rule_a', n: 6, anchor: '1.000', tokens: '20,913' },
-  { bucket: 'rule_b', n: 4, anchor: '1.000', tokens: '21,629' },
+  { bucket: 'rule_b', n: 3, anchor: '1.000', tokens: '21,629' },
 ] as const
 
 interface PerQ {
@@ -364,7 +364,6 @@ const PER_QUESTION: ReadonlyArray<PerQ> = [
   { id: 'q17', bucket: 'rule_b', lang: 'pt', citations: '5 (5 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 3, ms: 34258 },
   { id: 'q18', bucket: 'rule_b', lang: 'pt', citations: '4 (4 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 3, ms: 40796 },
   { id: 'q19', bucket: 'rule_b', lang: 'en', citations: '3 (3 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 3, ms: 31012 },
-  { id: 'q20', bucket: 'rule_b', lang: 'pt', citations: '4 (4 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 3, ms: 30500 },
   { id: 'q21', bucket: 'cross_lang', lang: 'es', citations: '3 (3 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 2, ms: 23801 },
   { id: 'q22', bucket: 'cross_lang', lang: 'es', citations: '4 (4 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 3, ms: 64311 },
   { id: 'q23', bucket: 'cross_lang', lang: 'es', citations: '7 (7 anch)', anchor: '1.000', prec: '1.000', recall: '1.000', refusal: 'correct', genKnow: 'correct', langMatch: 'correct', tools: 5, ms: 59641 },

@@ -197,14 +197,68 @@ def meets_min_citations(citations: list[dict[str, Any]], must_cite_at_least: int
     )
 
 
+_CONFLICT_MARKERS: tuple[str, ...] = (
+    "diverg",   # PT/EN "divergem"/"divergen"/"diverge"/"divergence"
+    "discord",  # PT "discordam"
+    "disagree",  # EN "convictions disagree"
+    "difier",   # ES "difieren"
+    "conflit",  # PT "conflitam"/EN "conflict"
+)
+
+
+@discrete_metric(name="conflict_disclosure_det", allowed_values=["correct", "incorrect", "n/a"])
+def conflict_disclosure_det(
+    output: dict[str, Any], expected_conflict_mention: bool
+) -> MetricResult:
+    """Rule B semantic: did the agent emit ``conflict_detected`` matching
+    the golden, with a ``conflict_statement`` that names the
+    disagreement using a canonical marker phrase?
+
+    Replaces the LLM-as-judge ``conflict_disclosure`` rubric. The
+    structured field is the source of truth: ``AnswerOutput`` already
+    validates that ``conflict_detected=true`` requires a non-empty
+    ``conflict_statement``; we additionally check that the statement
+    contains a literal disagreement marker so an analyst scanning the
+    audit log gets an unambiguous cue.
+
+    Behavior:
+    - ``expected_conflict_mention=false`` ⇒ ``n/a`` (not Rule B).
+    - Clarifying / out_of_scope output ⇒ ``n/a``.
+    - ``conflict_detected=false`` on a Rule B golden ⇒ ``incorrect``.
+    - ``conflict_detected=true`` but the statement lacks a marker
+      phrase ⇒ ``incorrect``.
+    - Otherwise ⇒ ``correct``.
+    """
+    if output.get("kind") != "answer":
+        return MetricResult(value="n/a", reason="not an answer turn")
+    if not expected_conflict_mention:
+        return MetricResult(value="n/a", reason="expected_conflict_mention=false; not applicable")
+    detected = bool(output.get("conflict_detected"))
+    if not detected:
+        return MetricResult(
+            value="incorrect",
+            reason="expected conflict_detected=true but agent emitted false",
+        )
+    statement = (output.get("conflict_statement") or "").strip().lower()
+    if not any(marker in statement for marker in _CONFLICT_MARKERS):
+        return MetricResult(
+            value="incorrect",
+            reason=(
+                f"conflict_detected=true but statement lacks a disagreement marker: "
+                f"{statement[:120]!r}"
+            ),
+        )
+    return MetricResult(value="correct", reason="conflict_detected=true with canonical marker")
+
+
 @discrete_metric(name="conflict_min_citations", allowed_values=["correct", "incorrect", "n/a"])
 def conflict_min_citations(
     citations: list[dict[str, Any]], expected_conflict_mention: bool
 ) -> MetricResult:
     """Rule B precondition: when convictions disagree, the agent must
-    cite at least two distinct passages (one per side). This metric
-    checks the minimum-citation precondition only — the semantic check
-    (does the answer say they disagree?) is the judge's job.
+    cite at least two distinct passages (one per side). Pairs with
+    :func:`conflict_disclosure_det` (semantic check) to fully replace
+    the previous LLM-judge ``conflict_disclosure`` rubric.
     """
     if not expected_conflict_mention:
         return MetricResult(value="n/a", reason="expected_conflict_mention=false; not applicable")
@@ -372,6 +426,7 @@ __all__ = [
     "citation_precision",
     "citation_recall",
     "clarify_correctness",
+    "conflict_disclosure_det",
     "conflict_min_citations",
     "general_knowledge_correctness",
     "language_match",

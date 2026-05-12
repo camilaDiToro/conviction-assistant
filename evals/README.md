@@ -57,20 +57,26 @@ questions that regressed (passed in A, failing in B) and improvements.
 
 ## LLM-as-judge layer
 
-Six semantic metrics live in `evals/judge/`. The judge runs **manually
-from Claude Code**, not as a subprocess: read `evals/judge/prompt.md`,
-apply it to each record of the `_traces.jsonl` produced by the
-deterministic run, and write a JSONL of `JudgeResult` records
-validated against `evals/judge/schema.py`.
+Five semantic metrics live in `evals/judge/`. The judge runs
+**manually from a code assistant**, not as a subprocess or CLI command:
+there is no code path that calls a judge model. Read
+`evals/judge/prompt.md`, apply it to each record of the `_traces.jsonl`
+produced by the deterministic run, and write a JSONL of `JudgeResult`
+records validated against `evals/judge/schema.py`.
 
 | Judge metric | Type | What it checks |
 |---|---|---|
 | **faithfulness** | numeric 0-1 | fraction of `answer` sentences entailed by the cited passages |
 | **answer_relevancy** | discrete | answer addresses the user's question (relevant / partial / off_topic) |
-| **conflict_disclosure** | discrete | Rule B semantic: answer explicitly states the convictions disagree (rule_b bucket only) |
 | **rule_a_purity** | discrete | `answer` is free of general-knowledge content (clean / leaked) |
 | **citation_attribution** | numeric 0-1 | each `[N]` marker maps to a passage that supports the preceding claim |
 | **completeness** | discrete | answer covers the substantive points in the cited material (complete / partial / shallow) |
+
+Rule B semantic (was `conflict_disclosure`) moved to the deterministic
+`conflict_disclosure_det` metric — it reads the agent's structured
+`conflict_detected` / `conflict_statement` fields. The judge was scoring 0 even
+when the model correctly emitted `conflict_detected=false` because it only
+inspected the `answer` text.
 
 Combined report:
 
@@ -87,16 +93,16 @@ only comparable when both signatures match.
 
 ## Golden set
 
-`evals/golden_set.yaml` — 30 hand-authored questions, distributed:
+`evals/golden_set.yaml` — 34 hand-authored questions, distributed:
 
-- 12 factual (with verified `expected_passage_ids` from the retrieval fixture)
-- 4 rule_a (tangential mention; general_knowledge_used should fire)
-- 4 rule_b (conflicting convictions; agent must cite both sides)
+- 18 factual (incl. 2 multiturn; verified `expected_passage_ids` from the retrieval fixture)
+- 5 rule_a (tangential mention; general_knowledge_used should fire)
+- 3 rule_b (conflicting convictions; agent must cite both sides and emit conflict_detected=true)
 - 3 cross_lang (Spanish queries against PT/EN corpus)
-- 4 out_of_scope (refusal expected; gen-know explicitly forbidden)
+- 2 out_of_scope (refusal expected; gen-know explicitly forbidden)
 - 3 clarify (ambiguous; agent should ask for clarification)
 
-PT 13 · EN 13 · ES 4.
+PT 15 · EN 15 · ES 4.
 
 Add new entries by appending to the YAML and re-running. IDs must be
 unique; the loader rejects duplicates.

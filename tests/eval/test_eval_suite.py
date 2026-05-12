@@ -81,6 +81,7 @@ def test_row_from_result_with_synthetic_data(tmp_path: Path) -> None:
     assert row.clarify_correctness == "n/a"
     assert row.meets_min_citations == "correct"
     assert row.conflict_min_citations == "n/a"
+    assert row.conflict_disclosure_det == "n/a"
     assert row.language_match == "correct"
     assert row.duration_ms == 42
 

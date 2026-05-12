@@ -129,17 +129,6 @@ alembic/
 5. **Services and repositories NEVER raise `HTTPException`** or reference HTTP status codes. They raise domain exceptions; the API layer maps them.
 
 
-### CRITICAL — Error handling & HTTP rules
-
-- Services and repositories NEVER raise `HTTPException`
-- Services raise domain exceptions defined in `app/errors.py` (subclasses of `DomainError`)
-- The API layer maps domain exceptions to HTTP responses via handlers registered in `app/main.py`
-- Routers are the only layer that knows about HTTP — status codes, headers, response formatting stay in `app/api/`
-- ALWAYS use `async def` for endpoints
-- ALWAYS use `Depends()` for dependency injection (DB sessions, future auth)
-- ALWAYS return Pydantic schemas, never raw ORM objects or dicts
-- NEVER use `@app.on_event()` — use `lifespan` context managers (already in `app/main.py`)
-
 The `LLMProvider` and `EmbeddingProvider` protocols are the *only* contract above provider adapters. `StubProvider` is what every CI test uses — the test suite never burns provider tokens.
 
 ### Frontend layout

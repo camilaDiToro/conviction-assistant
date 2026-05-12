@@ -167,7 +167,7 @@ export default function EvalPage() {
                 Latest run as chat
               </div>
               <div className="text-ink-3 text-sm mt-0.5 leading-relaxed">
-                The 35 question/answer pairs from the latest run, rendered in the real chat UI.
+                The 34 question/answer pairs from the latest run, rendered in the real chat UI.
                 Click <em>view eval</em> on any turn for deterministic + judge metrics.
               </div>
             </div>
@@ -192,8 +192,8 @@ const BUCKETS = [
   },
   {
     name: 'rule_b',
-    n: 4,
-    desc: 'Two convictions take opposite positions. The agent must cite both sides and explicitly state that the convictions disagree, not silently pick one.',
+    n: 3,
+    desc: 'Two convictions take opposite positions. The agent must cite both sides and emit conflict_detected=true with a conflict_statement that names the divergence — checked by conflict_disclosure_det.',
   },
   {
     name: 'cross_lang',
@@ -293,9 +293,14 @@ const JUDGE_METRICS = [
   },
 ] as const
 
-const JUDGE_PROMPT = `You are an evaluator scoring a grounded-QA agent against six rubric criteria.
+const JUDGE_PROMPT = `You are an evaluator scoring a grounded-QA agent against five rubric criteria.
 The agent answers user questions strictly grounded on a set of investment-conviction
 documents and emits structured output with verbatim citations.
+
+Rule B (conflicting convictions) is not scored here — it has a dedicated
+deterministic metric (conflict_disclosure_det) that reads the agent's
+structured conflict_detected / conflict_statement fields. Do not invent a
+conflict rubric.
 
 Your output is a single JSON object validating against the JudgeResult schema. No
 prose, no markdown, no commentary outside the JSON.
@@ -309,7 +314,7 @@ Inputs you are given (per question):
   out_of_scope, citations[] (marker, passage_id, document_title, heading_path,
   passage_text, anchored — full passage_text given for every cited passage).
 
-Six rubrics:
+Five rubrics:
 
 1. faithfulness (numeric, n_supported / n_sentences)
    For each sentence in answer, decide whether the cited passages entail it
@@ -328,33 +333,21 @@ Six rubrics:
    Does the answer address what the user actually asked?
    relevant=1.0, partial=0.5, off_topic=0.0.
 
-3. conflict_disclosure (discrete: yes | no | n/a)
-   Applicable only when bucket == "rule_b". Did the answer explicitly state
-   that the convictions disagree on this topic?
-   - yes (1.0): explicit disagreement marker — "the convictions disagree on
-     this", "discordam", "divergem", "trade-off entre", "conflicting views",
-     a section that opposes one conviction to another. Citing both sides is
-     necessary but not sufficient — the answer must call out the conflict in
-     words.
-   - no (0.0): silent presentation of one or both sides without naming the
-     disagreement.
-
-4. rule_a_purity (discrete: clean | leaked | n/a)
+3. rule_a_purity (discrete: clean | leaked | n/a)
    Applicable when output_kind == "answer" and out_of_scope == false.
    Does answer carry general-knowledge content that should have been in
    general_knowledge_section?
-   - clean (1.0): every sentence in answer is a paraphrase of cited content
-     or the explicit Rule-B conflict-disclosure sentence.
+   - clean (1.0): every sentence in answer is a paraphrase of cited content.
    - leaked (0.0): answer contains framing, recommendations, mechanisms,
      comparisons or context not supported by the cited passages. List up to
      5 leaked sentences. A leaked Rule A is also a faithfulness failure.
 
-5. citation_attribution (numeric, n_correct / n_markers)
+4. citation_attribution (numeric, n_correct / n_markers)
    For each [N] marker, decide whether citation N actually supports the claim
    immediately preceding the marker. Deduplicate adjacent markers like [1][2]
    into 2 markers (not 1). Edge: n_markers == 0 → score 1.0.
 
-6. completeness (discrete: complete | partial | shallow | n/a)
+5. completeness (discrete: complete | partial | shallow | n/a)
    Applicable when output_kind == "answer" with at least one citation.
    complete=1.0 (covers the main points present in the cited material that
    map to the question), partial=0.5, shallow=0.0. Use missing to list
@@ -362,9 +355,8 @@ Six rubrics:
 
 Hard rules (the validator enforces):
   1. label and score must agree per the tables above.
-  2. conflict_disclosure.applicable is true iff bucket == "rule_b".
-  3. rule_a_purity.label == "leaked" requires ≥ 1 leaked_sentences entry.
-  4. n_supported ≤ n_sentences, n_correct ≤ n_markers.
-  5. unsupported and leaked_sentences capped at 5 entries.
-  6. All reason and missing fields capped at 240 characters.
-  7. Skip records where output_kind is empty (error rows from the runner).`
+  2. rule_a_purity.label == "leaked" requires ≥ 1 leaked_sentences entry.
+  3. n_supported ≤ n_sentences, n_correct ≤ n_markers.
+  4. unsupported and leaked_sentences capped at 5 entries.
+  5. All reason and missing fields capped at 240 characters.
+  6. Skip records where output_kind is empty (error rows from the runner).`

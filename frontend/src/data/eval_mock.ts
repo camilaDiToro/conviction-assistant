@@ -130,7 +130,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 38,
               "end": 453
             },
-            {
+      {
               "passage_id": "cdbs_quick_guide#tributacao-tabela-regressiva",
               "document": "CDBs: Guia Rápido para Investidores",
               "heading": "Tributação: Tabela Regressiva",
@@ -142,7 +142,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 590
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#1-principios-gerais-da-tributacao-de-investimentos",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "1. Princípios Gerais da Tributação de Investimentos",
@@ -226,13 +226,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -255,7 +248,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q02",
     "bucket": "factual",
     "language": "pt",
@@ -366,13 +359,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -395,7 +381,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q03",
     "bucket": "factual",
     "language": "pt",
@@ -434,7 +420,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 38,
               "end": 514
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "3. Renda Fixa: CDB, LC, LCI, LCA, Debêntures e Outros",
@@ -518,13 +504,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -547,7 +526,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q04",
     "bucket": "factual",
     "language": "pt",
@@ -586,7 +565,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 331,
               "end": 897
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#4-fundos-de-investimento-tributacao-e-come-cotas",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "4. Fundos de Investimento — Tributação e Come-Cotas",
@@ -670,13 +649,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is factual, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -699,7 +671,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q05",
     "bucket": "factual",
     "language": "pt",
@@ -737,7 +709,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 45,
               "end": 1932
             },
-            {
+      {
               "passage_id": "pgbl_vgbl_comparacao#tabelas-de-tributacao-progressiva-vs-regressiva",
               "document": "PGBL vs. VGBL: Guia Comparativo de Previdência Privada",
               "heading": "Tabelas de Tributação: Progressiva vs. Regressiva",
@@ -749,7 +721,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1534
             },
-            {
+      {
               "passage_id": "pgbl_vgbl_comparacao#portabilidade",
               "document": "PGBL vs. VGBL: Guia Comparativo de Previdência Privada",
               "heading": "Portabilidade",
@@ -833,13 +805,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -862,7 +827,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q06",
     "bucket": "factual",
     "language": "en",
@@ -900,7 +865,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 180,
               "end": 1522
             },
-            {
+      {
               "passage_id": "bdrs_investing_guide#what-are-bdrs",
               "document": "BDRs (Brazilian Depositary Receipts): A Comprehensive Investing Guide",
               "heading": "What Are BDRs?",
@@ -912,7 +877,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1395
             },
-            {
+      {
               "passage_id": "bdrs_investing_guide#liquidity-evaluation",
               "document": "BDRs (Brazilian Depositary Receipts): A Comprehensive Investing Guide",
               "heading": "Liquidity Evaluation",
@@ -996,13 +961,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1025,7 +983,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q07",
     "bucket": "factual",
     "language": "en",
@@ -1063,7 +1021,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 5086,
               "end": 8034
             },
-            {
+      {
               "passage_id": "corporate_governance_levels_b3#extended-governance-reference-and-case-studies",
               "document": "Corporate Governance Listing Levels on B3: A Framework for Investor Analysis",
               "heading": "Extended Governance Reference and Case Studies",
@@ -1075,7 +1033,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 368,
               "end": 3455
             },
-            {
+      {
               "passage_id": "corporate_governance_levels_b3#assessing-governance-quality-beyond-the-listing-level",
               "document": "Corporate Governance Listing Levels on B3: A Framework for Investor Analysis",
               "heading": "Assessing Governance Quality Beyond the Listing Level",
@@ -1159,13 +1117,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; conflict disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1188,7 +1139,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q08",
     "bucket": "factual",
     "language": "en",
@@ -1298,13 +1249,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1327,7 +1271,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q09",
     "bucket": "factual",
     "language": "en",
@@ -1367,7 +1311,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 1678,
               "end": 2202
             },
-            {
+      {
               "passage_id": "debentures_incentivadas_analysis#legal-basis-and-regulatory-framework-law-12-431-2011",
               "document": "Debêntures Incentivadas: A Comprehensive Analysis for the Brazilian Fixed Income Investor",
               "heading": "Legal Basis and Regulatory Framework: Law 12.431/2011",
@@ -1379,7 +1323,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 545,
               "end": 1798
             },
-            {
+      {
               "passage_id": "tesouro_direto_estrategias_avancadas#6-comparativo-com-produtos-privados-lci-lca-cdb-e-debentures",
               "document": "Tesouro Direto: Estratégias Avançadas de Alocação em Títulos Públicos Federais",
               "heading": "6. Comparativo com Produtos Privados: LCI, LCA, CDB e Debêntures",
@@ -1463,13 +1407,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1492,7 +1429,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q10",
     "bucket": "factual",
     "language": "en",
@@ -1603,13 +1540,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1632,7 +1562,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q11",
     "bucket": "factual",
     "language": "en",
@@ -1670,7 +1600,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 2558
             },
-            {
+      {
               "passage_id": "dividend_aristocrats_brazil#dividend-trap-warning-signs",
               "document": "Dividend Aristocrats of Brazil: Building a Sustainable Income Portfolio on B3",
               "heading": "Dividend Trap Warning Signs",
@@ -1682,7 +1612,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1735
             },
-            {
+      {
               "passage_id": "dividend_aristocrats_brazil#sectors-most-likely-to-produce-reliable-dividends",
               "document": "Dividend Aristocrats of Brazil: Building a Sustainable Income Portfolio on B3",
               "heading": "Sectors Most Likely to Produce Reliable Dividends",
@@ -1694,7 +1624,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 43,
               "end": 4262
             },
-            {
+      {
               "passage_id": "brazilian_equity_valuation_methods#5-dividend-discount-models",
               "document": "Brazilian Equity Valuation Methods: A Comprehensive Guide",
               "heading": "5. Dividend Discount Models",
@@ -1778,13 +1708,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual; conflict disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1807,7 +1730,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q12",
     "bucket": "factual",
     "language": "pt",
@@ -1846,7 +1769,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 24,
               "end": 374
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#5-acoes-tributacao-de-renda-variavel",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "5. Ações — Tributação de Renda Variável",
@@ -1858,7 +1781,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 51,
               "end": 325
             },
-            {
+      {
               "passage_id": "etfs_brasileiros_guia#tributacao-de-etfs-no-brasil",
               "document": "Guia Completo de ETFs Brasileiros Listados na B3",
               "heading": "Tributação de ETFs no Brasil",
@@ -1942,13 +1865,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; conflict disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -1971,7 +1887,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q13",
     "bucket": "rule_a",
     "language": "pt",
@@ -2007,7 +1923,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 387
             },
-            {
+      {
               "passage_id": "pgbl_vgbl_comparacao#diferenca-fundamental-a-mecanica-fiscal",
               "document": "PGBL vs. VGBL: Guia Comparativo de Previdência Privada",
               "heading": "Diferença Fundamental: A Mecânica Fiscal",
@@ -2091,13 +2007,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is rule_a, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2120,7 +2029,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q14",
     "bucket": "rule_a",
     "language": "en",
@@ -2156,7 +2065,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1154
             },
-            {
+      {
               "passage_id": "currency_exposure_strategies#evaluating-hedge-efficiency",
               "document": "Managing Dollar and Currency Exposure for Brazilian Investors",
               "heading": "Evaluating Hedge Efficiency",
@@ -2168,7 +2077,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 304,
               "end": 999
             },
-            {
+      {
               "passage_id": "complete_guide_brazilian_derivatives#15-basis-risk-basis-risk",
               "document": "Complete Guide to Brazilian Derivatives Markets",
               "heading": "15. Basis Risk {#basis-risk}",
@@ -2180,7 +2089,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 1408,
               "end": 1983
             },
-            {
+      {
               "passage_id": "currency_exposure_strategies#conclusion",
               "document": "Managing Dollar and Currency Exposure for Brazilian Investors",
               "heading": "Conclusion",
@@ -2264,13 +2173,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is rule_a, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2293,7 +2195,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q15",
     "bucket": "factual",
     "language": "en",
@@ -2329,7 +2231,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 2660
             },
-            {
+      {
               "passage_id": "fundos_cambiais#como-funcionam-a-mecanica-da-exposicao-cambial",
               "document": "Fundos Cambiais: Proteção e Diversificação em Moeda Estrangeira",
               "heading": "Como Funcionam: A Mecânica da Exposição Cambial",
@@ -2341,7 +2243,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 44,
               "end": 1013
             },
-            {
+      {
               "passage_id": "analise_setorial_acoes_brasileiras#h-impacto-da-taxa-de-cambio-por-setor",
               "document": "Análise Setorial de Ações Brasileiras: Guia Completo para Alocação em B3",
               "heading": "H. Impacto da Taxa de Câmbio por Setor",
@@ -2425,13 +2327,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; Rule B not in scope.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2454,7 +2349,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q16",
     "bucket": "factual",
     "language": "en",
@@ -2490,7 +2385,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 977
             },
-            {
+      {
               "passage_id": "complete_guide_brazilian_derivatives#10-b3-clearing-and-settlement-architecture-b3-clearing",
               "document": "Complete Guide to Brazilian Derivatives Markets",
               "heading": "10. B3 Clearing and Settlement Architecture {#b3-clearing}",
@@ -2502,7 +2397,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 912,
               "end": 1400
             },
-            {
+      {
               "passage_id": "b3_trading_mechanics#settlement-t-2-for-equities",
               "document": "B3 Exchange Trading Mechanics: A Technical Reference for Investment Professionals",
               "heading": "Settlement: T+2 for Equities",
@@ -2586,13 +2481,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2615,7 +2503,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q17",
     "bucket": "rule_b",
     "language": "pt",
@@ -2651,7 +2539,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1212
             },
-            {
+      {
               "passage_id": "etfs_brasileiros_guia#principais-etfs-listados-na-b3",
               "document": "Guia Completo de ETFs Brasileiros Listados na B3",
               "heading": "Principais ETFs Listados na B3",
@@ -2663,7 +2551,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 48,
               "end": 1032
             },
-            {
+      {
               "passage_id": "small_caps_investment_thesis#accessing-small-caps-direct-vs-funds-vs-etfs",
               "document": "Brazilian Small Caps: An Investment Thesis for the Patient Capital",
               "heading": "Accessing Small Caps: Direct vs. Funds vs. ETFs",
@@ -2675,7 +2563,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 218,
               "end": 946
             },
-            {
+      {
               "passage_id": "small_caps_investment_thesis#the-size-premium-in-emerging-markets",
               "document": "Brazilian Small Caps: An Investment Thesis for the Patient Capital",
               "heading": "The Size Premium in Emerging Markets",
@@ -2687,7 +2575,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1910
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#12-tributacao-de-etfs",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "12. Tributação de ETFs",
@@ -2771,13 +2659,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": 0.0,
-        "label": "no",
-        "reason": "Cites both sides (passive ETF case [1] and active small cap alpha case [3][4]) but never explicitly states convictions disagree; frames as conditional trade-off.",
-        "applicable": true
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2800,7 +2681,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q18",
     "bucket": "rule_b",
     "language": "pt",
@@ -2836,7 +2717,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 243,
               "end": 387
             },
-            {
+      {
               "passage_id": "fundos_imobiliarios_completo#3-tipos-de-fiis-e-estrategias-de-investimento",
               "document": "Fundos de Investimento Imobiliário (FIIs): Guia Completo de Análise",
               "heading": "3. Tipos de FIIs e Estratégias de Investimento",
@@ -2848,7 +2729,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 44,
               "end": 123
             },
-            {
+      {
               "passage_id": "real_estate_development_funds#how-development-fiis-differ-from-brick-and-mortar-fiis",
               "document": "Brazilian Real Estate Development FIIs",
               "heading": "How Development FIIs Differ from Brick-and-Mortar FIIs",
@@ -2860,7 +2741,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 42,
               "end": 1612
             },
-            {
+      {
               "passage_id": "real_estate_development_funds#introduction",
               "document": "Brazilian Real Estate Development FIIs",
               "heading": "Introduction",
@@ -2872,7 +2753,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 377,
               "end": 810
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#6-fundos-de-investimento-imobiliario-fii",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "6. Fundos de Investimento Imobiliário (FII)",
@@ -2956,13 +2837,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": 0.0,
-        "label": "no",
-        "reason": "Answer synthesizes both sides but never explicitly states that the convictions disagree/divergem; presents a unified conclusion rather than naming the conflict between sources.",
-        "applicable": true
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -2985,7 +2859,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q19",
     "bucket": "rule_b",
     "language": "en",
@@ -3021,7 +2895,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 991
             },
-            {
+      {
               "passage_id": "fundos_cambiais#fundos-cambiais-vs-etfs-dolarizados",
               "document": "Fundos Cambiais: Proteção e Diversificação em Moeda Estrangeira",
               "heading": "Fundos Cambiais vs. ETFs Dolarizados",
@@ -3033,7 +2907,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1028
             },
-            {
+      {
               "passage_id": "etfs_brasileiros_guia#como-integrar-etfs-numa-carteira",
               "document": "Guia Completo de ETFs Brasileiros Listados na B3",
               "heading": "Como Integrar ETFs numa Carteira",
@@ -3117,13 +2991,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": 0.0,
-        "label": "no",
-        "reason": "Answer synthesizes hedge vs diversification framings smoothly but never uses an explicit disagreement marker ('the convictions disagree', 'diverge', 'conflicting views'). It presents a unified view rather than naming the tension.",
-        "applicable": true
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -3146,7 +3013,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q20",
     "bucket": "rule_b",
     "language": "pt",
@@ -3182,7 +3049,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 637
             },
-            {
+      {
               "passage_id": "ntnb_titulos_guia#quem-deve-ter-ntn-b-na-carteira",
               "document": "NTN-B (Tesouro IPCA+): Guia Completo para Investidores",
               "heading": "Quem Deve Ter NTN-B na Carteira",
@@ -3194,7 +3061,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 47,
               "end": 355
             },
-            {
+      {
               "passage_id": "tesouro_direto_estrategias_avancadas#6-comparativo-com-produtos-privados-lci-lca-cdb-e-debentures",
               "document": "Tesouro Direto: Estratégias Avançadas de Alocação em Títulos Públicos Federais",
               "heading": "6. Comparativo com Produtos Privados: LCI, LCA, CDB e Debêntures",
@@ -3206,7 +3073,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 1874,
               "end": 2512
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "3. Renda Fixa: CDB, LC, LCI, LCA, Debêntures e Outros",
@@ -3290,13 +3157,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": 0.0,
-        "label": "no",
-        "reason": "Answer cites both sides and presents a balanced synthesis, but never explicitly states the convictions disagree/divergem on the topic. Presents reconciliation, not a named conflict.",
-        "applicable": true
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -3319,7 +3179,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q21",
     "bucket": "cross_lang",
     "language": "es",
@@ -3357,7 +3217,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 38,
               "end": 453
             },
-            {
+      {
               "passage_id": "cdbs_quick_guide#tributacao-tabela-regressiva",
               "document": "CDBs: Guia Rápido para Investidores",
               "heading": "Tributação: Tabela Regressiva",
@@ -3369,7 +3229,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 590
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#2-iof-imposto-sobre-operacoes-financeiras",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "2. IOF — Imposto sobre Operações Financeiras",
@@ -3453,13 +3313,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is cross_lang, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -3482,7 +3335,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q22",
     "bucket": "cross_lang",
     "language": "es",
@@ -3521,7 +3374,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 155,
               "end": 623
             },
-            {
+      {
               "passage_id": "fundos_imobiliarios_completo#3-tipos-de-fiis-e-estrategias-de-investimento",
               "document": "Fundos de Investimento Imobiliário (FIIs): Guia Completo de Análise",
               "heading": "3. Tipos de FIIs e Estratégias de Investimento",
@@ -3533,7 +3386,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 44,
               "end": 3073
             },
-            {
+      {
               "passage_id": "fundos_imobiliarios_completo#7-tributacao-e-aspectos-fiscais",
               "document": "Fundos de Investimento Imobiliário (FIIs): Guia Completo de Análise",
               "heading": "7. Tributação e Aspectos Fiscais",
@@ -3545,7 +3398,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 36,
               "end": 1179
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#6-fundos-de-investimento-imobiliario-fii",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "6. Fundos de Investimento Imobiliário (FII)",
@@ -3629,13 +3482,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is cross_lang, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -3658,7 +3504,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q23",
     "bucket": "cross_lang",
     "language": "es",
@@ -3696,7 +3542,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1362
             },
-            {
+      {
               "passage_id": "fundos_cambiais#fundos-cambiais-vs-etfs-dolarizados",
               "document": "Fundos Cambiais: Proteção e Diversificação em Moeda Estrangeira",
               "heading": "Fundos Cambiais vs. ETFs Dolarizados",
@@ -3708,7 +3554,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1028
             },
-            {
+      {
               "passage_id": "etfs_brasileiros_guia#etfs-internacionais-vs-bdrs",
               "document": "Guia Completo de ETFs Brasileiros Listados na B3",
               "heading": "ETFs Internacionais vs. BDRs",
@@ -3720,7 +3566,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1133
             },
-            {
+      {
               "passage_id": "fundos_cambiais#alternativas-aos-fundos-cambiais",
               "document": "Fundos Cambiais: Proteção e Diversificação em Moeda Estrangeira",
               "heading": "Alternativas aos Fundos Cambiais",
@@ -3732,7 +3578,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 742
             },
-            {
+      {
               "passage_id": "fundos_cambiais#consideracoes-finais",
               "document": "Fundos Cambiais: Proteção e Diversificação em Moeda Estrangeira",
               "heading": "Considerações Finais",
@@ -3816,13 +3662,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is cross_lang, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 0.0,
         "label": "leaked",
@@ -3845,7 +3684,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q24",
     "bucket": "rule_a",
     "language": "pt",
@@ -3881,7 +3720,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 19248,
               "end": 19957
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#9-declaracao-do-irpf-investimentos",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "9. Declaração do IRPF — Investimentos",
@@ -3965,13 +3804,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is rule_a, not rule_b.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -3994,7 +3826,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q25",
     "bucket": "out_of_scope",
     "language": "en",
@@ -4089,13 +3921,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is out_of_scope, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": null,
         "label": "n/a",
@@ -4118,7 +3943,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q26",
     "bucket": "factual",
     "language": "en",
@@ -4154,7 +3979,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": null,
               "end": null
             },
-            {
+      {
               "passage_id": "complete_guide_brazilian_derivatives#11-margin-requirements-and-risk-management-margin-requirements",
               "document": "Complete Guide to Brazilian Derivatives Markets",
               "heading": "11. Margin Requirements and Risk Management {#margin-requirements}",
@@ -4166,7 +3991,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 27,
               "end": 947
             },
-            {
+      {
               "passage_id": "b3_trading_mechanics#margin-requirements",
               "document": "B3 Exchange Trading Mechanics: A Technical Reference for Investment Professionals",
               "heading": "Margin Requirements",
@@ -4178,7 +4003,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 1237
             },
-            {
+      {
               "passage_id": "macroeconomic_factors_brazilian_markets#9-china-dependency-risk-china-dependency",
               "document": "Macroeconomic Factors Affecting Brazilian Financial Markets",
               "heading": "9. China Dependency Risk {#china-dependency}",
@@ -4262,13 +4087,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; conflict disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 0.0,
         "label": "leaked",
@@ -4291,7 +4109,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q27",
     "bucket": "out_of_scope",
     "language": "pt",
@@ -4386,13 +4204,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is out_of_scope, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": null,
         "label": "n/a",
@@ -4415,7 +4226,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q28",
     "bucket": "clarify",
     "language": "pt",
@@ -4510,13 +4321,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is clarify, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": null,
         "label": "n/a",
@@ -4539,7 +4343,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q29",
     "bucket": "clarify",
     "language": "en",
@@ -4634,13 +4438,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is clarify, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": null,
         "label": "n/a",
@@ -4663,7 +4460,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q30",
     "bucket": "clarify",
     "language": "es",
@@ -4758,13 +4555,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket is clarify, not rule_b",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": null,
         "label": "n/a",
@@ -4787,7 +4577,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q31",
     "bucket": "factual",
     "language": "pt",
@@ -4825,7 +4615,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 713,
               "end": 1984
             },
-            {
+      {
               "passage_id": "tesouro_direto_estrategias_avancadas#12-conclusao-e-diretrizes-operacionais-para-assessores",
               "document": "Tesouro Direto: Estratégias Avançadas de Alocação em Títulos Públicos Federais",
               "heading": "12. Conclusão e Diretrizes Operacionais para Assessores",
@@ -4837,7 +4627,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 152,
               "end": 863
             },
-            {
+      {
               "passage_id": "tesouro_direto_estrategias_avancadas#2-anatomia-dos-titulos-indexadores-fluxos-e-perfis-de-risco",
               "document": "Tesouro Direto: Estratégias Avançadas de Alocação em Títulos Públicos Federais",
               "heading": "2. Anatomia dos Títulos: Indexadores, Fluxos e Perfis de Risco",
@@ -4849,7 +4639,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 1506,
               "end": 5029
             },
-            {
+      {
               "passage_id": "tesouro_direto_estrategias_avancadas#8-marcacao-a-mercado-risco-real-e-gestao",
               "document": "Tesouro Direto: Estratégias Avançadas de Alocação em Títulos Públicos Federais",
               "heading": "8. Marcação a Mercado: Risco Real e Gestão",
@@ -4933,13 +4723,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; conflict disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -4962,7 +4745,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q32",
     "bucket": "factual",
     "language": "en",
@@ -5073,13 +4856,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual; conflict_disclosure not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -5102,7 +4878,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q33",
     "bucket": "factual",
     "language": "pt",
@@ -5140,7 +4916,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 31,
               "end": 1704
             },
-            {
+      {
               "passage_id": "multimercado_fundos_analise_profunda#v-analise-de-taxas-impacto-no-retorno-liquido",
               "document": "Fundos Multimercado Brasileiros: Análise Profunda e Guia de Convicção",
               "heading": "V. Análise de Taxas: Impacto no Retorno Líquido",
@@ -5152,7 +4928,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 59,
               "end": 2773
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#4-fundos-de-investimento-tributacao-e-come-cotas",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "4. Fundos de Investimento — Tributação e Come-Cotas",
@@ -5236,13 +5012,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "bucket=factual; rule_b not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -5265,7 +5034,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q34",
     "bucket": "factual",
     "language": "pt",
@@ -5311,7 +5080,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 590
             },
-            {
+      {
               "passage_id": "guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros",
               "document": "Guia Completo de Tributação de Investimentos para Pessoa Física",
               "heading": "3. Renda Fixa: CDB, LC, LCI, LCA, Debêntures e Outros",
@@ -5395,13 +5164,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "applicable": true
       },
       {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual; rule_b not applicable.",
-        "applicable": false
-      },
-      {
         "name": "rule_a_purity",
         "score": 1.0,
         "label": "clean",
@@ -5424,7 +5186,7 @@ export const EVAL_MOCK: EvalRecord[] = [
       }
     ]
   },
-  {
+      {
     "id": "q35",
     "bucket": "factual",
     "language": "en",
@@ -5470,7 +5232,7 @@ export const EVAL_MOCK: EvalRecord[] = [
               "start": 0,
               "end": 925
             },
-            {
+      {
               "passage_id": "lci_lca_investimentos#o-que-sao-lci-e-lca",
               "document": "LCI e LCA: Guia Completo de Letras de Crédito",
               "heading": "O Que São LCI e LCA",
@@ -5552,13 +5314,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "label": "relevant",
         "reason": "Directly answers the multiturn follow-up about whether LCAs are covered, with the relevant FGC terms.",
         "applicable": true
-      },
-      {
-        "name": "conflict_disclosure",
-        "score": null,
-        "label": "n/a",
-        "reason": "Bucket is factual, not rule_b.",
-        "applicable": false
       },
       {
         "name": "rule_a_purity",

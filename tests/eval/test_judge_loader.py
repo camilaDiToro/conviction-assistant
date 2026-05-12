@@ -16,7 +16,6 @@ from evals.judge.schema import (
     AnswerRelevancyScore,
     CitationAttributionScore,
     CompletenessScore,
-    ConflictDisclosureScore,
     FaithfulnessScore,
     JudgeResult,
     RuleAPurityScore,
@@ -137,9 +136,6 @@ def test_load_judge_results_validates(tmp_path: Path) -> None:
         judged_at=datetime(2026, 5, 11, 12, 0, 0, tzinfo=UTC),
         faithfulness=FaithfulnessScore(score=1.0, n_sentences=1, n_supported=1, reason="ok"),
         answer_relevancy=AnswerRelevancyScore(label="relevant", score=1.0, reason="ok"),
-        conflict_disclosure=ConflictDisclosureScore(
-            applicable=False, label="n/a", score=None, reason="not rule_b"
-        ),
         rule_a_purity=RuleAPurityScore(label="clean", score=1.0, reason="ok"),
         citation_attribution=CitationAttributionScore(
             score=1.0, n_markers=1, n_correct=1, reason="ok"

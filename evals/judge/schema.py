@@ -8,6 +8,13 @@ the JSONL diffable.
 Cross-model comparison contract: two judge runs are only comparable
 when their ``(judge_model, judge_prompt_hash)`` match. The aggregator
 refuses to diff mismatched signatures.
+
+Rule B semantic (was ``conflict_disclosure``) is no longer evaluated
+here — it moved to the deterministic ``conflict_disclosure_det`` metric
+in ``evals/metrics.py``, which reads the structured ``conflict_detected``
+field the agent emits. The judge was scoring 0 even when the model
+correctly concluded no conflict existed, because it only inspected
+``answer`` text.
 """
 
 from datetime import datetime
@@ -74,7 +81,6 @@ class CitationAttributionScore(BaseModel):
 # --- discrete metrics with label↔score consistency --------------------------
 
 _RELEVANCY_SCORES: dict[str, float] = {"relevant": 1.0, "partial": 0.5, "off_topic": 0.0}
-_CONFLICT_SCORES: dict[str, float | None] = {"yes": 1.0, "no": 0.0, "n/a": None}
 _PURITY_SCORES: dict[str, float | None] = {"clean": 1.0, "leaked": 0.0, "n/a": None}
 _COMPLETENESS_SCORES: dict[str, float | None] = {
     "complete": 1.0,
@@ -110,33 +116,6 @@ class AnswerRelevancyScore(BaseModel):
     @model_validator(mode="after")
     def _check(self) -> "AnswerRelevancyScore":
         _check_label_score(self.label, self.score, _RELEVANCY_SCORES)  # type: ignore[arg-type]
-        return self
-
-
-class ConflictDisclosureScore(BaseModel):
-    """Rule B semantic: when the convictions disagree on a topic, did
-    the answer explicitly state the disagreement?
-
-    Only applicable to ``bucket=rule_b`` golden entries; everywhere else
-    set ``applicable=false, label='n/a', score=None``.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    applicable: bool
-    label: Literal["yes", "no", "n/a"]
-    score: float | None
-    reason: str = Field(max_length=_REASON_MAX)
-
-    @model_validator(mode="after")
-    def _check(self) -> "ConflictDisclosureScore":
-        if not self.applicable:
-            if self.label != "n/a" or self.score is not None:
-                raise ValueError("applicable=false requires label='n/a' and score=None")
-            return self
-        if self.label not in {"yes", "no"}:
-            raise ValueError("applicable=true requires label in {'yes', 'no'}")
-        _check_label_score(self.label, self.score, _CONFLICT_SCORES)
         return self
 
 
@@ -204,7 +183,6 @@ class JudgeResult(BaseModel):
     judged_at: datetime
     faithfulness: FaithfulnessScore
     answer_relevancy: AnswerRelevancyScore
-    conflict_disclosure: ConflictDisclosureScore
     rule_a_purity: RuleAPurityScore
     citation_attribution: CitationAttributionScore
     completeness: CompletenessScore
@@ -214,7 +192,6 @@ class JudgeResult(BaseModel):
         return {
             "faithfulness": self.faithfulness.score,
             "answer_relevancy": self.answer_relevancy.score,
-            "conflict_disclosure": self.conflict_disclosure.score,
             "rule_a_purity": self.rule_a_purity.score,
             "citation_attribution": self.citation_attribution.score,
             "completeness": self.completeness.score,
@@ -224,7 +201,6 @@ class JudgeResult(BaseModel):
 METRIC_NAMES: tuple[str, ...] = (
     "faithfulness",
     "answer_relevancy",
-    "conflict_disclosure",
     "rule_a_purity",
     "citation_attribution",
     "completeness",
@@ -236,7 +212,6 @@ __all__ = [
     "AnswerRelevancyScore",
     "CitationAttributionScore",
     "CompletenessScore",
-    "ConflictDisclosureScore",
     "FaithfulnessScore",
     "JudgeResult",
     "RuleAPurityScore",
