@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { EVAL_MOCK_META } from '@/data/eval_mock'
 import type {
   EvalDeterministicMetric,
   EvalJudgeRubric,
@@ -149,7 +150,7 @@ function JudgeBlock({ rubrics }: { rubrics: EvalJudgeRubric[] }) {
   return (
     <section>
       <div className="text-ink-3 text-[10px] uppercase tracking-tight mb-3">
-        LLM-as-judge · claude-opus-4-7
+        LLM-as-judge · {EVAL_MOCK_META.judge_model}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {rubrics.map(r => (

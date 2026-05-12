@@ -182,12 +182,12 @@ export default function EvalPage() {
 const BUCKETS = [
   {
     name: 'factual',
-    n: 17,
+    n: 20,
     desc: "A direct question whose answer is in the corpus. Two are multiturn — the standalone follow-up is meaningless without the prior turn, so the rewrite stage is what's being tested.",
   },
   {
     name: 'rule_a',
-    n: 6,
+    n: 3,
     desc: 'The corpus mentions the topic only tangentially. The agent must cite the tangential passage and put general-knowledge content in a clearly marked section — never silently mix the two.',
   },
   {

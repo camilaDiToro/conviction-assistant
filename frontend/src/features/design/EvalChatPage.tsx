@@ -52,7 +52,8 @@ export default function EvalChatPage() {
             Same UI the analyst would touch, fed with every question/answer pair from{' '}
             <code className="font-mono text-[14px] text-ink-1">{EVAL_MOCK_META.run_dir}</code>. Pick
             a question on the left; <strong className="text-ink-1">view eval</strong> on each
-            assistant turn opens the deterministic metrics plus what the LLM-as-judge said.
+            assistant turn opens the deterministic metrics plus the LLM-as-judge rubrics when
+            available.
           </>
         }
       />
@@ -64,7 +65,8 @@ export default function EvalChatPage() {
           — not real conversations stored in the database. Composer is disabled. Source files live
           in <code className="font-mono text-[12px] text-ink-1">{EVAL_MOCK_META.run_dir}/</code>{' '}
           (deterministic: <code className="font-mono text-[12px] text-ink-1">{EVAL_MOCK_META.combined_basename}</code>,
-          judge: <code className="font-mono text-[12px] text-ink-1">{EVAL_MOCK_META.judge_basename}</code>).
+          judge: <code className="font-mono text-[12px] text-ink-1">{EVAL_MOCK_META.judge_basename}</code>
+          ; {EVAL_MOCK_META.judge_question_count}/{EVAL_MOCK_META.question_count} judged).
         </div>
       </div>
 
@@ -141,7 +143,8 @@ export default function EvalChatPage() {
                     {EVAL_MOCK_META.agent_model}/{EVAL_MOCK_META.reasoning_effort}
                   </div>
                   <div className="mt-2 text-ink-4 text-[11px]">
-                    Click <strong>view eval</strong> below any answer for the deterministic metrics and judge rubrics.
+                    Click <strong>view eval</strong> below any answer for the deterministic metrics
+                    and judge rubrics.
                   </div>
                 </div>
               </div>
@@ -157,7 +160,8 @@ export default function EvalChatPage() {
       <p className="text-ink-3 text-[12px] leading-relaxed mt-4 max-w-prose">
         Judge prompt hash <code className="font-mono text-ink-1">{EVAL_MOCK_META.judge_prompt_hash}</code>{' '}
         · judge model <code className="font-mono text-ink-1">{EVAL_MOCK_META.judge_model}</code> ·{' '}
-        {EVAL_MOCK_META.question_count} questions covered. <ArrowRight size={11} className="inline-block align-middle" />{' '}
+        {EVAL_MOCK_META.question_count} deterministic questions · {EVAL_MOCK_META.judge_question_count} judged.{' '}
+        <ArrowRight size={11} className="inline-block align-middle" />{' '}
         Two judge runs are comparable only when both signatures (model + prompt hash) match.
       </p>
 
