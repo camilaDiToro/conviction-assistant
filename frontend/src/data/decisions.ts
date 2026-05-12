@@ -28,6 +28,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/design/pipeline/agent-loop', label: 'Agent loop' },
     ],
   },
+  {
+    label: 'Eval',
+    caret: true,
+    items: [
+      { to: '/design/eval', label: 'Metrics & judge' },
+      { to: '/design/eval/dataset', label: 'Dataset & results' },
+      { to: '/design/eval/chat', label: 'Latest run as chat' },
+    ],
+  },
   // {
   //   label: 'Framing',
   //   caret: true,

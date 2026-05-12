@@ -1,4 +1,4 @@
-import { Bug, FileText, Info } from 'lucide-react'
+import { BarChart3, Bug, FileText, Info } from 'lucide-react'
 import { useState } from 'react'
 import type { ChatMessage, Citation } from '@/lib/types'
 import { CitationModal } from './CitationModal'
@@ -7,16 +7,24 @@ interface MessageListProps {
   messages: ChatMessage[]
   onOpenDebug: (m: ChatMessage) => void
   busy: boolean
+  // Optional. When provided, an extra "eval" button shows on each assistant
+  // footer alongside "view steps". Used by the design-site fake-chat page.
+  onOpenEval?: (m: ChatMessage) => void
 }
 
-export function MessageList({ messages, onOpenDebug, busy }: MessageListProps) {
+export function MessageList({ messages, onOpenDebug, busy, onOpenEval }: MessageListProps) {
   return (
     <div className="space-y-10">
       {messages.map(m =>
         m.role === 'user' ? (
           <UserBubble key={m.id} text={m.content} />
         ) : (
-          <AssistantTurn key={m.id} message={m} onOpenDebug={() => onOpenDebug(m)} />
+          <AssistantTurn
+            key={m.id}
+            message={m}
+            onOpenDebug={() => onOpenDebug(m)}
+            onOpenEval={onOpenEval ? () => onOpenEval(m) : undefined}
+          />
         ),
       )}
       {busy && <Thinking />}
@@ -33,7 +41,15 @@ function UserBubble({ text }: { text: string }) {
   )
 }
 
-function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage, { role: 'assistant' }>; onOpenDebug: () => void }) {
+function AssistantTurn({
+  message,
+  onOpenDebug,
+  onOpenEval,
+}: {
+  message: Extract<ChatMessage, { role: 'assistant' }>
+  onOpenDebug: () => void
+  onOpenEval?: () => void
+}) {
   const r = message.response
   const [openCitation, setOpenCitation] = useState<Citation | null>(null)
 
@@ -47,7 +63,7 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
             <span key={o} className="pill">{o}</span>
           ))}
         </div>
-        <Footer onOpenDebug={onOpenDebug} disclaimer={r.disclaimer} />
+        <Footer onOpenDebug={onOpenDebug} onOpenEval={onOpenEval} disclaimer={r.disclaimer} />
       </div>
     )
   }
@@ -91,7 +107,7 @@ function AssistantTurn({ message, onOpenDebug }: { message: Extract<ChatMessage,
         </div>
       )}
 
-      <Footer onOpenDebug={onOpenDebug} disclaimer={r.disclaimer} />
+      <Footer onOpenDebug={onOpenDebug} onOpenEval={onOpenEval} disclaimer={r.disclaimer} />
 
       <CitationModal citation={openCitation} onClose={() => setOpenCitation(null)} />
     </div>
@@ -214,16 +230,34 @@ function CitationRow({
   )
 }
 
-function Footer({ onOpenDebug, disclaimer }: { onOpenDebug: () => void; disclaimer: string }) {
+function Footer({
+  onOpenDebug,
+  onOpenEval,
+  disclaimer,
+}: {
+  onOpenDebug: () => void
+  onOpenEval?: () => void
+  disclaimer: string
+}) {
   return (
     <div className="mt-6 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
       <p className="text-ink-3 text-xs italic leading-relaxed max-w-prose">{disclaimer}</p>
-      <button
-        onClick={onOpenDebug}
-        className="text-ink-3 hover:text-ink-1 text-xs flex items-center gap-1.5 transition-colors"
-      >
-        <Bug size={12} /> view steps
-      </button>
+      <div className="flex items-center gap-4">
+        {onOpenEval && (
+          <button
+            onClick={onOpenEval}
+            className="text-ink-3 hover:text-ink-1 text-xs flex items-center gap-1.5 transition-colors"
+          >
+            <BarChart3 size={12} /> view eval
+          </button>
+        )}
+        <button
+          onClick={onOpenDebug}
+          className="text-ink-3 hover:text-ink-1 text-xs flex items-center gap-1.5 transition-colors"
+        >
+          <Bug size={12} /> view steps
+        </button>
+      </div>
     </div>
   )
 }
