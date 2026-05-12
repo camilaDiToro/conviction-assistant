@@ -12,7 +12,7 @@ See `RAGAS_USAGE.md` for which Ragas features the suite uses and why.
 # Smoke (3 questions, balanced across buckets, low reasoning):
 uv run python -m evals.run --reasoning low --limit 3
 
-# Full 30 questions (~$1-3 at gpt-5 medium):
+# Full golden set (~$1-3 at gpt-5 medium):
 uv run python -m evals.run --reasoning medium
 
 # Only rule_b cases (validate the conflict-citation behavior):

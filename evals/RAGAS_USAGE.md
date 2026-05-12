@@ -41,7 +41,7 @@ LLM client, no I/O, no globals.
 | `EvaluationResult.to_pandas()` | not called | we build the DataFrame from `_QuestionRow.as_dict()` instead |
 | `Faithfulness` / `AnswerRelevancy` / `ContextPrecision` / `FactualCorrectness` | not wired | LLM-judge metrics that double provider cost and drift between runs |
 | `LangchainLLMWrapper` | not imported | only needed for the LLM-judge metrics |
-| `TestsetGenerator` | not imported | 30 hand-authored questions; revisit once the corpus is large |
+| `TestsetGenerator` | not imported | 34 hand-authored questions; revisit once the corpus is large |
 | Ragas Cloud | not used | local CSV + git is enough for a single-author repo |
 
 ## Consequence: faithfulness is not directly measured

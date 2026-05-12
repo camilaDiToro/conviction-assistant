@@ -67,7 +67,7 @@ app/
     settings.py       # Settings class — only place env-var loading happens; re-exported from __init__
     db.py             # async engine + session factory + sync alembic migrate (no SQL — engine plumbing)
   api/
-    health.py         # GET /health
+    health.py         # GET /api/health
     admin.py          # POST /api/admin/ingest
     chat.py           # POST /api/chat
     chat_history.py   # GET /api/chat/conversations (user-facing list + load)
@@ -78,7 +78,7 @@ app/
   services/
     ingest.py         # parser → repo orchestration
     audit.py          # persist_question — serialize agent steps into audit_log rows
-    chat.py           # one /chat turn: IDs → agent → response wrapping → audit
+    chat.py           # one /api/chat turn: IDs → agent → response wrapping → audit
     chat_history.py   # reconstruct ConversationMessage / ChatCitation / UsageSummary from audit_log rows
     disclaimer.py     # localized disclaimer strings (PT / EN / ES)
     wrap_response.py  # AgentResult → wire response + audit summary
@@ -94,10 +94,10 @@ app/
     passage.py        # Pydantic Passage / DocSummary / Heading / DocumentOutline / PassageHit
     ingest.py         # Pydantic IngestResponse
   providers/          # *** SINGLE POINT OF LLM INTERACTION ***
-    base.py           # LLMProvider + EmbeddingProvider Protocols, TokenUsage
-    factory.py        # get_llm_provider() / get_embedding_provider() — dispatch on settings
+    base.py           # LLMProvider Protocol + TokenUsage
+    factory.py        # get_llm_provider() — dispatch on settings
     openai.py         # OpenAI adapter
-    stub.py           # StubLLM / StubEmbedder for CI (no provider tokens burned)
+    stub.py           # StubLLM for CI (no provider tokens burned)
     text_repair.py    # post-hoc unicode-escape fixer (gpt-5-mini quirk)
   retrieval/          # Retriever protocol + adapters (BM25 today, hybrid later)
                       # base.py contract; registry.py explicit dispatch; snippet.py shared helper
@@ -129,7 +129,7 @@ alembic/
 5. **Services and repositories NEVER raise `HTTPException`** or reference HTTP status codes. They raise domain exceptions; the API layer maps them.
 
 
-The `LLMProvider` and `EmbeddingProvider` protocols are the *only* contract above provider adapters. `StubProvider` is what every CI test uses — the test suite never burns provider tokens.
+The `LLMProvider` protocol is the contract above provider adapters. `StubLLM` is what agent-loop CI tests use — the test suite never burns provider tokens.
 
 ### Frontend layout
 
@@ -138,11 +138,10 @@ frontend/src/
   lib/api.ts       # *** SINGLE POINT OF BACKEND INTERACTION ***
   lib/types.ts     # mirrored from backend Pydantic models
   components/      # generic UI primitives
-  features/chat/   # message list, composer, citation rendering
-  features/debug/  # debug drawer
+  features/chat/   # message list, composer, citation rendering, debug drawer
 ```
 
-- **No `fetch` or `axios` outside `lib/api.ts`.** ESLint rule enforced.
+- **No `fetch` or `axios` outside `lib/api.ts`.** Project convention; `lib/api.ts` is the single backend interaction point.
 - **No backend types redefined inline in components.** They live in `lib/types.ts`.
 
 ## Commit conventions

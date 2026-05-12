@@ -5,7 +5,7 @@ so the metric objects own their name + allowed-value contracts and
 return a ``MetricResult(value, reason)``. They are invoked directly
 (``metric.score(...)``) by ``evals.run`` — we deliberately do not pass
 them through ``ragas.evaluate`` because that pathway expects
-``Metric``-class instances and is overkill for our 30-question deterministic
+``Metric``-class instances and is overkill for our 34-question deterministic
 suite. See ``evals/RAGAS_USAGE.md`` for the full rationale.
 
 Each metric reads its inputs from kwargs, never from an LLM. They are

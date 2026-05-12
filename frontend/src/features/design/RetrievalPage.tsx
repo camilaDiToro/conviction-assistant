@@ -252,7 +252,7 @@ export default function RetrievalPage() {
           <strong className="text-ink-1">an eval set</strong> (~30–100 hand-curated queries
           with expected passage IDs, scored by{' '}
           <code className="font-mono text-[13px] text-ink-1">recall@K</code> and MRR). Today:{' '}
-          <code className="font-mono text-[13px] text-ink-1">tests/eval/</code> with 29 cases.
+          <code className="font-mono text-[13px] text-ink-1">evals/golden_set.yaml</code> with 34 cases.
           Without it every "level-up" is guesswork; with it, the highest-leverage fix is
           obvious from the failure breakdown.
         </p>
