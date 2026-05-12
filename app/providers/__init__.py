@@ -4,8 +4,6 @@ Every other layer talks to providers through these protocols (see `base.py`).
 """
 
 from app.providers.base import (
-    EmbeddingProvider,
-    EmbeddingResponse,
     LLMProvider,
     LLMResponse,
     Message,
@@ -15,14 +13,9 @@ from app.providers.base import (
     ToolCall,
     ToolDefinition,
 )
-from app.providers.factory import (
-    get_embedding_provider,
-    get_llm_provider,
-)
+from app.providers.factory import get_llm_provider
 
 __all__ = [
-    "EmbeddingProvider",
-    "EmbeddingResponse",
     "LLMProvider",
     "LLMResponse",
     "Message",
@@ -31,6 +24,5 @@ __all__ = [
     "TokenUsage",
     "ToolCall",
     "ToolDefinition",
-    "get_embedding_provider",
     "get_llm_provider",
 ]

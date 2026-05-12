@@ -4,89 +4,75 @@ import pytest
 
 from app.config import settings
 from app.providers.base import ProviderError
-from app.providers.factory import get_embedding_provider, get_llm_provider
-from app.providers.openai import OpenAIEmbedder, OpenAILLM, OpenAIResponsesLLM
+from app.providers.factory import get_llm_provider
+from app.providers.openai import OpenAILLM
 
 
 @pytest.fixture
-def reset_settings():
-    """Snapshot/restore the bits of `settings` we mutate per test."""
+def configure_openai():
+    """Snapshot settings, pre-set a working OpenAI config, restore after."""
     snapshot = (
         settings.llm_provider,
         settings.openai_api_key,
         settings.openai_model,
-        settings.openai_embedding_model,
         settings.openai_timeout_seconds,
     )
+    settings.llm_provider = "openai"
+    settings.openai_api_key = "sk-test"
+    settings.openai_model = "gpt-5.5"
     yield
     (
         settings.llm_provider,
         settings.openai_api_key,
         settings.openai_model,
-        settings.openai_embedding_model,
         settings.openai_timeout_seconds,
     ) = snapshot
 
 
-def test_factory_returns_openai_llm_when_configured(reset_settings):
-    settings.llm_provider = "openai"
-    settings.openai_api_key = "sk-test"
-    settings.openai_model = "gpt-5"
-    provider = get_llm_provider()
-    assert isinstance(provider, OpenAILLM)
+def test_factory_returns_openai_llm_with_configured_timeout(configure_openai):
+    settings.openai_timeout_seconds = 42.0
+    llm = get_llm_provider()
+    assert isinstance(llm, OpenAILLM)
+    assert llm._client.timeout == 42.0
 
 
-def test_factory_returns_openai_embedder_when_configured(reset_settings):
-    settings.llm_provider = "openai"
-    settings.openai_api_key = "sk-test"
-    settings.openai_embedding_model = "text-embedding-3-large"
-    embedder = get_embedding_provider()
-    assert isinstance(embedder, OpenAIEmbedder)
-
-
-def test_factory_raises_when_openai_key_missing(reset_settings):
-    settings.llm_provider = "openai"
+def test_factory_raises_when_openai_key_missing(configure_openai):
     settings.openai_api_key = None
     with pytest.raises(ProviderError, match="OPENAI_API_KEY"):
         get_llm_provider()
-    with pytest.raises(ProviderError, match="OPENAI_API_KEY"):
-        get_embedding_provider()
 
 
-def test_factory_anthropic_not_yet_implemented(reset_settings):
-    settings.llm_provider = "anthropic"
-    with pytest.raises(ProviderError, match="anthropic"):
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-5.5",
+        "gpt-5.5-mini",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5-mini",
+        "o4-mini",
+        "gpt-5.5-mini-2025-11-15",  # date-suffixed variants must keep working
+    ],
+)
+def test_factory_accepts_allowlisted_models(configure_openai, model: str):
+    settings.openai_model = model
+    assert isinstance(get_llm_provider(), OpenAILLM)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-5",  # base gpt-5 excluded — only gpt-5-mini is allowed
+        "gpt-5-nano",
+        "gpt-5.1",  # 5.1 family not in allowlist
+        "o3-mini",  # o-series limited to o4-mini
+        "gpt-4o",
+        "",
+        "made-up-model",
+    ],
+)
+def test_factory_rejects_unsupported_models(configure_openai, model: str):
+    settings.openai_model = model
+    with pytest.raises(ProviderError, match="unsupported OPENAI_MODEL"):
         get_llm_provider()
-
-
-def test_factory_passes_timeout_from_settings(reset_settings):
-    settings.llm_provider = "openai"
-    settings.openai_api_key = "sk-test"
-    settings.openai_model = "gpt-5"
-    settings.openai_timeout_seconds = 42.0
-    llm = get_llm_provider()
-    embedder = get_embedding_provider()
-    assert isinstance(llm, OpenAILLM)
-    assert isinstance(embedder, OpenAIEmbedder)
-    assert llm._client.timeout == 42.0
-    assert embedder._client.timeout == 42.0
-
-
-def test_factory_routes_gpt5_5_to_responses_adapter(reset_settings):
-    """gpt-5.4 / gpt-5.5 require /v1/responses; the factory picks the
-    correct adapter so callers don't need to know the wire shape."""
-    settings.llm_provider = "openai"
-    settings.openai_api_key = "sk-test"
-    settings.openai_model = "gpt-5.5"
-    assert isinstance(get_llm_provider(), OpenAIResponsesLLM)
-
-    settings.openai_model = "gpt-5.4-mini"
-    assert isinstance(get_llm_provider(), OpenAIResponsesLLM)
-
-    # Older reasoning models stay on chat completions.
-    settings.openai_model = "gpt-5.1"
-    assert isinstance(get_llm_provider(), OpenAILLM)
-    settings.openai_model = "gpt-5"
-    assert isinstance(get_llm_provider(), OpenAILLM)
-    settings.openai_model = "gpt-4o"
-    assert isinstance(get_llm_provider(), OpenAILLM)

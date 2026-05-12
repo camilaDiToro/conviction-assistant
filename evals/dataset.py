@@ -19,8 +19,6 @@ Schema (one entry per item):
 ```
 """
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -64,13 +62,13 @@ class GoldenSet:
     def __len__(self) -> int:
         return len(self.items)
 
-    def by_id(self, gold_id: str) -> GoldenSet:
+    def by_id(self, gold_id: str) -> "GoldenSet":
         return GoldenSet(tuple(g for g in self.items if g.id == gold_id))
 
-    def by_bucket(self, bucket: str) -> GoldenSet:
+    def by_bucket(self, bucket: str) -> "GoldenSet":
         return GoldenSet(tuple(g for g in self.items if g.bucket == bucket))
 
-    def balanced_sample(self, limit: int) -> GoldenSet:
+    def balanced_sample(self, limit: int) -> "GoldenSet":
         """Round-robin a sample of size ``limit`` across buckets so smoke
         runs stay representative of the original distribution.
 

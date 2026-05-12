@@ -16,7 +16,6 @@ from app.api.admin import router as admin_router
 from app.api.chat import router as chat_router
 from app.api.chat_history import router as chat_history_router
 from app.api.config import router as config_router
-from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.config import db, settings
 from app.errors import AgentError, DomainError, EmptyQueryError, IngestError
@@ -106,7 +105,6 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(chat_history_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
-app.include_router(conversations_router, prefix="/api")
 
 
 # Serve the built React frontend at /. Only mounts if the dist/ exists,

@@ -15,8 +15,6 @@ path (parse time) and at audit-log read time for text persisted
 before this fix landed.
 """
 
-from __future__ import annotations
-
 import re
 from typing import Any
 

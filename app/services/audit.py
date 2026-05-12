@@ -12,8 +12,6 @@ Audit writes are best-effort — if the insert fails the user response
 still goes out, with a warning logged. The user response is the priority.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import uuid

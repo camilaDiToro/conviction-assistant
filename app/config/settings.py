@@ -17,20 +17,22 @@ class Settings(BaseSettings):
     sqlite_path: Path = Path("data/conviction_assistant.sqlite")
     convictions_dir: Path = Path("convictions")
 
-    llm_provider: Literal["openai", "anthropic"] = "openai"
+    llm_provider: Literal["openai"] = "openai"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.5"
-    openai_embedding_model: str = "text-embedding-3-large"
     openai_timeout_seconds: float = 60.0
 
     # Agent loop tuning.
     agent_max_tool_calls: int = 5
     agent_max_iterations: int = 12
     agent_max_output_tokens: int = 8192
-    agent_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] = "low"
+    # Only the values supported by every model in the factory allowlist:
+    # gpt-5.4 supports "minimal" but gpt-5.5 dropped it; gpt-5.5 supports
+    # "none" but gpt-5.4 does not; o4-mini supports neither. The safe
+    # intersection is low/medium/high.
+    agent_reasoning_effort: Literal["low", "medium", "high"] = "low"
     rewrite_max_output_tokens: int = 200
-    # gpt-5.5 dropped "minimal" in favor of "none"; "low" is the safest
-    rewrite_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] = "low"
+    rewrite_reasoning_effort: Literal["low", "medium", "high"] = "low"
     retrieval_strategy: Literal["bm25"] = "bm25"
 
     chat_access_token: str | None = None
