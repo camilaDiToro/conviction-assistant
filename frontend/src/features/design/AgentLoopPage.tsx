@@ -125,6 +125,8 @@ messages = [
   ],
   "general_knowledge_used": false,
   "general_knowledge_section": null,
+  "conflict_detected": false,
+  "conflict_statement": null,
   "out_of_scope": false
 }
 

@@ -302,21 +302,25 @@ export default function RetrievalPage() {
             Direct lookup with verified expected passage IDs. Scores both anchor rate and
             citation precision.
           </SpecItem>
-          <SpecItem term="rule_a (4)">
+          <SpecItem term="rule_a (5)">
             Topic is mentioned only tangentially in the corpus. Agent should cite the mention
             and set{' '}
             <code className="font-mono text-[13px] text-ink-1">general_knowledge_used: true</code>{' '}
             for the rest.
           </SpecItem>
           <SpecItem term="rule_b (4)">
-            Two convictions disagree. Agent must cite both sides and state the conflict
-            explicitly.
+            Two convictions disagree. Agent must cite both sides and set{' '}
+            <code className="font-mono text-[13px] text-ink-1">conflict_detected: true</code>{' '}
+            with the disagreement written in{' '}
+            <code className="font-mono text-[13px] text-ink-1">conflict_statement</code>.
           </SpecItem>
           <SpecItem term="cross_lang (3)">
             Spanish queries against a corpus that is PT and EN only — BM25 alone can't bridge.
           </SpecItem>
-          <SpecItem term="out_of_scope (4)">
-            Off-corpus topics. Agent must refuse, not fall back to training data.
+          <SpecItem term="out_of_scope (3)">
+            Off-investing or genuinely off-corpus topics. Agent must refuse, not fall back to
+            training data. Investing questions where the corpus has any tangential angle
+            belong in <em>rule_a</em>, not here.
           </SpecItem>
           <SpecItem term="clarify (3)">
             Genuinely ambiguous. Agent should ask, not guess.

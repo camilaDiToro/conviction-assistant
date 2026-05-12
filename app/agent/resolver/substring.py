@@ -1,12 +1,18 @@
-"""Offset resolver: pure substring search over Citation + Passage.
+"""Offset resolver: substring search over Citation + Passage.
 
-Literal str.find — no smart-quote / NBSP / dash normalization. The
-model copies its quote from read_passage (DB-verbatim), so cosmetic
-diffs are rare; when they happen the citation surfaces without a
-highlight. The agent loop's adapter (app.agent.audit.resolve_output)
-loads passages and hands them in.
+Returns (start, end) into the **original** passage text. To absorb the
+common cosmetic diffs that came up in evals (smart quotes, NBSP,
+en/em dash, compatibility forms), both the quote and passage are
+length-preservingly normalized before the search — every fold maps
+one source char to one target char so offsets stay aligned with the
+original passage. Quotes that still don't anchor after normalization
+surface in the citations block without a highlight.
+
+The agent loop's adapter (app.agent.audit.resolve_output) loads
+passages and hands them in.
 """
 
+import unicodedata
 from typing import TYPE_CHECKING, Any
 
 from app.agent.resolver.base import CitationResolution, OffsetResolution
@@ -16,15 +22,66 @@ if TYPE_CHECKING:
     from app.agent.schemas import AnswerOutput, Citation
 
 
+# 1:1 char substitutions. Length-preserving so the normalized index ==
+# the original index — no offset map needed.
+_FOLD_TABLE: dict[int, str] = {
+    # double quotes
+    0x201C: '"',  # LEFT DOUBLE QUOTATION MARK
+    0x201D: '"',  # RIGHT DOUBLE QUOTATION MARK
+    0x201E: '"',  # DOUBLE LOW-9 QUOTATION MARK
+    0x201F: '"',  # DOUBLE HIGH-REVERSED-9
+    0x00AB: '"',  # « LEFT-POINTING DOUBLE ANGLE
+    0x00BB: '"',  # » RIGHT-POINTING DOUBLE ANGLE
+    # single quotes / apostrophes
+    0x2018: "'",  # LEFT SINGLE QUOTATION MARK
+    0x2019: "'",  # RIGHT SINGLE QUOTATION MARK (also typographic apostrophe)
+    0x201A: "'",  # SINGLE LOW-9 QUOTATION MARK
+    0x201B: "'",  # SINGLE HIGH-REVERSED-9
+    # dashes
+    0x2013: "-",  # EN DASH
+    0x2014: "-",  # EM DASH
+    0x2212: "-",  # MINUS SIGN
+    # spaces / non-breaking
+    0x00A0: " ",  # NO-BREAK SPACE
+    0x202F: " ",  # NARROW NO-BREAK SPACE
+    0x2009: " ",  # THIN SPACE
+}
+
+
+def _normalize_char(ch: str) -> str:
+    """Return a length-1 fold of `ch` for substring matching. If the
+    char is in the explicit table, fold it. Otherwise apply NFKC and
+    keep the result ONLY when it is still one code point — multi-char
+    decompositions (ligatures, fractions) would break offset alignment
+    so we leave them as-is and accept the anchor miss."""
+    folded = _FOLD_TABLE.get(ord(ch))
+    if folded is not None:
+        return folded
+    nfkc = unicodedata.normalize("NFKC", ch)
+    return nfkc if len(nfkc) == 1 else ch
+
+
+def _normalize(text: str) -> str:
+    return "".join(_normalize_char(c) for c in text)
+
+
 def resolve_citation(quote: str, passage_text: str) -> tuple[int, int] | None:
     """First (start, end) of `quote` in `passage_text`, or None if empty
-    or not a substring. Half-open: passage_text[start:end] == quote."""
+    or not a substring after normalization. Offsets index the original
+    passage_text — the half-open slice passage_text[start:end] may
+    differ from `quote` only in cosmetic chars (smart quotes, dashes,
+    NBSP) that the resolver folded for matching."""
     if not quote:
         return None
     idx = passage_text.find(quote)
+    if idx != -1:
+        return idx, idx + len(quote)
+    norm_quote = _normalize(quote)
+    norm_text = _normalize(passage_text)
+    idx = norm_text.find(norm_quote)
     if idx == -1:
         return None
-    return idx, idx + len(quote)
+    return idx, idx + len(norm_quote)
 
 
 def resolve_answer(

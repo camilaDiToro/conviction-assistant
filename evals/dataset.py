@@ -63,7 +63,8 @@ class GoldenSet:
         return len(self.items)
 
     def by_id(self, gold_id: str) -> "GoldenSet":
-        return GoldenSet(tuple(g for g in self.items if g.id == gold_id))
+        wanted = {x.strip() for x in gold_id.split(",") if x.strip()}
+        return GoldenSet(tuple(g for g in self.items if g.id in wanted))
 
     def by_bucket(self, bucket: str) -> "GoldenSet":
         return GoldenSet(tuple(g for g in self.items if g.bucket == bucket))

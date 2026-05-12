@@ -53,19 +53,27 @@ def citation_precision(
     citations: list[dict[str, Any]], expected_passage_ids: list[str]
 ) -> MetricResult:
     """For questions with declared ``expected_passage_ids``, the fraction
-    of cited passage ids that are in the expected set. Returns 1.0 when
-    the golden has no expected ids (the metric "doesn't apply")."""
+    of the expected set that the agent actually cited. Extra citations
+    (anchored but not in the expected list) are treated as neutral and do
+    **not** lower the score — the golden often under-specifies which
+    passages are valid, so penalising any cite outside the list misreads
+    the agent's behaviour. Returns 1.0 when the golden has no expected
+    ids (metric "doesn't apply")."""
     if not expected_passage_ids:
         return MetricResult(value=1.0, reason="expected_passage_ids unset; metric not applicable")
     if not citations:
         return MetricResult(value=0.0, reason="no citations to score")
     expected = set(expected_passage_ids)
-    cited_ids = [c.get("passage_id") for c in citations]
-    correct = sum(1 for pid in cited_ids if pid in expected)
-    rate = correct / len(citations)
+    cited_ids = {c.get("passage_id") for c in citations}
+    matched = expected & cited_ids
+    extras = len(cited_ids - expected)
+    rate = len(matched) / len(expected)
     return MetricResult(
         value=rate,
-        reason=f"{correct}/{len(citations)} citations match expected ids",
+        reason=(
+            f"{len(matched)}/{len(expected)} expected ids cited"
+            f" ({extras} extra cite{'s' if extras != 1 else ''}, not penalised)"
+        ),
     )
 
 

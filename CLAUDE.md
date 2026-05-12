@@ -38,7 +38,7 @@ The assistant **may** use general knowledge when the convictions don't cover a t
 - **Only fall back to general knowledge when no conviction touches the topic at all.**
 - General-knowledge text **must be marked unambiguously** (dedicated section heading like "**Not from Decade convictions — general knowledge:**", or an equivalent visual prefix).
 - **Never interleave** general-knowledge claims with conviction-grounded claims in the same paragraph without a clear delimiter.
-- The structured response carries `general_knowledge_used: true` and a separate `general_knowledge_section` field — see `docs/ASSUMPTIONS.md` for the schema.
+- The structured response carries `general_knowledge_used: true` and a separate `general_knowledge_section` field.
 
 ### 🔴 Rule B — Conflicting convictions MUST be surfaced
 

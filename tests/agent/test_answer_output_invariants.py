@@ -56,3 +56,37 @@ def test_answer_output_accepts_out_of_scope_with_empty_citations() -> None:
     out = AnswerOutput(**_valid_answer(out_of_scope=True, citations=[]))
     assert out.out_of_scope
     assert out.citations == []
+
+
+def test_answer_output_accepts_consistent_conflict() -> None:
+    out = AnswerOutput(
+        **_valid_answer(
+            conflict_detected=True,
+            conflict_statement="As convicções divergem sobre come-cotas e CDB.",
+        )
+    )
+    assert out.conflict_detected
+    assert out.conflict_statement is not None
+
+
+def test_answer_output_rejects_conflict_detected_without_statement() -> None:
+    with pytest.raises(ValidationError, match="non-empty conflict_statement"):
+        AnswerOutput(**_valid_answer(conflict_detected=True, conflict_statement=None))
+
+
+def test_answer_output_rejects_conflict_detected_with_blank_statement() -> None:
+    with pytest.raises(ValidationError, match="non-empty conflict_statement"):
+        AnswerOutput(**_valid_answer(conflict_detected=True, conflict_statement="   "))
+
+
+def test_answer_output_rejects_statement_without_conflict_flag() -> None:
+    with pytest.raises(ValidationError, match="conflict_detected=true"):
+        AnswerOutput(
+            **_valid_answer(conflict_detected=False, conflict_statement="convictions disagree")
+        )
+
+
+def test_answer_output_conflict_defaults_to_false() -> None:
+    out = AnswerOutput(**_valid_answer())
+    assert out.conflict_detected is False
+    assert out.conflict_statement is None

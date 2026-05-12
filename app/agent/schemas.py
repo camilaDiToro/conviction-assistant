@@ -56,6 +56,8 @@ class AnswerOutput(BaseModel):
     general_knowledge_used: bool
     general_knowledge_section: str | None
     out_of_scope: bool
+    conflict_detected: bool = False
+    conflict_statement: str | None = None
 
     @model_validator(mode="after")
     def _check_invariants(self) -> "AnswerOutput":
@@ -70,6 +72,11 @@ class AnswerOutput(BaseModel):
             )
         if self.out_of_scope and self.citations:
             raise ValueError("out_of_scope=true requires empty citations")
+        conflict = (self.conflict_statement or "").strip()
+        if self.conflict_detected and not conflict:
+            raise ValueError("conflict_detected=true requires a non-empty conflict_statement")
+        if conflict and not self.conflict_detected:
+            raise ValueError("non-empty conflict_statement requires conflict_detected=true")
         return self
 
 
@@ -240,6 +247,24 @@ AGENT_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
                 "small talk, and unrelated topics. Emit citations=[] in that case."
             ),
         },
+        "conflict_detected": {
+            "type": ["boolean", "null"],
+            "description": (
+                "Required when kind='answer'. Set true when two or more cited "
+                "passages contradict each other on the user's topic (Rule B). "
+                "When true, conflict_statement must be a non-empty sentence "
+                "naming the disagreement explicitly."
+            ),
+        },
+        "conflict_statement": {
+            "type": ["string", "null"],
+            "description": (
+                "Required when conflict_detected=true. One short sentence that "
+                "names the disagreement using an explicit marker the analyst can "
+                "scan (e.g. 'as convicções divergem', 'convictions disagree', "
+                "'las convicciones difieren'). Null when conflict_detected=false."
+            ),
+        },
         "question": {
             "type": ["string", "null"],
             "description": (
@@ -263,6 +288,8 @@ AGENT_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
         "general_knowledge_used",
         "general_knowledge_section",
         "out_of_scope",
+        "conflict_detected",
+        "conflict_statement",
         "question",
         "options",
     ],

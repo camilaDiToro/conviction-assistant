@@ -99,6 +99,8 @@ class ChatAnswerResponse(StrictModel):
     general_knowledge_used: bool
     general_knowledge_section: str | None
     out_of_scope: bool
+    conflict_detected: bool = False
+    conflict_statement: str | None = None
     disclaimer: str
     usage_summary: UsageSummary
     debug: DebugBlock
@@ -150,6 +152,8 @@ class ConversationAnswerMessage(ConversationMessageBase):
     general_knowledge_used: bool | None = None
     general_knowledge_section: str | None = None
     out_of_scope: bool | None = None
+    conflict_detected: bool | None = None
+    conflict_statement: str | None = None
 
 
 class ConversationClarifyMessage(ConversationMessageBase):

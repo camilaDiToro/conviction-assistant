@@ -46,4 +46,10 @@ Thumbs.db
 logs/
 
 # Eval run artifacts (per-run timestamped CSV/JSON/MD/JSONL).
-evals/results/
+# Each numbered subdir (0001, 0002, …) groups runs taken under the same
+# code/prompt baseline; the CHANGES.md inside explains what shifted vs
+# the previous group, so it IS tracked (data files stay ignored).
+evals/results/*
+!evals/results/*/
+evals/results/*/*
+!evals/results/*/CHANGES.md
