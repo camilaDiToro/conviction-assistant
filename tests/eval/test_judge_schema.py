@@ -14,7 +14,6 @@ from evals.judge.schema import (
     AnswerRelevancyScore,
     CitationAttributionScore,
     CompletenessScore,
-    ConflictDisclosureScore,
     FaithfulnessScore,
     JudgeResult,
     RuleAPurityScore,
@@ -89,29 +88,6 @@ def test_answer_relevancy_rejects_unknown_label() -> None:
         AnswerRelevancyScore(label="kind_of", score=0.5, reason="bad")  # type: ignore[arg-type]
 
 
-# --- ConflictDisclosureScore -----------------------------------------------
-
-
-def test_conflict_disclosure_not_applicable() -> None:
-    s = ConflictDisclosureScore(applicable=False, label="n/a", score=None, reason="non-rule_b")
-    assert s.score is None
-
-
-def test_conflict_disclosure_applicable_yes() -> None:
-    s = ConflictDisclosureScore(applicable=True, label="yes", score=1.0, reason="ok")
-    assert s.score == 1.0
-
-
-def test_conflict_disclosure_rejects_inconsistent_applicable_false() -> None:
-    with pytest.raises(ValidationError):
-        ConflictDisclosureScore(applicable=False, label="yes", score=1.0, reason="bad")
-
-
-def test_conflict_disclosure_rejects_applicable_with_na_label() -> None:
-    with pytest.raises(ValidationError):
-        ConflictDisclosureScore(applicable=True, label="n/a", score=None, reason="bad")
-
-
 # --- RuleAPurityScore ------------------------------------------------------
 
 
@@ -164,9 +140,6 @@ def _ok_judge_result(qid: str = "q01") -> JudgeResult:
             score=1.0, n_sentences=2, n_supported=2, reason="all supported"
         ),
         answer_relevancy=AnswerRelevancyScore(label="relevant", score=1.0, reason="on-topic"),
-        conflict_disclosure=ConflictDisclosureScore(
-            applicable=False, label="n/a", score=None, reason="not rule_b"
-        ),
         rule_a_purity=RuleAPurityScore(label="clean", score=1.0, reason="no leaks"),
         citation_attribution=CitationAttributionScore(
             score=1.0, n_markers=2, n_correct=2, reason="both correct"
@@ -188,4 +161,4 @@ def test_judge_result_metric_scores_view() -> None:
     scores = r.metric_scores()
     assert set(scores) == set(METRIC_NAMES)
     assert scores["faithfulness"] == 1.0
-    assert scores["conflict_disclosure"] is None
+    assert "conflict_disclosure" not in scores

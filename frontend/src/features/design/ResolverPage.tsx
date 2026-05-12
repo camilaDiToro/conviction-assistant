@@ -273,7 +273,7 @@ class OffsetResolution(BaseModel):
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
           <strong className="text-ink-1">Anchor rate</strong> — the percentage of citations
           whose quote resolved to a passage offset — is the headline metric on the eval suite
-          (~30 hand-written Q/A). Other metrics (retrieval recall, answer relevance) are
+          (34 hand-written Q/A). Other metrics (retrieval recall, answer relevance) are
           complementary; they do not replace anchor rate as the gate.
         </p>
       </Section>

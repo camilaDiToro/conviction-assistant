@@ -10,6 +10,7 @@ from evals.metrics import (
     citation_precision,
     citation_recall,
     clarify_correctness,
+    conflict_disclosure_det,
     conflict_min_citations,
     general_knowledge_correctness,
     language_match,
@@ -263,6 +264,71 @@ def test_conflict_min_citations_single_side_fails() -> None:
 
 def test_conflict_min_citations_not_applicable() -> None:
     r = conflict_min_citations.score(citations=[], expected_conflict_mention=False)
+    assert r.value == "n/a"
+
+
+# --- conflict_disclosure_det -----------------------------------------------
+
+
+def test_conflict_disclosure_det_correct_with_marker_pt() -> None:
+    output = {
+        "kind": "answer",
+        "conflict_detected": True,
+        "conflict_statement": "As convicções divergem sobre o tema.",
+    }
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
+    assert r.value == "correct"
+
+
+def test_conflict_disclosure_det_correct_with_marker_en() -> None:
+    output = {
+        "kind": "answer",
+        "conflict_detected": True,
+        "conflict_statement": "The convictions disagree on this topic.",
+    }
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
+    assert r.value == "correct"
+
+
+def test_conflict_disclosure_det_correct_with_marker_es() -> None:
+    output = {
+        "kind": "answer",
+        "conflict_detected": True,
+        "conflict_statement": "Las convicciones difieren sobre el tema.",
+    }
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
+    assert r.value == "correct"
+
+
+def test_conflict_disclosure_det_missing_detection() -> None:
+    # Golden expects conflict but agent decided no conflict.
+    output = {"kind": "answer", "conflict_detected": False, "conflict_statement": None}
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
+    assert r.value == "incorrect"
+    assert "false" in (r.reason or "").lower()
+
+
+def test_conflict_disclosure_det_missing_marker_phrase() -> None:
+    # detected=true but statement does not carry a canonical marker.
+    output = {
+        "kind": "answer",
+        "conflict_detected": True,
+        "conflict_statement": "There is a tension here between the two sides.",
+    }
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
+    assert r.value == "incorrect"
+    assert "marker" in (r.reason or "").lower()
+
+
+def test_conflict_disclosure_det_not_applicable_when_not_expected() -> None:
+    output = {"kind": "answer", "conflict_detected": False}
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=False)
+    assert r.value == "n/a"
+
+
+def test_conflict_disclosure_det_not_applicable_for_clarify() -> None:
+    output = {"kind": "clarifying_question", "question": "?"}
+    r = conflict_disclosure_det.score(output=output, expected_conflict_mention=True)
     assert r.value == "n/a"
 
 

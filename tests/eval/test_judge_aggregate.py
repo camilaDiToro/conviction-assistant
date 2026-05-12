@@ -19,7 +19,6 @@ from evals.judge.schema import (
     AnswerRelevancyScore,
     CitationAttributionScore,
     CompletenessScore,
-    ConflictDisclosureScore,
     FaithfulnessScore,
     JudgeResult,
     RuleAPurityScore,
@@ -50,9 +49,6 @@ def _ok(
             score=faithfulness, n_sentences=n_sentences, n_supported=n_supported, reason="ok"
         ),
         answer_relevancy=AnswerRelevancyScore(label="relevant", score=1.0, reason="ok"),
-        conflict_disclosure=ConflictDisclosureScore(
-            applicable=False, label="n/a", score=None, reason="not rule_b"
-        ),
         rule_a_purity=RuleAPurityScore(
             label=rule_a_label,  # type: ignore[arg-type]
             score=rule_a_score,
@@ -95,7 +91,6 @@ def test_judge_frame_includes_all_metrics() -> None:
         "id",
         "faithfulness",
         "answer_relevancy",
-        "conflict_disclosure",
         "rule_a_purity",
         "citation_attribution",
         "completeness",
@@ -106,8 +101,7 @@ def test_judge_aggregate_excludes_nulls() -> None:
     df = _judge_frame([_ok("q01", faithfulness=0.5, n_supported=1), _ok("q02")])
     agg = _judge_aggregate(df)
     assert agg["faithfulness"] == 0.75
-    # conflict_disclosure is None on both → aggregate is None.
-    assert agg["conflict_disclosure"] is None
+    assert "conflict_disclosure" not in agg
 
 
 def test_judge_by_bucket_groups() -> None:

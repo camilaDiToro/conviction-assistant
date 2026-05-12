@@ -1,6 +1,6 @@
-// The 3×3 grid mark from decade.com — eight dots in a square, bottom-right
-// dot intentionally missing. Stand-alone component so we can size it
-// consistently across header, footer, hero, and the access-gate card.
+// Eight circular dots in a 3×3 pattern with the bottom-right missing.
+// Sits inline as a glyph — no container tile — so the mark reads as
+// dots rather than a stack of squares.
 
 interface GridMarkProps {
   size?: number
@@ -8,9 +8,10 @@ interface GridMarkProps {
 }
 
 export function GridMark({ size = 24, className = '' }: GridMarkProps) {
-  const dot = (size - 4) / 5
-  const gap = dot * 0.4
-  const padding = dot * 0.4
+  const unit = size / 7
+  const dot = unit * 1.6
+  const gap = unit * 0.9
+  const span = dot * 3 + gap * 2
   const dots: Array<[number, number]> = []
   for (let r = 0; r < 3; r++) {
     for (let c = 0; c < 3; c++) {
@@ -19,29 +20,22 @@ export function GridMark({ size = 24, className = '' }: GridMarkProps) {
     }
   }
   return (
-    <span
-      className={`inline-flex items-center justify-center bg-surface-2 ${className}`}
-      style={{ width: size, height: size, borderRadius: size * 0.16 }}
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${span} ${span}`}
+      className={`text-ink-1 ${className}`}
       aria-hidden="true"
     >
-      <svg
-        width={size - padding * 2}
-        height={size - padding * 2}
-        viewBox={`0 0 ${dot * 3 + gap * 2} ${dot * 3 + gap * 2}`}
-      >
-        {dots.map(([c, r], i) => (
-          <rect
-            key={i}
-            x={c * (dot + gap)}
-            y={r * (dot + gap)}
-            width={dot}
-            height={dot}
-            rx={dot * 0.15}
-            fill="currentColor"
-            className="text-ink-1"
-          />
-        ))}
-      </svg>
-    </span>
+      {dots.map(([c, r], i) => (
+        <circle
+          key={i}
+          cx={c * (dot + gap) + dot / 2}
+          cy={r * (dot + gap) + dot / 2}
+          r={dot / 2}
+          fill="currentColor"
+        />
+      ))}
+    </svg>
   )
 }

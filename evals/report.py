@@ -45,6 +45,7 @@ _REQUIRED_COLUMNS = (
     "clarify_correctness",
     "meets_min_citations",
     "conflict_min_citations",
+    "conflict_disclosure_det",
     "language_match",
     "prompt_tokens",
     "completion_tokens",
@@ -102,6 +103,7 @@ def aggregate(df: pd.DataFrame) -> dict[str, Any]:
     out["clarify_correctness"] = _discrete_rate(df["clarify_correctness"])
     out["meets_min_citations"] = _discrete_rate(df["meets_min_citations"])
     out["conflict_min_citations"] = _discrete_rate(df["conflict_min_citations"])
+    out["conflict_disclosure_det"] = _discrete_rate(df["conflict_disclosure_det"])
     out["language_match"] = _discrete_rate(df["language_match"])
 
     total_tokens = df["prompt_tokens"].fillna(0) + df["completion_tokens"].fillna(0)
@@ -210,6 +212,7 @@ def _render_markdown(metadata: RunMetadata, df: pd.DataFrame, agg: dict[str, Any
         ("Clarify correctness", "clarify_correctness"),
         ("Meets min citations", "meets_min_citations"),
         ("Conflict min citations (Rule B precondition)", "conflict_min_citations"),
+        ("Conflict disclosure (Rule B semantic)", "conflict_disclosure_det"),
         ("Language match", "language_match"),
     ):
         rate_obj = agg[key]

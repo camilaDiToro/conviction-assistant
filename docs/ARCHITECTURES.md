@@ -11,7 +11,7 @@ This is not a free-form agent. It is **constrained**: the model's only powers ov
 
 ## Corpus snapshot
 
-- 30 markdown documents in the starter package, ~13,737 lines, mixed Portuguese and English.
+- 30 markdown documents in the starter package, ~8,664 lines, mixed Portuguese and English.
 - Markdown is well-structured: `##` headings give natural passage boundaries.
 - **The corpus is expected to grow substantially.** Decade explicitly frames the problem as "as the number of documents grows, maintaining strict adherence becomes increasingly difficult." The architecture must scale past any single model's context window.
 
@@ -33,7 +33,7 @@ Provider-native grounding features (Anthropic Citations, OpenAI File Search, Gem
 ### System flow
 
 ```
-POST /chat
+POST /api/chat
    │
    ▼
 Conversation Orchestrator
@@ -41,7 +41,7 @@ Conversation Orchestrator
    ▼
 Agent LLM with read-only tools
    ├── list_documents()
-   ├── read_document_outline(doc_id)
+   ├── read_document_outline(document_id)
    ├── search_convictions(query, k)
    └── read_passage(passage_ids)
    │
@@ -55,7 +55,7 @@ Answer Generator       (produces JSON: answer + citations)
 Citation Verifier      (deterministic substring match per quote)
    │
    ▼
-Retry once with feedback  ─or─  safe refusal  ─or─  pass through
+Anchored citation  ─or─  citation surfaces without a highlight
    │
    ▼
 Response
@@ -69,8 +69,9 @@ A **passage** is the smallest citable unit of the conviction corpus. Convictions
 {
   "id": "fixed_income#lci",
   "document_id": "fixed_income",
+  "document_title": "Fixed Income",
+  "heading": "LCI",
   "heading_path": ["Fixed Income", "LCI"],
-  "language": "en",
   "text": "..."
 }
 ```
@@ -140,10 +141,10 @@ The structured response is one of two shapes — a regular **answer** (with cita
   },
   "debug": {
     "tool_calls": [
-      { "tool": "search_convictions", "arguments": { "query": "...", "k": 8 }, "returned_passage_ids": ["..."] }
+      { "step_id": "...", "kind": "tool_call", "name": "search_convictions", "detail": "returned 5 passages", "result": { "returned_passage_ids": ["..."] } }
     ],
     "steps": [
-      { "step_id": "...", "kind": "llm_call", "model": "...", "usage": { "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0, "reasoning_tokens": 0 } }
+      { "step_id": "...", "kind": "llm_call", "name": "agent_loop", "usage": { "model": "...", "prompt_tokens": 1234, "completion_tokens": 56, "cached_tokens": 0, "reasoning_tokens": 0 } }
     ]
   }
 }
@@ -154,20 +155,20 @@ The `disclaimer` is appended deterministically by the orchestrator (not the mode
 ### Tool surface
 
 ```python
-list_documents() -> list[DocSummary]
-# id, title, one-line summary, language. The "table of contents."
+list_documents(k: int) -> list[DocSummary]
+# id, title, passage_count. The corpus-level table of contents.
 
-read_document_outline(doc_id: str) -> list[Heading]
-# Heading tree of one document so the model can pick the right
-# section without reading the whole thing.
+read_document_outline(document_id: str) -> DocumentOutline
+# document_id, document_title, passage_count, and an ordered list of
+# headings with passage_id + heading + ordinal.
 
-search_convictions(query: str, k: int = 8) -> list[PassageHit]
+search_convictions(query: str, k: int = 5) -> list[PassageHit]
 # v1: BM25-only over SQLite-indexed passages with unicode-fold +
 # accent-strip + lowercase normalization. The corpus is 30 docs
 # and BM25 may be sufficient; the contract supports hybrid as a
 # deferred level-up gated on cross-language eval failure plus a
 # conversation with the project owner.
-# Returns id, doc_title, heading_path, snippet, score.
+# Returns passage_id, score, document_id, document_title, heading_path, snippet.
 
 read_passage(passage_ids: list[str]) -> list[Passage]
 # Full text of one or more passages by ID, returned in input order.
@@ -181,7 +182,7 @@ All four tools are defined once with JSON schemas and reused across every provid
 
 The four tools live under `app/agent/tools/`. The rules below are non-negotiable; they survive every later step.
 
-1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/errors.py`, and `app/agent/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector) changes only `app/repositories/` and migrations.
+1. **Tools are storage-agnostic.** Tool modules import only from `app/repositories/*`, `app/schemas/*`, `app/retrieval/*` helpers/contracts, `app/errors.py`, and `app/agent/tools/context.py`. They never import SQLAlchemy, `aiosqlite`, or any DB driver directly. Swapping the storage backend (e.g. SQLite → Postgres + pgvector) changes only `app/repositories/` and migrations.
 2. **Dependency injection via `ToolContext`.** Every tool's first parameter is a `ToolContext` dataclass (`app/agent/tools/context.py`). It carries `session: AsyncSession` plus the retriever. The agent loop's call shape `execute_tool(name, args, ctx)` is stable — adding a new dependency never changes tool signatures.
 3. **`ToolContext` is the DI seam, not a SQLite holder.** If a future repo backend exposes something other than an `AsyncSession`, `ToolContext` carries that instead. The tools see only what they need.
 4. **Tool input schemas are hand-written JSON-schema dicts** in `app/agent/tools/registry.py`. Each schema satisfies OpenAI strict mode out of the box: `type: object`, every property listed in `required`, `additionalProperties: false`, no `default` values. The agent's *output* schema may be Pydantic-derived — that's a separate decision and does not retroactively pull tool inputs into Pydantic.
@@ -192,7 +193,7 @@ The four tools live under `app/agent/tools/`. The rules below are non-negotiable
 
 The agent loop is bounded to keep behavior predictable and debuggable:
 
-- **`temperature = 0`** for the answer-generation step.
+- **Low reasoning effort by default** for the rewrite and answer-generation calls (`agent_reasoning_effort = "low"`), configurable through settings.
 - **Max 5 tool calls per turn.** Most questions resolve in 1–3.
 - **At least one search must run before the model is allowed to emit a final answer.** Enforced by the orchestrator, not just the prompt.
 - **No claims without citations.** Enforced by schema.
@@ -271,12 +272,12 @@ The log lives in **SQLite** (table `audit_log`) — same database that holds the
 
 ```python
 class LLMProvider:
-    def generate(messages, tools=None, schema=None) -> Response: ...
+    def generate(messages, *, tools=None, schema=None, reasoning_effort=None, max_output_tokens=None) -> Response: ...
 ```
 
-Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anthropic Citations, OpenAI File Search) are used **only inside their respective adapters as optimizations**, never as architecture. For example:
+The current implementation ships the provider contract plus `OpenAILLM` for production and `StubLLM` for CI/tests. Anthropic and Gemini adapters are documented follow-ups, not present runtime code. Provider-native grounding features (Anthropic Citations, OpenAI File Search) would live **only inside their respective adapters as optimizations**, never as architecture. For example:
 
-- The Anthropic adapter can use the Citations API to get verbatim `cited_text`, deterministic char indices, and free output tokens.
+- A future Anthropic adapter could use the Citations API to get verbatim `cited_text`, deterministic char indices, and free output tokens.
 - The OpenAI adapter falls back to JSON-schema prompt-based citations.
 - The contract above the adapter is identical, so the orchestrator and resolver never know which provider is in use.
 
@@ -311,14 +312,14 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 
 ### Hierarchical "table of contents, then zoom"
 
-**Sketch.** Two LLM calls. First, the model receives a compact `list_documents()` output (id, title, summary, language) and the question; it picks 1–3 relevant documents. Second, those documents are loaded in full and the model answers with passage-level citations.
+**Sketch.** Two LLM calls. First, the model receives a compact `list_documents()` output (id, title, passage count) and the question; it picks 1–3 relevant documents. Second, those documents are loaded in full and the model answers with passage-level citations.
 
 **Why not chosen.**
 - Cross-document themes are poorly served — *"what do all convictions say about IR taxation?"* needs section-level discovery across many docs, which a ToC-only router cannot provide.
 - Bad router decision = bad answer. The chosen agent loop can recover by issuing a different search; a fixed two-step pipeline cannot.
 - Loses some compound-question quality; the model can't iterate.
 
-**Where it lives in the chosen design.** Its two tools — `list_documents()` and `read_document_outline(doc_id)` — are absorbed into the agent's tool surface. The agent uses them when the question is broad ("what convictions cover retirement?") and uses `search_convictions` when the question is specific. We keep the strengths without the architectural rigidity.
+**Where it lives in the chosen design.** Its two tools — `list_documents(k)` and `read_document_outline(document_id)` — are absorbed into the agent's tool surface. The agent uses them when the question is broad ("what convictions cover retirement?") and uses `search_convictions` when the question is specific. We keep the strengths without the architectural rigidity.
 
 ### Provider-native grounding as the architecture (Anthropic Citations / OpenAI File Search / Gemini Grounding)
 
@@ -330,7 +331,7 @@ Adapters for Anthropic, OpenAI, Gemini. Provider-native grounding features (Anth
 - OpenAI File Search is a provider-specific hosted retrieval product, so it does not fit the portable core architecture.
 - Most importantly: **the offset resolver gives a stronger provenance shape than any provider feature.** Provider citations prove "this text was in the source." The resolver proves "this claim was drawn from a passage we cited, at *these* character offsets" — and the UI shows the user that exact region.
 
-**Where it lives in the chosen design.** Behind provider adapters, as per-provider optimizations. Anthropic's Citations API is excellent and we use it inside the Anthropic adapter; we just don't *depend* on it.
+**Where it lives in the chosen design.** Behind provider adapters, as per-provider optimizations. Anthropic's Citations API would be useful in a future Anthropic adapter, but the current runtime path does not depend on it.
 
 ### Long-context "stuff every conviction into the prompt"
 
@@ -370,7 +371,7 @@ This project ships two tiers of code; reviewers should be able to tell at a glan
 
 **Production-grade — built right:**
 
-- Provider abstraction (`LLMProvider` / `EmbeddingProvider`, single-LLM-point rule)
+- Provider abstraction (`LLMProvider`, single-LLM-point rule)
 - Offset resolver — deterministic substring → `(start, end)` mapping; the literal quote is dropped before the response is built
 - Agent loop bounds (max 5 tool calls; `≥ 1` search before answer; tools dropped on forced-final turn)
 - Audit log + raw token usage in every LLM step and response summary
@@ -384,8 +385,8 @@ This project ships two tiers of code; reviewers should be able to tell at a glan
 - In-process FastAPI (vs Docker / k8s / multi-replica)
 - Two-token auth only (chat + admin); no JWT/OAuth, no per-user identity, no rate limit
 - File-based settings (vs secrets manager)
-- 30 hand-written eval questions, deterministic metrics only (vs auto-generated bank + LLM-judge dashboard)
-- No streaming (single sync `/chat`; SSE is out of scope)
+- 34 hand-written eval questions, deterministic metrics only (vs auto-generated bank + LLM-judge dashboard)
+- No streaming (single sync `POST /api/chat`; SSE is out of scope)
 - Single LLM provider (OpenAI; Anthropic adapter slot documented, not built)
 
 Each level-up is described in the step where it would land. Promotion from "simplified" to "production-grade" is a conversation, not auto-triggered by the implementer. The frontend `Tiers` page renders this same matrix for live demos.
@@ -393,14 +394,14 @@ Each level-up is described in the step where it would land. Promotion from "simp
 ## Implementation order (eval-driven)
 
 1. **Passage parser + store.** Markdown → passages with stable IDs.
-2. **Provider abstractions.** `LLMProvider` and `EmbeddingProvider` protocols. **OpenAI adapter first** for both LLM (`gpt-5`) and embeddings (`text-embedding-3-large`).
+2. **Provider abstraction.** `LLMProvider` protocol. **OpenAI adapter first** for LLM calls (`gpt-5.5` by default); embeddings are not implemented because v1 retrieval is BM25-only.
 3. **`list_documents` + `read_passage` + `read_document_outline`** tools wired up.
 4. **`search_convictions` — BM25-only over SQLite** with unicode-fold + accent-strip + lowercase normalization. Hybrid (BM25 + multilingual embeddings + RRF) is a documented level-up, gated on cross-language eval failure plus a conversation. See "Classic hybrid retrieval pipeline" in "Other architectures considered" for the full scaling story (corpus growth and audience expansion).
 5. **Citation offset resolver.** Pure substring → `(start, end)` mapping; non-anchoring citations survive without a highlight. **Built before the agent loop** so every later step measures anchor rate from day one.
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
 7. **Disclaimer + audit log + token usage** wired into the orchestrator. SQLite is the storage; token usage is visible per LLM step and summarized per question.
 8. **Eval suite.** Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
-9. **Anthropic adapter (documented level-up, not built in v1)** — the protocol shape in `app/providers/base.py` proves portability today; `app/providers/factory.py` raises `ProviderError("anthropic adapter is not yet implemented")` when the provider is selected. The adapter slot is the demonstration; a live second provider is a follow-up. Citations API would slot in here as a per-adapter optimization.
+9. **Anthropic adapter (documented level-up, not built in v1)** — the protocol shape in `app/providers/base.py` proves portability today. A live second provider is a follow-up, and Citations API support would slot in there as a per-adapter optimization.
 10. **Optional promotion to hybrid retrieval** if eval shows BM25 misses cross-cutting / cross-language questions. Beyond hybrid: cross-encoder reranker, then Anthropic-style Contextual Retrieval. Each promotion is a conversation, not auto-triggered.
 11. **Bonus (out of scope for v1): upload pipeline** — parser-interface design lives in `app/services/parser/`.
 

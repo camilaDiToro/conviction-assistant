@@ -27,7 +27,7 @@ export default function ToolsPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
           The single dependency container every tool receives. A frozen dataclass holding the
           <code className="font-mono text-[13px] text-ink-1"> AsyncSession</code> used by
-          repository calls and the <code className="font-mono text-[13px] text-ink-1">BM25Index</code>{' '}
+          repository calls and the <code className="font-mono text-[13px] text-ink-1">Retriever</code>{' '}
           used by <code className="font-mono text-[13px] text-ink-1">search_convictions</code>.
           Nothing else is reachable from inside a tool.
         </p>
@@ -111,7 +111,7 @@ class ToolDefinition:
 @dataclass(frozen=True)
 class ToolContext:
     session: AsyncSession     # for repository calls
-    search_index: BM25Index   # for search_convictions
+    retriever: Retriever      # for search_convictions (Protocol; BM25 today)
 
 @dataclass(frozen=True)
 class ToolEntry:
@@ -124,32 +124,6 @@ async def read_document_outline(ctx: ToolContext, *, document_id: str) -> Docume
 async def search_convictions(ctx: ToolContext, *, query: str, k: int = 5) -> list[PassageHit]: ...
 async def read_passage(ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]: ...`}
         />
-      </Section>
-
-      <Section eyebrow="Failure modes">
-        <SpecList>
-          <SpecItem term="Empty / whitespace query">
-            <code className="font-mono text-[13px] text-ink-1">search_convictions</code> raises{' '}
-            <code className="font-mono text-[13px] text-ink-1">EmptyQueryError</code>;
-            mapped to HTTP 400 at the boundary.
-          </SpecItem>
-          <SpecItem term="Unknown id in passage_ids">
-            <code className="font-mono text-[13px] text-ink-1">read_passage</code> raises{' '}
-            <code className="font-mono text-[13px] text-ink-1">PassageNotFoundError</code> for
-            the first missing id. The orchestrator surfaces it as a tool-result error so
-            the agent self-corrects on the next turn.
-          </SpecItem>
-          <SpecItem term="Unknown document_id">
-            <code className="font-mono text-[13px] text-ink-1">read_document_outline</code> raises{' '}
-            <code className="font-mono text-[13px] text-ink-1">DocumentNotFoundError</code>.
-            Same handling as <code className="font-mono text-[13px] text-ink-1">PassageNotFoundError</code>.
-          </SpecItem>
-          <SpecItem term="k larger than corpus">
-            <code className="font-mono text-[13px] text-ink-1">BM25Index.search</code> caps{' '}
-            <code className="font-mono text-[13px] text-ink-1">k</code> at the indexed-passage
-            count. No exception.
-          </SpecItem>
-        </SpecList>
       </Section>
 
       <Section eyebrow="Trade-offs and alternatives considered">

@@ -15,6 +15,11 @@ Schema (one entry per item):
   expected_out_of_scope: false
   expected_general_knowledge: false
   expected_conflict_mention: false
+  prior_turns:                  # optional; multiturn setup before `question`
+    - role: user                # role: "user" | "assistant"
+      content: "..."
+    - role: assistant
+      content: "..."
   notes: "..."
 ```
 """
@@ -48,6 +53,10 @@ class Golden:
     expected_general_knowledge: bool = False
     expected_conflict_mention: bool = False
     notes: str = ""
+    # Optional prior turns for multiturn tests. Each entry is
+    # (role, content) where role is "user" or "assistant". Empty by
+    # default — single-turn questions need no setup.
+    prior_turns: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +140,28 @@ def load_golden_set(path: Path | str) -> GoldenSet:
         expected_passage_ids = entry.get("expected_passage_ids") or ()
         if isinstance(expected_passage_ids, str):
             raise ValueError(f"{path} {gold_id}: 'expected_passage_ids' must be a list, got string")
+        raw_prior = entry.get("prior_turns") or ()
+        if isinstance(raw_prior, str) or not hasattr(raw_prior, "__iter__"):
+            raise ValueError(
+                f"{path} {gold_id}: 'prior_turns' must be a list of {{role, content}} dicts"
+            )
+        prior_turns: list[tuple[str, str]] = []
+        for turn_idx, turn in enumerate(raw_prior):
+            if not isinstance(turn, dict):
+                raise ValueError(
+                    f"{path} {gold_id}: prior_turns[{turn_idx}] must be a mapping with role/content"
+                )
+            role = turn.get("role")
+            content = turn.get("content")
+            if role not in ("user", "assistant"):
+                raise ValueError(
+                    f"{path} {gold_id}: prior_turns[{turn_idx}].role must be 'user' or 'assistant'"
+                )
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError(
+                    f"{path} {gold_id}: prior_turns[{turn_idx}].content must be a non-empty string"
+                )
+            prior_turns.append((role, content.strip()))
         items.append(
             Golden(
                 id=gold_id,
@@ -143,6 +174,7 @@ def load_golden_set(path: Path | str) -> GoldenSet:
                 expected_general_knowledge=bool(entry.get("expected_general_knowledge", False)),
                 expected_conflict_mention=bool(entry.get("expected_conflict_mention", False)),
                 notes=str(entry.get("notes", "")),
+                prior_turns=tuple(prior_turns),
             )
         )
     return GoldenSet(tuple(items))

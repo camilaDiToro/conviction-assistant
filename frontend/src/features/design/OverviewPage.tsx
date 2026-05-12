@@ -11,11 +11,8 @@ export default function OverviewPage() {
         lead={
           <>
             An agentic assistant grounded on Decade's conviction corpus. A bounded agent uses
-            four read-only tools to explore 30 markdown documents and produce a structured
-            JSON answer, with every citation anchored to a span of its source passage. The
-            agent, tools and resolver are provider-agnostic; SQLite and BM25 sit behind the
-            repository, and the LLM lives behind a single adapter at{' '}
-            <code className="font-mono text-[15px] text-ink-1">app/providers/</code>.
+            read-only tools to explore 30 markdown documents and produce an answer, with every
+            citation anchored to a span of its source passage.
           </>
         }
       />
@@ -30,8 +27,9 @@ export default function OverviewPage() {
           </p>
           <p>
             The system is constrained on two axes: it must ground every claim in a cited
-            passage, and it must remain portable across LLM providers (OpenAI today, Anthropic
-            for the portability proof, others later).
+            passage, and it must keep the runtime layers portable across LLM providers. The
+            current implementation ships OpenAI plus a StubLLM test adapter; Anthropic is a
+            documented follow-up.
           </p>
         </div>
       </Section>
@@ -40,7 +38,7 @@ export default function OverviewPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
           The corpus is parsed once and the BM25 index is built in memory at app startup, so
           by the time a question arrives the system already has every passage indexed and
-          ready to search. Re-running ingest is a single admin POST.
+          ready to search.
         </p>
         <BootDiagram />
       </Section>
@@ -54,7 +52,7 @@ export default function OverviewPage() {
           <dt className="text-ink-1 font-medium">Tools</dt>
           <dd className="text-ink-2">Four read-only functions over the corpus. The agent chooses which to call and in what order; the loop never gives it write access.</dd>
           <dt className="text-ink-1 font-medium">LLMProvider</dt>
-          <dd className="text-ink-2">The single adapter for any LLM. Everything above it is provider-agnostic; swapping OpenAI for another provider is a config change.</dd>
+          <dd className="text-ink-2">The single contract for LLM calls. Production uses OpenAI today; tests use StubLLM. Other providers can be added behind the same interface.</dd>
           <dt className="text-ink-1 font-medium">Offset resolver</dt>
           <dd className="text-ink-2">Turns each cited quote into a <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region of its source passage so the UI can highlight exactly what the model used.</dd>
           <dt className="text-ink-1 font-medium">Repository</dt>
@@ -84,7 +82,7 @@ export default function OverviewPage() {
 
       <Section eyebrow="Request lifecycle">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          A single <code className="font-mono text-[13px] text-ink-1">POST /chat</code>{' '}
+          A single <code className="font-mono text-[13px] text-ink-1">POST /api/chat</code>{' '}
           executes one bounded agent loop and returns a structured JSON response. The sequence
           below names the file path that owns each step.
         </p>
@@ -177,7 +175,7 @@ const TOOLS = [
   {
     name: 'list_documents',
     args: '',
-    desc: "Enumerate all documents in the corpus. Returns titles, IDs and the Updated: date for each.",
+    desc: 'Enumerate corpus documents. Returns each document ID, title, and passage count.',
   },
   {
     name: 'read_document_outline',
@@ -224,7 +222,7 @@ function BootDiagram() {
 
         {/* Arrow top-left → top-right */}
         <line x1="260" y1="60" x2="340" y2="60" stroke="#B5B5B5" markerEnd="url(#arrow-boot)" />
-        <text x="300" y="50" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">POST /admin/ingest</text>
+          <text x="300" y="50" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">POST /api/admin/ingest</text>
 
         {/* Top-right: Ingest + Parser */}
         <g>

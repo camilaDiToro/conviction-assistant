@@ -9,8 +9,9 @@ Usage:
 
 Loads ``evals/golden_set.yaml``, runs each entry end-to-end through
 ``app.agent.run`` against a real LLM provider (OpenAI by default), runs
-our four deterministic metrics, writes CSV/JSON/MD to
-``evals/results/``.
+the deterministic metrics, and writes CSV/JSON/MD plus trace JSONL to
+``evals/results/``. The LLM-as-judge pass is manual and consumes the
+trace JSONL; this CLI does not call a judge model.
 
 Real OpenAI calls use provider quota. Smoke runs with ``--limit`` first.
 """
@@ -30,7 +31,12 @@ from typing import Any
 import pandas as pd
 
 from app.agent import run as run_agent
-from app.agent.schemas import AgentResult, AnswerOutput, ClarifyingQuestionOutput
+from app.agent.schemas import (
+    AgentResult,
+    AnswerOutput,
+    ClarifyingQuestionOutput,
+    ConversationTurn,
+)
 from app.agent.tools import ToolContext
 from app.config import db, settings
 from app.providers import get_llm_provider
@@ -42,6 +48,7 @@ from evals.metrics import (
     citation_precision,
     citation_recall,
     clarify_correctness,
+    conflict_disclosure_det,
     conflict_min_citations,
     general_knowledge_correctness,
     language_match,
@@ -96,6 +103,8 @@ class _QuestionRow:
     meets_min_citations_reason: str
     conflict_min_citations: str
     conflict_min_citations_reason: str
+    conflict_disclosure_det: str
+    conflict_disclosure_det_reason: str
     language_match: str
     language_match_reason: str
     prompt_tokens: int
@@ -117,10 +126,14 @@ class _QuestionRow:
 async def _run_question(
     golden: Golden, *, llm: LLMProvider, factory: Any, retriever: Any
 ) -> tuple[_QuestionRow, AgentResult, int]:
+    history = [
+        ConversationTurn(role=role, content=content)  # type: ignore[arg-type]
+        for role, content in golden.prior_turns
+    ]
     async with factory() as session:
         tool_ctx = ToolContext(session=session, retriever=retriever)
         t0 = perf_counter()
-        result = await run_agent(golden.question, [], tool_ctx=tool_ctx, llm=llm)
+        result = await run_agent(golden.question, history, tool_ctx=tool_ctx, llm=llm)
         duration_ms = int((perf_counter() - t0) * 1000)
     return _row_from_result(golden, result, duration_ms=duration_ms), result, duration_ms
 
@@ -143,6 +156,7 @@ def _trace_record(
         "bucket": golden.bucket,
         "language": golden.language,
         "question": golden.question,
+        "prior_turns": [{"role": r, "content": c} for r, c in golden.prior_turns],
         "expected_passage_ids": list(golden.expected_passage_ids),
         "expected_out_of_scope": golden.expected_out_of_scope,
         "expected_general_knowledge": golden.expected_general_knowledge,
@@ -195,6 +209,9 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
     conflict = conflict_min_citations.score(
         citations=citations, expected_conflict_mention=golden.expected_conflict_mention
     )
+    conflict_det = conflict_disclosure_det.score(
+        output=output_dict, expected_conflict_mention=golden.expected_conflict_mention
+    )
     lang_match = language_match.score(output=output_dict, expected_language=golden.language)
 
     return _QuestionRow(
@@ -221,6 +238,8 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
         meets_min_citations_reason=min_cite.reason or "",
         conflict_min_citations=str(conflict.value),
         conflict_min_citations_reason=conflict.reason or "",
+        conflict_disclosure_det=str(conflict_det.value),
+        conflict_disclosure_det_reason=conflict_det.reason or "",
         language_match=str(lang_match.value),
         language_match_reason=lang_match.reason or "",
         prompt_tokens=token_usage["prompt_tokens"],
@@ -432,6 +451,8 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
         meets_min_citations_reason="error",
         conflict_min_citations="n/a",
         conflict_min_citations_reason="error",
+        conflict_disclosure_det="n/a",
+        conflict_disclosure_det_reason="error",
         language_match="n/a",
         language_match_reason="error",
         prompt_tokens=0,
