@@ -6,24 +6,20 @@ Two layers live here:
    ``Citation``, ``StepRecord``, ``ConversationTurn``, ``AgentResult``)
    — the in-process types the orchestrator and tests use.
 2. **A hand-written JSON schema** (``AGENT_OUTPUT_JSON_SCHEMA``) that is
-   sent to the LLM via ``StructuredOutputSchema``. It is hand-written
-   because OpenAI strict mode does not support ``oneOf`` (only
-   ``anyOf``); the cleanest strict-compatible shape is a flat object
-   with every field nullable, discriminated by ``kind``. The Pydantic
-   discriminated union validates the parsed output back into the
-   correct concrete type after the model returns.
+   sent to the LLM via ``StructuredOutputSchema``.
 
 The flat-schema-with-nullable-fields pattern matches the project
-convention of hand-written tool schemas (see ``app/tools/registry.py``);
+convention of hand-written tool schemas (see ``app/agent/tools/registry.py``);
 it sidesteps Pydantic's ``oneOf`` emission for discriminated unions.
 """
 
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent.resolver import OffsetResolution
+from app.i18n import Language
 from app.providers import StructuredOutputSchema, TokenUsage
 
 
@@ -61,6 +57,21 @@ class AnswerOutput(BaseModel):
     general_knowledge_section: str | None
     out_of_scope: bool
 
+    @model_validator(mode="after")
+    def _check_invariants(self) -> "AnswerOutput":
+        section = (self.general_knowledge_section or "").strip()
+        if self.general_knowledge_used and not section:
+            raise ValueError(
+                "general_knowledge_used=true requires a non-empty general_knowledge_section"
+            )
+        if section and not self.general_knowledge_used:
+            raise ValueError(
+                "non-empty general_knowledge_section requires general_knowledge_used=true"
+            )
+        if self.out_of_scope and self.citations:
+            raise ValueError("out_of_scope=true requires empty citations")
+        return self
+
 
 class ClarifyingQuestionOutput(BaseModel):
     """Returned only when answering would risk citing the wrong topic."""
@@ -90,10 +101,10 @@ class ConversationTurn(BaseModel):
 class StepRecord(BaseModel):
     """One observable step the orchestrator took.
 
-    The agent emits one record per LLM call and one per tool call; B9
-    wraps these with ``question_id`` / ``conversation_id`` and persists
-    them into ``audit_log``. Cost USD is **not** stored — derived in
-    ``app/services/cost.py`` from ``usage`` at audit-log read time.
+    The agent emits one record per LLM call and one per tool call; the
+    HTTP layer wraps these with ``question_id`` / ``conversation_id`` and
+    persists them into ``audit_log``. LLM-call records carry raw token
+    usage so debug views can show exactly what the provider reported.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -107,13 +118,30 @@ class StepRecord(BaseModel):
     duration_ms: int = 0
 
 
+class TokenTotals(BaseModel):
+    """Aggregated token counts across every LLM call in one agent turn.
+
+    Computed from :class:`StepRecord` entries with ``kind='llm_call'``;
+    the HTTP layer wraps these totals into a wire ``UsageSummary``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    llm_call_count: int
+    prompt_tokens: int
+    completion_tokens: int
+    cached_tokens: int
+    reasoning_tokens: int
+
+
 class AgentResult(BaseModel):
     """One full agent turn: structured output + the trace that produced it.
 
     ``resolution`` carries one :class:`CitationResolution` per citation
     the model emitted, in original order, with the passage provenance
-    and ``(start, end)`` offsets the wire response needs. B9 reads this
-    to build ``ChatCitation`` rows without re-fetching passages.
+    and ``(start, end)`` offsets the wire response needs. The HTTP layer
+    reads this to build ``ChatCitation`` rows without re-fetching
+    passages.
     ``None`` when ``output`` is a ``ClarifyingQuestionOutput`` (no
     citations to resolve).
 
@@ -126,11 +154,23 @@ class AgentResult(BaseModel):
 
     output: AgentOutput
     rewritten_question: str | None
-    language: Literal["pt", "es", "en"]
+    language: Language
     steps: list[StepRecord]
     tool_call_count: int
     search_count: int
     resolution: OffsetResolution | None = None
+
+    @property
+    def token_totals(self) -> TokenTotals:
+        """Sum token counts across every ``llm_call`` step in this turn."""
+        usages = [s.usage for s in self.steps if s.kind == "llm_call" and s.usage is not None]
+        return TokenTotals(
+            llm_call_count=len(usages),
+            prompt_tokens=sum(u.prompt_tokens for u in usages),
+            completion_tokens=sum(u.completion_tokens for u in usages),
+            cached_tokens=sum(u.cached_tokens for u in usages),
+            reasoning_tokens=sum(u.reasoning_tokens for u in usages),
+        )
 
 
 # --- JSON schemas for the LLM ---------------------------------------------
@@ -195,8 +235,9 @@ AGENT_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
         "out_of_scope": {
             "type": ["boolean", "null"],
             "description": (
-                "Required when kind='answer'. True if the question falls outside "
-                "Decade's investment-conviction domain entirely."
+                "Required when kind='answer'. True when the user's message is not "
+                "a question about Decade's investment convictions — covers greetings, "
+                "small talk, and unrelated topics. Emit citations=[] in that case."
             ),
         },
         "question": {

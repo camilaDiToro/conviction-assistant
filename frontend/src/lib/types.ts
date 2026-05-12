@@ -1,6 +1,6 @@
-// Mirrored from app/schemas/passage.py and the planned /chat response.
+// Mirrored from app/schemas/passage.py and the /chat response.
 // Keep in sync with the backend schemas. The chat response shape is the
-// contract documented in CLAUDE.md (lands behind /chat in B9).
+// contract documented in CLAUDE.md.
 
 export interface Passage {
   id: string
@@ -39,7 +39,7 @@ export interface PassageHit {
   snippet: string
 }
 
-// ----- Chat contract (B9) -----
+// ----- Chat contract -----
 
 export interface Citation {
   passage_id: string
@@ -59,6 +59,13 @@ export interface TokenUsage {
   completion_tokens: number
   cached_tokens: number
   reasoning_tokens: number
+  reasoning_effort: ReasoningEffort | null
+}
+
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
+export interface ConfigResponse {
+  model: string
 }
 
 export interface DebugStep {
@@ -68,7 +75,6 @@ export interface DebugStep {
   detail: string
   duration_ms: number
   usage: TokenUsage | null
-  cost_usd: number | null
   // Step-kind-specific JSON summary of what the step produced.
   // tool_call → { result: <tool return value> }
   // llm_call  → { tool_calls?, parsed?, content? }
@@ -78,8 +84,11 @@ export interface DebugStep {
 }
 
 export interface UsageSummary {
-  question_total_cost_usd: number
-  conversation_total_cost_usd: number
+  llm_call_count: number
+  prompt_tokens: number
+  completion_tokens: number
+  cached_tokens: number
+  reasoning_tokens: number
   step_count: number
   duration_ms: number
 }

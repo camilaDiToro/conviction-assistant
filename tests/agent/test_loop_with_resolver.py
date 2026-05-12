@@ -37,9 +37,9 @@ def _stub_ctx() -> ToolContext:
 
 def _patch_tools(
     monkeypatch: pytest.MonkeyPatch,
-    overrides: dict[str, Callable[..., Awaitable[Any]]],
+    replacements: dict[str, Callable[..., Awaitable[Any]]],
 ) -> None:
-    for name, func in overrides.items():
+    for name, func in replacements.items():
         original = TOOLS[name]
         monkeypatch.setitem(TOOLS, name, ToolEntry(original.definition, func))
 
@@ -68,14 +68,14 @@ def _hit(passage_id: str = "cdbs_quick_guide#tributacao") -> PassageHit:
 
 
 def _patch_passage_repo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make ``passages_repo.get`` return the fake passage for the fixed
-    passage_id used across these tests, ``None`` otherwise."""
+    """Make ``passages_repo.get_many`` return the fake passage for the
+    fixed passage_id used across these tests, omitting unknown ids."""
     fake = _passage()
 
-    async def fake_get(_session: Any, passage_id: str) -> Passage | None:
-        return fake if passage_id == fake.id else None
+    async def fake_get_many(_session: Any, ids: Any) -> dict[str, Passage]:
+        return {pid: fake for pid in ids if pid == fake.id}
 
-    monkeypatch.setattr("app.agent.audit.passages_repo.get", fake_get)
+    monkeypatch.setattr("app.agent.audit.passages_repo.get_many", fake_get_many)
 
 
 def _common_tool_patches(monkeypatch: pytest.MonkeyPatch) -> None:

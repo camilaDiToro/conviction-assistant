@@ -18,11 +18,11 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 def make_engine(database_url: str) -> AsyncEngine:
     """Create an async engine. Caller is responsible for disposing it."""
-    return create_async_engine(database_url, future=True)
+    return create_async_engine(database_url)
 
 
 def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    return async_sessionmaker(engine, expire_on_commit=False)
 
 
 def set_session_factory(factory: async_sessionmaker[AsyncSession] | None) -> None:

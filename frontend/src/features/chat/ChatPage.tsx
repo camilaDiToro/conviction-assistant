@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GridMark } from '@/components/GridMark'
 import {
+  loadConfig,
   loadConversation,
   loadQuestionSteps,
   sendChatMessage,
@@ -12,6 +13,7 @@ import type {
   ChatAnswerResponse,
   ChatClarifyResponse,
   ChatMessage,
+  ConfigResponse,
   ConversationMessage,
 } from '@/lib/types'
 import { MessageList } from './MessageList'
@@ -35,7 +37,14 @@ export default function ChatPage() {
   const [debugError, setDebugError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sidebarRefresh, setSidebarRefresh] = useState(0)
+  const [config, setConfig] = useState<ConfigResponse | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    loadConfig().then(setConfig).catch(() => undefined)
+  }, [])
+
+  const effectiveModel = config?.model ?? 'loading'
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -178,6 +187,13 @@ export default function ChatPage() {
             <span className="text-sm tracking-tight font-medium">Decade AI Chat</span>
           </Link>
         </div>
+        <div
+          className="flex items-center gap-2 text-[11px] font-mono text-ink-3 border border-border px-3 py-1.5 rounded-md"
+          aria-label={`Default model: ${effectiveModel}`}
+        >
+          <span>model</span>
+          <span className="text-ink-1">{effectiveModel}</span>
+        </div>
       </header>
 
       <div className="flex-1 flex">
@@ -255,6 +271,7 @@ export default function ChatPage() {
           loadError={debugError}
         />
       )}
+
     </div>
   )
 }
@@ -282,14 +299,17 @@ function rebuildTurn(msg: ConversationMessage): ChatMessage[] {
 }
 
 function synthesizeResponse(msg: ConversationMessage): ChatAnswerResponse | ChatClarifyResponse {
-  // Historical view doesn't replay token usage / cost / debug steps —
+  // Historical view doesn't replay token usage / debug steps —
   // those are visible via the admin trace endpoint. The chat surface
   // shows the answer text + citations, which is what was originally
   // displayed. Disclaimer left empty (already seen at original send time).
   const baseDebug = { tool_calls: [], steps: [] }
   const baseUsage = {
-    question_total_cost_usd: 0,
-    conversation_total_cost_usd: 0,
+    llm_call_count: 0,
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    cached_tokens: 0,
+    reasoning_tokens: 0,
     step_count: 0,
     duration_ms: 0,
   }

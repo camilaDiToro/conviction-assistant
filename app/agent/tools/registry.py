@@ -1,11 +1,4 @@
-"""Tool advertisements (JSON schemas + ``ToolDefinition``s) and registry.
-
-JSON schemas are hand-written dicts — at three tools with at most one
-string field each, this is shorter and more obviously correct than
-deriving them from Pydantic models. Each schema satisfies OpenAI strict
-mode: every property is in ``required``, ``additionalProperties: false``,
-no ``default`` values. See ``app/providers/openai.py`` ``_tool_to_openai``.
-"""
+"""Tool advertisements (JSON schemas + ``ToolDefinition``s) and registry."""
 
 from typing import Any
 

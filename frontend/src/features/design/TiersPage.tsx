@@ -9,7 +9,7 @@ const ROWS = [
   },
   {
     label: 'Provider abstraction',
-    built: 'LLMProvider protocol with OpenAI + Stub adapters. Anthropic at B10. Single LLM point.',
+    built: 'LLMProvider protocol with OpenAI + Stub adapters. Anthropic adapter documented as future work. Single LLM point.',
     simplified: '—',
     levelUp: null,
   },
@@ -26,9 +26,9 @@ const ROWS = [
     levelUp: null,
   },
   {
-    label: 'Cost tracking',
-    built: 'Three granularities (step / question / conversation). Vendored prices. Retroactive re-pricing.',
-    simplified: '—',
+    label: 'Token usage',
+    built: 'Per-step TokenUsage plus per-question token totals in the response summary.',
+    simplified: 'Raw counters only; no enforcement gate.',
     levelUp: null,
   },
   {
@@ -41,29 +41,29 @@ const ROWS = [
     label: 'Storage',
     built: '—',
     simplified: 'SQLite + SQLAlchemy async + aiosqlite. One process, one file.',
-    levelUp: { id: 'B3', text: 'Postgres + pgvector. The repository contract is the swap point; tools and services are unaffected.' },
+    levelUp: { text: 'Postgres + pgvector. The repository contract is the swap point; tools and services are unaffected.' },
   },
   {
     label: 'Retrieval',
     built: '—',
     simplified: 'BM25 only with NFKD-stripped tokens. 30-document corpus, single-language baseline.',
-    levelUp: { id: 'B6', text: 'Hybrid (BM25 + multilingual embeddings + RRF), gated on cross-language eval failure.' },
+    levelUp: { text: 'Hybrid (BM25 + multilingual embeddings + RRF), gated on cross-language eval failure.' },
   },
   {
     label: 'Auth & rate limiting',
     built: '—',
-    simplified: 'No auth, no rate limit, no per-user budgets. Demo gate on the chat surface only.',
-    levelUp: { id: 'B9', text: 'Real auth (OIDC) and per-user / per-conversation budget limits when productized.' },
+    simplified: 'No auth, no rate limit, no per-user quotas. Demo gate on the chat surface only.',
+    levelUp: { text: 'Real auth (OIDC) and per-user / per-conversation request quotas when productized.' },
   },
   {
     label: 'Streaming',
     built: '—',
     simplified: 'Single sync POST /chat. Whole response or nothing.',
-    levelUp: { id: 'B9', text: 'SSE streaming for the answer body once UX latency outweighs simplicity.' },
+    levelUp: { text: 'SSE streaming for the answer body once UX latency outweighs simplicity.' },
   },
   {
     label: 'Testing',
-    built: 'Unit (parser, search, cost, tools — pure functions) + integration (FastAPI test client + tmp SQLite) + provider-adapter tests against StubLLM. No LLM in the request path of CI.',
+    built: 'Unit (parser, search, tools — pure functions) + integration (FastAPI test client + tmp SQLite) + provider-adapter tests against StubLLM. No LLM in the request path of CI.',
     simplified: '—',
     levelUp: null,
   },
@@ -71,13 +71,13 @@ const ROWS = [
     label: 'Evaluation',
     built: '—',
     simplified: '~30 hand-written Q/A planned. Verifier-pass-rate is the headline metric; LLM-judge entailment is secondary. Today the methodology is described; not measured.',
-    levelUp: { id: 'B10', text: 'Auto-generated eval bank, LLM-judge dashboard, weekly regressions. Cross-language eval is the trigger that gates B6 retrieval promotion.' },
+    levelUp: { text: 'Auto-generated eval bank, LLM-judge dashboard, weekly regressions. Cross-language eval is the trigger that gates the hybrid-retrieval promotion.' },
   },
   {
     label: 'Deployment',
     built: '—',
     simplified: 'Single FastAPI process, file-based settings, manual deploy.',
-    levelUp: { id: '—', text: 'Container + secrets manager + multi-replica + observability stack when productized.' },
+    levelUp: { text: 'Container + secrets manager + multi-replica + observability stack when productized.' },
   },
 ] as const
 
@@ -115,7 +115,7 @@ export default function TiersPage() {
                     {r.simplified}
                     {r.levelUp && (
                       <div className="mt-2 flex items-baseline gap-2 text-ink-3 text-xs">
-                        <span className="font-mono text-ink-1">{r.levelUp.id}</span>
+                        <span className="font-mono text-ink-1">Level-up</span>
                         <span>· {r.levelUp.text}</span>
                       </div>
                     )}

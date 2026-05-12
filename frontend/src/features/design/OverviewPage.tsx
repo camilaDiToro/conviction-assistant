@@ -60,7 +60,7 @@ export default function OverviewPage() {
           <dt className="text-ink-1 font-medium">Repository</dt>
           <dd className="text-ink-2">The only layer that talks to the database. Tools and services go through it; raw SQL lives nowhere else.</dd>
           <dt className="text-ink-1 font-medium">audit_log</dt>
-          <dd className="text-ink-2">Every step (LLM call, tool call, resolver) is recorded with step / question / conversation IDs and a per-step cost.</dd>
+          <dd className="text-ink-2">Every step (LLM call, tool call, resolver) is recorded with step / question / conversation IDs and raw token usage.</dd>
         </dl>
         <ArchitectureDiagram />
       </Section>
@@ -106,7 +106,7 @@ export default function OverviewPage() {
           <p>
             Every step — LLM calls, tool calls, the resolver pass — is appended to{' '}
             <code className="font-mono text-[12px] text-ink-1">audit_log</code> with its
-            duration, token usage and cost. The Router formats the resolved citations,
+            duration and token usage. The Router formats the resolved citations,
             disclaimer and usage summary into the JSON body sent back to the caller.
           </p>
         </div>
@@ -198,12 +198,9 @@ const TOOLS = [
 
 const TOUR = [
   { to: '/design/pipeline/corpus', label: 'Corpus & chunking', desc: 'Markdown → Passage[]. Slug algorithm, date extraction, stable IDs.' },
-  { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)', desc: 'BM25Index over normalized tokens. Cross-language is the level-up trigger.' },
+  { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Bounded gather → act → answer with strict loop invariants.' },
-  { to: '/design/plumbing/providers', label: 'Provider abstraction', desc: 'LLMProvider protocol, OpenAI + Stub adapters behind a single interface.' },
-  { to: '/design/plumbing/cost', label: 'Cost tracking', desc: 'TokenUsage → vendored prices. Three-granularity audit_log.' },
-  { to: '/design/plumbing/layering', label: 'Layering rules', desc: 'Router → Service → Repository. Domain errors. Configuration. Lifecycle.' },
   { to: '/design/framing/tiers', label: 'Production-grade vs simplified', desc: 'What is built right vs deliberately simplified, with documented level-ups.' },
 ] as const
 
@@ -349,7 +346,7 @@ function ArchitectureDiagram() {
         {/* Row 3: audit_log + Repository → SQLite */}
         <g>
           <rect x="20" y="430" width="320" height="50" fill="#0A0A0A" stroke="#262626" />
-          <text x="180" y="452" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">audit_log + cost</text>
+          <text x="180" y="452" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">audit_log + usage</text>
           <text x="180" y="470" textAnchor="middle" fill="#6B6B6B" fontSize="10" fontFamily="JetBrains Mono">repositories/audit.py</text>
         </g>
 
@@ -374,8 +371,8 @@ function ArchitectureDiagram() {
 function LifecycleDiagram() {
   // Sequence diagram. Lanes: Router · Agent · Tools · LLMProvider · Verifier · Audit
   const lanes = [
-    { x: 90, label: 'Router', file: 'api/chat.py · B9' },
-    { x: 240, label: 'Agent', file: 'services/agent.py · B8' },
+    { x: 90, label: 'Router', file: 'api/chat.py' },
+    { x: 240, label: 'Agent', file: 'agent/loop.py' },
     { x: 390, label: 'Tools', file: 'tools/' },
     { x: 540, label: 'LLM', file: 'providers/' },
     { x: 690, label: 'Resolver', file: 'app/agent/resolver/' },

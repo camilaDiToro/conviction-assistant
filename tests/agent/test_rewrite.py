@@ -87,14 +87,16 @@ async def test_rewrite_passthrough_with_empty_history_still_detects_language() -
 
 
 @pytest.mark.asyncio
-async def test_rewrite_uses_minimal_reasoning_effort() -> None:
-    """Cost discipline: rewrite is a tiny task, must run with minimal reasoning."""
+async def test_rewrite_uses_low_reasoning_effort() -> None:
+    """Rewrite is a tiny task. ``low`` keeps the token footprint small
+    and is accepted across the whole gpt-5.x family (gpt-5.5+ dropped
+    ``minimal``)."""
     responses = load_stub_responses(FIXTURES / "rewrite_pt.yaml")
     stub = StubLLM(responses)
     history = [ConversationTurn(role="user", content="hi")]
 
     await rewrite_question("ok", history, llm=stub)
 
-    assert stub.calls[0].reasoning_effort == "minimal"
+    assert stub.calls[0].reasoning_effort == "low"
     assert stub.calls[0].max_output_tokens == 200
     assert stub.calls[0].schema is not None

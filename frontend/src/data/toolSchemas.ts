@@ -1,4 +1,4 @@
-// Hand-written JSON schemas — pulled verbatim from app/tools/registry.py.
+// Hand-written JSON schemas — pulled verbatim from app/agent/tools/registry.py.
 // Each schema satisfies OpenAI strict mode: every property is in `required`,
 // `additionalProperties: false`, no `default` values.
 

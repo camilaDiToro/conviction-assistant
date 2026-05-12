@@ -35,7 +35,7 @@ export default function ToolsPage() {
 
       <Section eyebrow="Approach">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          <code className="font-mono text-[13px] text-ink-1">app/tools/registry.py::TOOLS</code>{' '}
+          <code className="font-mono text-[13px] text-ink-1">app/agent/tools/registry.py::TOOLS</code>{' '}
           is a <code className="font-mono text-[13px] text-ink-1">dict[str, ToolEntry]</code> of
           four entries. Each <code className="font-mono text-[13px] text-ink-1">ToolEntry</code>{' '}
           pairs a <code className="font-mono text-[13px] text-ink-1">ToolDefinition</code> (name,
@@ -98,7 +98,7 @@ export default function ToolsPage() {
           <code className="font-mono text-[13px] text-ink-1">ToolDefinition</code> defined in{' '}
           <code className="font-mono text-[13px] text-ink-1">app/providers/base.py</code>.
           Dispatch goes through the per-tool <code className="font-mono text-[13px] text-ink-1">ToolContext</code> in{' '}
-          <code className="font-mono text-[13px] text-ink-1">app/tools/context.py</code>.
+          <code className="font-mono text-[13px] text-ink-1">app/agent/tools/context.py</code>.
         </p>
         <CodeBlock
           lang="python"

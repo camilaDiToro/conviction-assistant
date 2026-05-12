@@ -1,4 +1,4 @@
-"""initial schema: passages, audit_log, cost_log
+"""initial schema: passages, audit_log
 
 Revision ID: 0001
 Revises:
@@ -15,6 +15,8 @@ branch_labels = None
 depends_on = None
 
 
+_AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'response')"
+
 def upgrade() -> None:
     op.create_table(
         "passages",
@@ -26,11 +28,7 @@ def upgrade() -> None:
         sa.Column("text", sa.Text, nullable=False),
         sa.Column("ordinal", sa.Integer, nullable=False),
     )
-    op.create_index(
-        "ix_passages_doc",
-        "passages",
-        ["document_id", "ordinal"],
-    )
+    op.create_index("ix_passages_doc", "passages", ["document_id", "ordinal"])
 
     op.create_table(
         "audit_log",
@@ -41,28 +39,11 @@ def upgrade() -> None:
         sa.Column("kind", sa.Text, nullable=False),
         sa.Column("payload", sa.Text, nullable=False),
         sa.Column("usage", sa.Text, nullable=True),
-        sa.CheckConstraint(
-            "kind IN ('llm_call', 'tool_call', 'verifier', 'response')",
-            name="ck_audit_log_kind",
-        ),
+        sa.CheckConstraint(_AUDIT_KIND_CHECK, name="ck_audit_log_kind"),
     )
     op.create_index("ix_audit_question", "audit_log", ["question_id"])
     op.create_index("ix_audit_conversation", "audit_log", ["conversation_id"])
 
-    op.execute(
-        """
-        CREATE VIEW cost_log AS
-        SELECT step_id, question_id, conversation_id, timestamp, payload, usage
-        FROM audit_log
-        WHERE kind = 'llm_call'
-        """
-    )
-
 
 def downgrade() -> None:
-    op.execute("DROP VIEW IF EXISTS cost_log")
-    op.drop_index("ix_audit_conversation", table_name="audit_log")
-    op.drop_index("ix_audit_question", table_name="audit_log")
-    op.drop_table("audit_log")
-    op.drop_index("ix_passages_doc", table_name="passages")
-    op.drop_table("passages")
+    raise NotImplementedError("the initial schema is never rolled back")

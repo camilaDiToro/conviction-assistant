@@ -1,14 +1,13 @@
-"""ORM model for the audit_log table (B9).
+"""ORM model for the audit_log table."""
 
-The schema lives in alembic (``0001_initial_schema.py``); this ORM model
-exists so the repository layer can use ``select()`` style queries
-instead of raw text(). The table is append-only — there's no update path.
-"""
-
-from sqlalchemy import Index, Text
+from sqlalchemy import CheckConstraint, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
+
+# Mirror of the CHECK in alembic/versions/0001_initial_schema.py — keeps
+# `target_metadata = Base.metadata` autogenerate from diffing it away.
+_AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'response')"
 
 
 class AuditLogORM(Base):
@@ -25,4 +24,5 @@ class AuditLogORM(Base):
     __table_args__ = (
         Index("ix_audit_question", "question_id"),
         Index("ix_audit_conversation", "conversation_id"),
+        CheckConstraint(_AUDIT_KIND_CHECK, name="ck_audit_log_kind"),
     )

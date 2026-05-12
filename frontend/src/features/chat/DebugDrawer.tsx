@@ -37,18 +37,30 @@ export function DebugDrawer({ message, onClose, loading = false, loadError = nul
             <h4 className="text-ink-3 text-[11px] uppercase tracking-tight mb-3">Summary</h4>
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border">
               <div className="bg-bg p-4">
-                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Question</dt>
-                <dd className="text-ink-1 font-mono mt-1">${r.usage_summary.question_total_cost_usd.toFixed(5)}</dd>
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Prompt</dt>
+                <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.prompt_tokens}</dd>
               </div>
               <div className="bg-bg p-4">
-                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Conversation</dt>
-                <dd className="text-ink-1 font-mono mt-1">${r.usage_summary.conversation_total_cost_usd.toFixed(5)}</dd>
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Completion</dt>
+                <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.completion_tokens}</dd>
+              </div>
+              <div className="bg-bg p-4">
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Cached</dt>
+                <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.cached_tokens}</dd>
+              </div>
+              <div className="bg-bg p-4">
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Reasoning</dt>
+                <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.reasoning_tokens}</dd>
+              </div>
+              <div className="bg-bg p-4">
+                <dt className="text-ink-3 text-[10px] uppercase tracking-tight">LLM calls</dt>
+                <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.llm_call_count}</dd>
               </div>
               <div className="bg-bg p-4">
                 <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Steps</dt>
                 <dd className="text-ink-1 font-mono mt-1">{r.usage_summary.step_count}</dd>
               </div>
-              <div className="bg-bg p-4">
+              <div className="bg-bg p-4 col-span-2">
                 <dt className="text-ink-3 text-[10px] uppercase tracking-tight">Time</dt>
                 <dd className="text-ink-1 font-mono mt-1">{formatDuration(r.usage_summary.duration_ms)}</dd>
               </div>
@@ -106,13 +118,15 @@ function StepItem({ step, index }: { step: DebugStep; index: number }) {
         </div>
         <span className="text-ink-3 text-[11px] shrink-0 font-mono">
           {step.duration_ms}ms
-          {typeof step.cost_usd === 'number' ? ` · $${step.cost_usd.toFixed(5)}` : ''}
         </span>
       </div>
       <div className="text-ink-2 text-sm leading-relaxed">{step.detail}</div>
       {step.usage && (
         <div className="mt-3 pt-3 border-t border-border text-[11px] font-mono text-ink-3 grid grid-cols-2 gap-x-6 gap-y-1">
           <span>model: <span className="text-ink-1">{step.usage.model}</span></span>
+          {step.usage.reasoning_effort && (
+            <span>effort: <span className="text-ink-1">{step.usage.reasoning_effort}</span></span>
+          )}
           <span>prompt: <span className="text-ink-1">{step.usage.prompt_tokens}</span></span>
           <span>cached: <span className="text-ink-1">{step.usage.cached_tokens}</span></span>
           <span>completion: <span className="text-ink-1">{step.usage.completion_tokens}</span></span>

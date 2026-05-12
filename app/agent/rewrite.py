@@ -1,37 +1,18 @@
-"""Question rewrite + language detection — runs on every turn.
+"""Rewrite the user message into a self-contained question and detect its language.
 
-Architectural commitment (``docs/ARCHITECTURES.md`` § Conversation memory):
-prior assistant answers are **never** injected into the agent loop's
-tool-call context. The rewrite stage is the only place that *can* see
-prior assistant text — and its single output is a self-contained
-question. Whatever the assistant said in the past does not flow into
-the grounded retrieval path.
-
-This stage runs on **every turn** (turn 1 included) for one extra
-reason: it doubles as the language detector. The model's classification
-of the user's language drives the answer-language directive in the
-agent loop. On turn 1 with no history the rewrite is a passthrough; the
-language signal is the load-bearing output.
-
-The 2026 RAG community consensus on conversational query rewriting:
-
-- Naive blind always-rewriting introduces noise.
-- Brute-force full-history hurts via "Lost in the Middle".
-- Selective rewriting (only when there is history to resolve against)
-  outperforms both — the prompt enforces the "echo unchanged" rule
-  whenever the new question is already self-contained.
-
-See ``docs/b7-decisions.md`` for the longer comparison with Claude Code
-(which uses compaction, not rewriting — different trust model) and the
-OpenAI Agents SDK (full-history sessions — same trust model, also wrong
-fit for grounded RAG).
+Takes the new message plus prior turns and produces one question with
+all the context inlined — so the agent loop can search without seeing
+any prior assistant text (grounding stays anchored to the corpus, not
+to past answers). Runs on every turn because the same call also
+classifies the user's language, which drives the answer-language
+directive downstream.
 """
 
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
-from typing import Literal, cast
+from typing import cast
 
 from app.agent.schemas import (
     REWRITE_OUTPUT_SCHEMA,
@@ -40,13 +21,12 @@ from app.agent.schemas import (
 )
 from app.config import settings
 from app.errors import AgentError
+from app.i18n import SUPPORTED_LANGUAGES, Language
 from app.providers import LLMProvider, Message
 
 REWRITE_SYSTEM_PROMPT: str = (Path(__file__).parent / "prompts" / "rewrite.md").read_text(
     encoding="utf-8"
 )
-
-_VALID_LANGUAGES: frozenset[str] = frozenset({"pt", "es", "en"})
 
 
 async def rewrite_question(
@@ -54,7 +34,7 @@ async def rewrite_question(
     history: list[ConversationTurn],
     *,
     llm: LLMProvider,
-) -> tuple[str, Literal["pt", "es", "en"], StepRecord]:
+) -> tuple[str, Language, StepRecord]:
     """Rewrite ``user_message`` into a self-contained question and detect its language.
 
     Runs on every turn. With empty ``history`` the model returns the
@@ -85,11 +65,11 @@ async def rewrite_question(
     if not isinstance(rewritten, str) or not rewritten.strip():
         raise AgentError("rewrite stage: model returned empty rewritten_question")
     language_raw = response.parsed.get("detected_language")
-    if language_raw not in _VALID_LANGUAGES:
+    if language_raw not in SUPPORTED_LANGUAGES:
         raise AgentError(
             f"rewrite stage: model returned invalid detected_language={language_raw!r}"
         )
-    language = cast(Literal["pt", "es", "en"], language_raw)
+    language = cast(Language, language_raw)
 
     step = StepRecord(
         step_id=str(uuid.uuid4()),
@@ -105,7 +85,7 @@ async def rewrite_question(
         usage=response.usage,
         duration_ms=rewrite_dur,
     )
-    return cast(str, rewritten), language, step
+    return rewritten, language, step
 
 
 def _format_history(history: list[ConversationTurn]) -> str:

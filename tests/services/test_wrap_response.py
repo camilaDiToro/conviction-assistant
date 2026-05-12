@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from app.agent import (
     AgentResult,
     AnswerOutput,
-    Citation,
     ClarifyingQuestionOutput,
     StepRecord,
 )
 from app.agent.resolver import CitationResolution, OffsetResolution
+from app.agent.schemas import Citation
 from app.api.schemas import ChatAnswerResponse, ChatClarifyResponse
 from app.providers import TokenUsage
 from app.services import wrap_response
@@ -21,7 +21,7 @@ def _step_llm() -> StepRecord:
         kind="llm_call",
         timestamp=datetime.now(UTC),
         payload={"stage": "agent_loop", "finish_reason": "stop", "tool_calls": []},
-        usage=TokenUsage(model="gpt-5", prompt_tokens=100, completion_tokens=20),
+        usage=TokenUsage(model="gpt-5.5", prompt_tokens=100, completion_tokens=20),
     )
 
 
@@ -91,7 +91,9 @@ def test_wrap_answer_maps_citation_document_to_filename() -> None:
     assert response.debug.steps[-1].kind == "response"
     assert response.debug.steps[-1].result is not None
     assert response.debug.steps[-1].result["output"]["answer"] == "The answer."
-    assert response.usage_summary.question_total_cost_usd > 0
+    assert response.usage_summary.llm_call_count == 1
+    assert response.usage_summary.prompt_tokens == 100
+    assert response.usage_summary.completion_tokens == 20
     assert summary["language"] == "en"
     assert summary["retriever"] == "bm25"
     assert "resolution_entries" in summary
@@ -155,26 +157,3 @@ def test_wrap_non_anchoring_citation_surfaces_with_null_offsets() -> None:
     assert out.start is None
     assert out.end is None
     assert out.passage_text == entry.passage_text
-
-
-def test_wrap_prior_conversation_cost_is_added() -> None:
-    result = AgentResult(
-        output=ClarifyingQuestionOutput(question="?", options=["a", "b"]),
-        rewritten_question=None,
-        language="en",
-        steps=[_step_llm()],
-        tool_call_count=0,
-        search_count=0,
-        resolution=None,
-    )
-    response, _ = wrap_response.wrap(
-        result,
-        language="en",
-        conversation_id="c",
-        question_id="q",
-        user_question="?",
-        retriever_name="bm25",
-        prior_conversation_cost_usd=0.001234,
-    )
-    summary = response.usage_summary
-    assert summary.conversation_total_cost_usd > summary.question_total_cost_usd

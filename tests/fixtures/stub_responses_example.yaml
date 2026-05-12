@@ -1,6 +1,6 @@
 # Sample fixture format for `load_stub_responses`. Used by tests in
 # `tests/providers/test_stub.py` to confirm the YAML loader produces a
-# correct `LLMResponse` sequence. Real agent-loop fixtures land in B8.
+# correct `LLMResponse` sequence. Real agent-loop fixtures live elsewhere.
 - tool_calls:
     - id: call_1
       name: search_convictions

@@ -1,13 +1,13 @@
 // *** SINGLE POINT OF BACKEND INTERACTION ***
 // No fetch() calls anywhere else in the frontend. ESLint rule enforces this.
 //
-// B9: real /chat is live. The chat token is read from localStorage (set
-// by the gate UI) and sent as `X-Chat-Token` on every request. On 401
-// the token is cleared and an UnauthorizedError is thrown so the UI can
-// re-prompt for it.
+// The chat token is read from localStorage (set by the gate UI) and sent
+// as `X-Chat-Token` on every request. On 401 the token is cleared and an
+// UnauthorizedError is thrown so the UI can re-prompt for it.
 
 import type {
   ChatResponse,
+  ConfigResponse,
   ConversationListResponse,
   ConversationMessagesResponse,
   QuestionStepsResponse,
@@ -94,4 +94,8 @@ export async function loadQuestionSteps(
   return getJson<QuestionStepsResponse>(
     `/api/chat/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/steps`,
   )
+}
+
+export async function loadConfig(): Promise<ConfigResponse> {
+  return getJson<ConfigResponse>('/api/config')
 }

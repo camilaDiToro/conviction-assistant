@@ -1,20 +1,25 @@
-"""Alembic environment for the Decade conviction assistant.
+"""Alembic bootstrap.
 
-We don't use SQLAlchemy ORM models — migrations are imperative
-(op.create_table / op.execute on raw SQL). target_metadata stays None;
-autogenerate is therefore not supported, which is intentional.
+The app is async (aiosqlite), but Alembic itself runs through the sync
+SQLite driver: `db.migrate()` builds a `sqlite:///…` URL and calls the
+sync `command.upgrade` API at lifespan startup. That's fine for SQLite v1.
+When the project moves to Postgres+asyncpg, switch to the async cookbook
+pattern (``async_engine_from_config`` + ``connection.run_sync``).
 
-The `alembic/` directory is the schema-of-record for the store/ layer.
-SQLite-specific render_as_batch is enabled so future ALTER-style migrations
-work despite SQLite's limitations.
+``target_metadata`` is wired to ``Base.metadata`` so ``alembic revision
+--autogenerate`` would catch ORM↔schema drift. We still author migrations
+by hand — autogenerate is a safety net, not the workflow.
 """
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
+# Importing the package side-effect-registers every ORM model on Base.metadata.
+from app.models import Base
+
 config = context.config
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

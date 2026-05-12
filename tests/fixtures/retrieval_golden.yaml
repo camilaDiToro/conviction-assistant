@@ -1,4 +1,4 @@
-# Hand-authored retrieval fixture for ROADMAP step B6 (BM25-only retrieval).
+# Hand-authored retrieval fixture for BM25-only retrieval.
 #
 # Each entry is one query and the passage IDs that *should* appear in the
 # top-k results from search_convictions(query, k=5). The FIRST id is the
@@ -21,7 +21,7 @@
 # in Spanish even though the corpus is PT/EN.
 #
 # Notes I flagged with "BM25 risk:" are cases I expect to fail under plain
-# BM25 — these are what we watch when the B6 eval runs.
+# BM25 — these are what we watch when the retrieval eval runs.
 
 cases:
   # ---------------- PT — literal ----------------

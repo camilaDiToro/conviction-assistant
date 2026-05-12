@@ -38,8 +38,12 @@ postgres-data/
 Thumbs.db
 *.swp
 *.swo
-.claude/settings.local.json
+.claude/
+.playwright-mcp/
 
 # Logs
 *.log
 logs/
+
+# Eval run artifacts (per-run timestamped CSV/JSON/MD/JSONL).
+evals/results/

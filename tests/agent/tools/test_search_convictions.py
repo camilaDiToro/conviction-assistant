@@ -13,13 +13,9 @@ literal / topic / cross_lang buckets in PT/EN/ES), ingests the real
   a retrieval regression. Tool-level p95 is reported alongside but doesn't
   gate. A 5-query warm-up settles bm25s caches before the timed loop.
 
-The gates are **provisional** pending the methodology discussion in
-`docs/reports/b6-eval-methodology.md`. Empirical baseline at B6 ship time
-is documented in `docs/reports/b6-eval-results.md` (overall 69% — the
-0% cross_lang result drags the headline, which is why we gate on
-per-bucket floors instead). Cross_lang failures are expected given v1's
-BM25-only stack; surfacing them is the trigger for a future hybrid-
-retrieval step (see `docs/reports/b6-improvement-proposals.md`).
+The gates are **provisional**. Cross_lang failures are expected given
+v1's BM25-only stack; surfacing them is the trigger for a future hybrid-
+retrieval step.
 """
 
 from collections import defaultdict
@@ -49,8 +45,8 @@ BUCKET_FLOORS: dict[str, float] = {
 @pytest.fixture(scope="module")
 async def ctx_for_real_corpus(tmp_path_factory):
     """Ingest the real convictions/ once; build the BM25 index; yield a
-    ToolContext bound to that session + index. Module-scoped so we pay the
-    ~30-doc parse + index cost once per pytest invocation.
+    ToolContext bound to that session + index. Module-scoped so we run the
+    ~30-doc parse + index build once per pytest invocation.
     """
     tmp_path = tmp_path_factory.mktemp("search_acceptance")
     db_path = tmp_path / "search.sqlite"
@@ -76,7 +72,7 @@ def _percentile(values: list[float], p: float) -> float:
 
 
 async def test_retrieval_golden(ctx_for_real_corpus, capsys):
-    """Score every fixture case under TWO rules (see b6-eval-methodology.md):
+    """Score every fixture case under TWO rules:
 
     - **primary**: 1 if expected_passage_ids[0] is in top-k, else 0. This is the gate.
     - **weighted**: 1.0 if primary in top-k, 0.5 if any secondary in top-k, else 0.0.
