@@ -15,9 +15,24 @@
 # Rule A using general_knowledge flag correctly) is captured by the
 # refusal_correctness / general_knowledge_correctness scores.
 #
-# Bucket distribution: 12 factual, 4 rule_a, 4 rule_b, 3 cross_lang,
-# 4 out_of_scope, 3 clarify (= 30).
-# Languages distribution: PT 14, EN 10, ES 6.
+# Bucket distribution: 18 factual (incl. 2 multiturn), 5 rule_a, 3 rule_b,
+# 3 cross_lang, 2 out_of_scope, 3 clarify (= 34).
+# (0003-v2: q24 and q26 moved out_of_scope → rule_a; q31-q33 added to
+# fill corpus coverage gaps; q34-q35 are multiturn factual questions
+# requiring history resolution via the rewrite stage.
+#  0006-fix: q26 rephrased + moved rule_a → factual; q03/q09/q32
+#  expected_passage_ids expanded to accept the umbrella tax guide as a
+#  valid alternate source.
+#  0008: q17/q18/q19 rewritten against documented in-corpus contradictions
+#  (FX necessity vs optional sizing; lajes corporativas structural bear vs
+#  flight-to-quality; dividend governance signal vs dividend-trap warnings).
+#  q20 removed — NTN-B vs debêntures incentivadas is a trade-off, not a
+#  contradiction.)
+# Languages distribution: PT 15, EN 15, ES 4.
+#
+# Multiturn questions carry an optional `prior_turns` list (see schema
+# below) that the runner feeds to the agent as ConversationTurn history;
+# the rewrite stage is what resolves coreference into a search query.
 
 # ---- factual (verified passage_ids from the retrieval fixture) ------------
 
@@ -28,8 +43,7 @@
   expected_passage_ids:
     - cdbs_quick_guide#tributacao-tabela-regressiva
     - guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros
-    - guia_completo_tributacao_investimentos#3-1-cdb-e-lc-tributacao-padrao
-  notes: "Multiple passages legitimately cover CDB regressive-table taxation; metric is 'at least one match counts'."
+  notes: "Both passages cover CDB regressive-table taxation; metric is 'at least one match counts'. (The umbrella H2 in the tributação doc contains the 3.1 CDB H3 inline — the parser only emits H2 passages.)"
 
 - id: q02
   question: "Qual o limite de cobertura do FGC para CDBs por CPF?"
@@ -46,7 +60,12 @@
   bucket: factual
   expected_passage_ids:
     - lci_lca_investimentos#prazo-minimo-carencia-e-tributacao
-  notes: "Tax-exemption literal; verify both anchor and precision."
+    - guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros
+  notes: |
+    Tax-exemption literal. Either source is a valid grounding: the
+    instrument-specific doc covers the exemption in detail, and the
+    umbrella tax guide section 3.2 ("LCI e LCA — Isenção para Pessoa
+    Física") covers the same fact. Citing either counts.
 
 - id: q04
   question: "O que é o come-cotas em fundos de renda fixa e quando incide?"
@@ -93,6 +112,13 @@
   expected_passage_ids:
     - debentures_incentivadas_analysis#the-tax-exemption-calculating-the-after-tax-advantage
     - debentures_incentivadas_analysis#legal-basis-and-regulatory-framework-law-12-431-2011
+    - guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros
+  notes: |
+    Tax treatment of incentivized debentures. The instrument-specific
+    document carries the deepest analysis (legal basis + after-tax
+    advantage), but the umbrella tax guide section 3.3 ("Debêntures
+    Comuns vs. Debêntures Incentivadas") covers the same fact and is
+    also a valid grounding. Citing either source counts.
 
 - id: q10
   question: "What is the minimum investment for a Qualified Foreign Investor under CMN Resolution 4,373?"
@@ -118,6 +144,42 @@
     - etfs_brasileiros_guia#tributacao-de-etfs-no-brasil
     - guia_completo_tributacao_investimentos#12-tributacao-de-etfs
   notes: "Answer is 'no' — both passages cover this."
+
+- id: q31
+  question: "O que é a estratégia de Escada (Laddering) em Tesouro Direto e em que cenário ela faz sentido?"
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - tesouro_direto_estrategias_avancadas#4-estrategias-de-alocacao-da-preservacao-ao-ganho-de-capital
+  notes: |
+    Coverage gap fill — tesouro_direto_estrategias_avancadas was not
+    touched by any other question. The H2 "4. Estratégias de Alocação..."
+    contains the H3 4.2 Escada (Ladder) inline; parser emits only the
+    H2 passage.
+
+- id: q32
+  question: "What is the monthly exemption threshold for crypto sales in Brazil and the applicable tax-rate structure?"
+  language: en
+  bucket: factual
+  expected_passage_ids:
+    - crypto_taxation_brazil#exemption-thresholds-and-progressive-tax-rates
+    - guia_completo_tributacao_investimentos#7-criptoativos-tributacao-e-obrigacoes-acessorias
+  notes: |
+    Coverage gap fill — both the dedicated crypto_taxation_brazil doc and
+    the umbrella tax guide section 7 (with subsections 7.2 progressive
+    rates and 7.3 R$35,000 exemption) ground this fact. Either citation
+    counts.
+
+- id: q33
+  question: "Como funcionam a taxa de administração e a taxa de performance em fundos multimercado brasileiros?"
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - multimercado_fundos_analise_profunda#3-estrutura-de-taxas-e-incentivos
+  notes: |
+    Coverage gap fill — multimercado_fundos_analise_profunda was not
+    touched. The H2 covers taxa de administração, taxa de performance
+    (hurdle, high-water mark), other fees.
 
 # ---- rule_a (tangential mention → general knowledge OK if marked) ---------
 
@@ -149,68 +211,85 @@
 - id: q15
   question: "How do Brazilian exporters typically hedge USD revenues when their costs are in BRL?"
   language: en
-  bucket: rule_a
+  bucket: factual
   must_cite_at_least: 1
-  expected_general_knowledge: true
+  expected_general_knowledge: false
   notes: |
-    complete_guide_brazilian_derivatives touches reinsurance hedging
-    only; corporate-FX hedging is not the doc's focus. Rule A test.
+    Originally rule_a (notes claimed the doc only touched reinsurance
+    hedging) — but complete_guide_brazilian_derivatives §13 now covers
+    exporter FX hedging end-to-end (DOL/WDO, NDF, ACC, swap cambial,
+    typical 30–50% hedge ratios, cross-hedge for commodity producers).
+    Reclassified factual; gen-knowledge should NOT fire.
 
 - id: q16
   question: "What protections does B3 provide if a broker defaults during a trade settlement?"
   language: en
-  bucket: rule_a
+  bucket: factual
   must_cite_at_least: 1
-  expected_general_knowledge: true
+  expected_general_knowledge: false
   notes: |
-    b3_trading_mechanics has one line on B3 catastrophic-loss insurance;
-    investor recourse procedures are not detailed. Should cite + add gen-know.
+    Originally rule_a (notes claimed only catastrophic-loss insurance was
+    described) — but b3_trading_mechanics now covers the CCP default
+    waterfall, MRP coverage (BRL 120k limit, what it covers/excludes), and
+    segregated custody at CBLC. Reclassified factual; gen-knowledge
+    should NOT fire.
 
 # ---- rule_b (conflicting convictions — must cite both sides) -------------
 
 - id: q17
-  question: "Devo evitar fundos de renda fixa por causa do come-cotas, ou um fundo soberano pode superar um CDB no longo prazo?"
+  question: "Para um investidor brasileiro com sleeve de renda fixa relevante, as debêntures incentivadas devem ser tratadas como holding core (20–40% do sleeve), conforme a tese de portfolio construction da Decade, ou esse papel core cabe ao Tesouro Direto porque a Decade também afirma que o risco de crédito corporativo e a liquidez do secundário tornam as debêntures estruturalmente inferiores ao risco soberano?"
   language: pt
   bucket: rule_b
   must_cite_at_least: 2
   expected_conflict_mention: true
   notes: |
-    fundos_renda_fixa frames come-cotas as a real disadvantage;
-    multimercado_fundos_analise_profunda frames it as a manageable cost.
-    Agent must cite BOTH and surface the disagreement.
+    Conflito cross-doc, mesma equipe Decade. debentures_incentivadas_analysis
+    (§"Portfolio Construction: Practical Guidance") afirma textualmente que
+    "incentivized debentures should represent a core holding rather than a
+    tactical satellite" e prescreve 20–40% do sleeve de renda fixa em
+    portfolios wealth. tesouro_direto_estrategias_avancadas (§"6.
+    Comparativo com Produtos Privados") contra-argumenta: "a debênture
+    isenta é mais rentável líquida. Contudo, o risco de crédito corporativo
+    é significativamente maior do que o risco soberano, e a liquidez no
+    secundário de debêntures é estruturalmente inferior à do Tesouro." Os
+    dois documentos defendem framings opostos do papel core no FI sleeve.
+    Agente deve citar os dois lados e nomear explicitamente a divergência.
 
 - id: q18
-  question: "São os FIIs uma classe de renda passiva estável, ou o risco de vacância em lajes corporativas torna a seleção de segmento crítica?"
+  question: "Para um cliente com mandato de FIIs de tijolo agressivo, Decade recomenda overweight ou underweight estrutural em lajes corporativas? §3 (Tipos de FIIs) afirma que o subsegmento sofre 'estruturalmente menor demanda' com vacância de 20–30% em São Paulo pós-trabalho híbrido, enquanto o H2 'Material de Referência Complementar: FIIs' (§11.1) sustenta que para lajes classe A+ 'a compressão de demanda é mais do que compensada' pela migração flight-to-quality."
   language: pt
   bucket: rule_b
   must_cite_at_least: 2
   expected_conflict_mention: true
   notes: |
-    fundos_imobiliarios_completo warns lajes corporativas vacancy is
-    structurally higher post-COVID; dividend_aristocrats_brazil groups
-    FIIs broadly as income vehicles without that warning. Conflict.
+    Conflito interno em fundos_imobiliarios_completo entre dois H2: §3
+    ("Tipos de FIIs e Estratégias") classifica lajes corporativas como
+    estruturalmente fraco pós-trabalho-híbrido com vacância 20–30% em
+    São Paulo; o H2 "Material de Referência Complementar: FIIs" (§11.1)
+    afirma que para A+ a compressão é "mais do que compensada" pela
+    migração de inquilinos B→A. As duas posições levam a recomendações
+    opostas (underweight vs overweight A+). A pergunta cita ambos os
+    lados textualmente para forçar o agente a reconhecer a divergência
+    em vez de sintetizá-la em "selectivo." Agente deve citar os dois H2
+    e marcar conflict_detected=true.
 
 - id: q19
-  question: "For a 30-year-old Brazilian investor with only BRL liabilities, is dollar exposure via IVVB11 a portfolio necessity or an optional diversification?"
+  question: "Should a Brazilian income-focused B3 portfolio treat Petrobras (PETR4) as part of the core dividend allocation — Decade explicitly lists PETR4 among 'Companies with Notable Dividend Histories' with a 5–25%+ yield — or should it be excluded from the cornerstone allocation given Decade's separate guidance that PETR4 dividends carry government-influence and oil-price risks that disqualify the name as a classic dividend aristocrat?"
   language: en
   bucket: rule_b
   must_cite_at_least: 2
   expected_conflict_mention: true
   notes: |
-    currency_exposure_strategies treats dollar exposure as structural
-    necessity; etfs_brasileiros_guia positions IVVB11 as an option among
-    others. Conflict on framing.
-
-- id: q20
-  question: "Se acredito que a Selic real ficará alta por mais 5 anos, devo travar um prefixado de 13% nominal ou comprar um IPCA+6%?"
-  language: pt
-  bucket: rule_b
-  must_cite_at_least: 2
-  expected_conflict_mention: true
-  notes: |
-    tesouro_direto_estrategias_avancadas argues for locking prefixado in
-    rate-cut cycles; lci_lca_investimentos (and NTN-B doc) emphasizes
-    IPCA+ as the correct long-horizon structure. Surface the tension.
+    Internal contradiction within dividend_aristocrats_brazil between two H2
+    sections of the same conviction document. §"Sectors Most Likely to
+    Produce Reliable Dividends" / Oil and Gas: "Advisors should present
+    Petrobras dividends as a high-yield/high-risk component of an income
+    portfolio, not as a cornerstone." §"Companies with Notable Dividend
+    Histories" lists Petrobras PN (PETR4) explicitly in the recognized
+    notable-dividend-histories table at 5–25%+ yield. Same doc, two H2s,
+    opposite framings of PETR4's role in a dividend portfolio. Agent must
+    cite both H2 sections and name the divergence — "as Decade convictions
+    disagree on whether PETR4 belongs in the core dividend allocation".
 
 # ---- cross_lang (ES queries against PT/EN corpus) ------------------------
 
@@ -243,33 +322,46 @@
 - id: q24
   question: "Como o tratado tributário Brasil-EUA afeta a tributação de dividendos de REITs americanos para residentes brasileiros?"
   language: pt
-  bucket: out_of_scope
-  must_cite_at_least: 0
-  expected_out_of_scope: true
+  bucket: rule_a
+  must_cite_at_least: 1
+  expected_general_knowledge: true
   notes: |
-    Corpus covers Brazilian QFI inbound flow but NOT outbound US tax
-    treaty mechanics. Agent should refuse, not invent treaty article
-    numbers from training data.
+    Re-bucketed from out_of_scope to rule_a in 0003-v2: the corpus DOES
+    touch the Brazilian side via Lei 14.754 (declaracao_irpf,
+    planejamento_tributario) and "rendimentos no exterior", so per
+    system prompt's out_of_scope rule the right behavior is to cite the
+    tangential Brazil-side passage and put the US-side treaty mechanics
+    in general_knowledge_section. Principle: any investing question
+    where the corpus tangentially touches the topic is NOT out_of_scope.
 
 - id: q25
-  question: "How do Japanese REITs (Nippon REITs) compare to Brazilian FIIs in dividend yields and currency risk?"
+  question: "What's the best way to learn Python programming as a beginner?"
   language: en
   bucket: out_of_scope
   must_cite_at_least: 0
   expected_out_of_scope: true
   notes: |
-    Corpus is Brazil-only; Japanese REITs are entirely outside scope.
+    Clean non-investing sanity test — programming-learning advice is
+    fully off-topic, no tangential corpus touch. Should refuse.
+    Replaced earlier "Japanese REITs vs FIIs" question which was
+    actually a Rule A case under the system prompt's out_of_scope
+    definition ("about investing, not about whether the corpus
+    happens to cover it").
 
 - id: q26
-  question: "Should I speculate on iron ore futures on B3, or invest directly in mining companies — what position size, what stop-loss?"
+  question: "What are the trade-offs between gaining iron-ore exposure via B3 commodity futures versus holding Brazilian mining equities directly (e.g. Vale)?"
   language: en
-  bucket: out_of_scope
-  must_cite_at_least: 0
-  expected_out_of_scope: true
+  bucket: factual
+  must_cite_at_least: 2
   notes: |
-    Derivatives doc covers mechanics, not speculation strategy /
-    sizing / stops. Mining-equity doc exists but query asks for trading
-    tactics not covered. Agent should refuse trading advice.
+    Comparison question requiring citations from both sides:
+    complete_guide_brazilian_derivatives / b3_trading_mechanics on the
+    futures side, analise_setorial_acoes_brasileiras on the mining
+    equities side. Previously rule_a with expected_general_knowledge —
+    relaxed because the corpus has substantive content on both sides, so
+    a corpus-only answer is acceptable. Original phrasing ("should I
+    speculate… position size, stop-loss") forced a clarify branch and
+    was rephrased to a comparison the corpus can address.
 
 - id: q27
   question: "Qual o melhor restaurante para almoço de negócios em Faria Lima?"
@@ -306,3 +398,42 @@
   must_cite_at_least: 0
   notes: |
     Hedging vs speculation? Experience level? Portfolio size? Clarify.
+
+# ---- multiturn (resolves a referent from a prior turn) -------------------
+
+- id: q34
+  question: "Para CDB de 25 meses."
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - cdbs_quick_guide#tributacao-tabela-regressiva
+  prior_turns:
+    - role: user
+      content: "Como funciona a tabela regressiva de IR?"
+    - role: assistant
+      content: "A tabela regressiva de IR é a tabela padrão de tributação de renda fixa no Brasil, com alíquotas que decrescem com o prazo de aplicação (22,5% até 180 dias, 20% até 360 dias, 17,5% até 720 dias, 15% acima de 720 dias). Para qual instrumento específico você gostaria de saber a aplicação?"
+  notes: |
+    Multiturn factual: the standalone follow-up "Para CDB de 25 meses"
+    is meaningless without the prior turn. The rewrite stage must
+    reconstruct "qual a alíquota de IR para CDB de 25 meses" and the
+    agent must cite cdbs_quick_guide#tributacao-tabela-regressiva
+    (25 months > 720 days → 15%). Tests rewrite + retrieval integration.
+
+- id: q35
+  question: "Does it cover LCAs as well?"
+  language: en
+  bucket: factual
+  expected_passage_ids:
+    - lci_lca_investimentos#garantia-do-fgc
+  prior_turns:
+    - role: user
+      content: "Tell me about FGC coverage limits in Brazil."
+    - role: assistant
+      content: "The Fundo Garantidor de Créditos (FGC) covers up to R$250,000 per CPF per financial conglomerate, with a global cap of R$1,000,000 across all institutions, renewable every 4 years after a credit event. Which instrument did you have in mind?"
+  notes: |
+    Multiturn factual: "Does it cover LCAs as well?" requires resolving
+    "it" → FGC and "as well" → in addition to whatever was implied prior.
+    Rewrite must produce something like "does FGC cover LCAs". Expected
+    citation is lci_lca_investimentos#garantia-do-fgc (yes — covered
+    with same R$250k / R$1M limits). Cross-language case: prior assistant
+    turn is in EN, but the canonical FGC-for-LCA passage is in PT.

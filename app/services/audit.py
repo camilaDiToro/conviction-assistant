@@ -79,9 +79,9 @@ async def persist_question(
 ) -> int:
     """Persist all steps + a final ``kind='response'`` summary row.
 
-    Wraps the inserts in ``session.begin()``. On failure logs a warning
-    and returns 0 — never raises out to the request handler. Returns the
-    number of rows successfully inserted.
+    Best-effort: commits on success, rolls back and returns 0 on failure.
+    Never raises out to the request handler. Returns the number of rows
+    successfully inserted.
     """
     rows = [
         _serialize_step(s, conversation_id=conversation_id, question_id=question_id) for s in steps

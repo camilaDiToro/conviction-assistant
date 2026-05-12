@@ -1,13 +1,3 @@
----
-title: Decade AI Challenge
-emoji: 📚
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # Decade AI Challenge
 
 A conversational assistant grounded on Decade's investment conviction
@@ -71,20 +61,6 @@ text never re-enters the grounded retrieval path.
 Full details, the alternatives considered and rejected, and the
 production-vs-simplified tier breakdown live in `docs/ARCHITECTURES.md`.
 
-## Running the chat
-
-```sh
-# Backend
-uv run uvicorn app.main:app --reload
-
-# Frontend (separate shell)
-cd frontend && npm run dev
-```
-
-Visit `http://localhost:5173/chat`, paste the chat token, ask in PT/EN/ES.
-The chat UI shows the server-selected model in the header; `/chat` itself
-has one behavior, configured by the backend.
-
 ## Testing
 
 ```sh
@@ -95,9 +71,11 @@ cd frontend && npm run build        # frontend type-check + bundle
 
 ## Eval suite
 
-Hand-authored 30-question golden set + four deterministic metrics +
-Ragas-decorator-based runner. Headline metric: **anchor rate** — what
-fraction of cited quotes resolved to an offset region.
+Hand-authored 30-question golden set. The code runner is deterministic:
+it records citation anchoring, passage precision/recall, refusal and
+clarify correctness, Rule A / Rule B checks, language match, token
+usage, tool calls, and duration. Headline metric: **anchor rate** —
+what fraction of cited quotes resolved to an offset region.
 
 ```sh
 # Smoke (3 questions, balanced across buckets):
@@ -108,17 +86,30 @@ uv run python -m evals.run --reasoning medium
 
 # Compare two runs (e.g. low vs medium):
 uv run python -m evals.compare evals/results/run_a.csv evals/results/run_b.csv
+
+# Merge deterministic results with a manually produced judge JSONL:
+uv run python -m evals.judge.aggregate \
+  evals/results/<ts>_..._.csv \
+  evals/results/<ts>_..._judge.jsonl \
+  --out evals/results/<ts>_..._combined.md
 ```
 
-The runner is opt-in (burns real OpenAI tokens). `pytest -m eval` runs
-the eval test layer; default `pytest` skips it. See
-[`evals/README.md`](evals/README.md) for metric definitions and golden
-set structure, and [`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md) for
-which Ragas features the suite uses and which it deliberately skips
-(no LLM-as-judge — deterministic metrics only).
+The runner is opt-in and burns real OpenAI tokens. Each run writes CSV,
+JSON, Markdown, and `_traces.jsonl` artifacts under `evals/results/`.
+`pytest -m eval` runs the eval test layer; default `pytest` skips it.
 
-A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
-(Faithfulness, AnswerRelevancy) later; not wired in this iteration.
+The LLM-as-judge layer is real but manual. There is intentionally no
+code path, subprocess, or `--with-judge` flag that calls a judge model.
+The judge prompt lives at [`evals/judge/prompt.md`](evals/judge/prompt.md);
+run it from a code assistant against the deterministic `_traces.jsonl`,
+write a `JudgeResult` JSONL validated by
+[`evals/judge/schema.py`](evals/judge/schema.py), then use the aggregate
+command above to merge deterministic + judge results.
+
+See [`evals/README.md`](evals/README.md) for the metric definitions,
+golden set structure, and judge workflow. See
+[`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md) for the exact Ragas
+surface area used by the deterministic runner.
 
 ## Operational endpoints
 
@@ -127,8 +118,10 @@ A `--with-judge` flag is reserved for adding Ragas's LLM-judge metrics
 | `POST /api/admin/ingest` | `X-Admin-Token` | Parse `convictions/` into SQLite |
 | `POST /api/chat` | `X-Chat-Token` | Run one agent turn |
 | `GET  /api/config` | `X-Chat-Token` | Return the server-selected chat model |
-| `GET  /api/chat/conversations` | `X-Chat-Token` | List the caller's conversations (sidebar) |
-| `GET  /health` | — | Liveness check |
+| `GET  /api/chat/conversations` | `X-Chat-Token` | List stored conversations for the sidebar |
+| `GET  /api/chat/conversations/{conversation_id}` | `X-Chat-Token` | Load one stored conversation |
+| `GET  /api/chat/conversations/{conversation_id}/questions/{question_id}/steps` | `X-Chat-Token` | Load persisted debug steps for one historical question |
+| `GET  /api/health` | — | Liveness check |
 
 ## Where things live
 
@@ -153,11 +146,3 @@ evals/             # golden set + runner + metrics + comparator
 frontend/          # Vite + React + Tailwind chat UI + architecture explainer
 tests/             # Mirrors app/ + an `eval/` layer (skipped by default)
 ```
-
-CI-greppable layering rules:
-
-1. No code outside `app/repositories/` runs SQL.
-2. No code outside `app/providers/` imports `openai` or another provider SDK.
-3. No code outside `app/config/` calls `os.getenv`.
-4. No business logic in `app/api/`.
-5. Services and repositories never raise `HTTPException`; they raise domain exceptions mapped to HTTP at the API boundary.

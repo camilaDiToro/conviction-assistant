@@ -29,10 +29,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Framing',
+    label: 'Eval',
     caret: true,
     items: [
-      { to: '/design/framing/tiers', label: 'Production vs simplified' },
+      { to: '/design/eval', label: 'Metrics & judge' },
+      { to: '/design/eval/dataset', label: 'Dataset & results' },
+      { to: '/design/eval/chat', label: 'Latest run as chat' },
     ],
   },
+  // {
+  //   label: 'Framing',
+  //   caret: true,
+  //   items: [
+  //     { to: '/design/framing/tiers', label: 'Production vs simplified' },
+  //   ],
+  // },
 ]

@@ -332,6 +332,8 @@ function synthesizeResponse(msg: ConversationMessage): ChatAnswerResponse | Chat
     general_knowledge_used: msg.general_knowledge_used ?? false,
     general_knowledge_section: msg.general_knowledge_section ?? null,
     out_of_scope: msg.out_of_scope ?? false,
+    conflict_detected: msg.conflict_detected ?? false,
+    conflict_statement: msg.conflict_statement ?? null,
     disclaimer: '',
     usage_summary: baseUsage,
     debug: baseDebug,

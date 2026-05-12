@@ -100,6 +100,8 @@ export interface ChatAnswerResponse {
   general_knowledge_used: boolean
   general_knowledge_section: string | null
   out_of_scope: boolean
+  conflict_detected: boolean
+  conflict_statement: string | null
   disclaimer: string
   usage_summary: UsageSummary
   debug: { tool_calls: DebugStep[]; steps: DebugStep[] }
@@ -159,6 +161,8 @@ export interface ConversationMessage {
   general_knowledge_used: boolean | null
   general_knowledge_section: string | null
   out_of_scope: boolean | null
+  conflict_detected: boolean | null
+  conflict_statement: string | null
   clarifying_question: string | null
   clarifying_options: string[]
 }

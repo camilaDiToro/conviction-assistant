@@ -83,6 +83,8 @@ def wrap(
             general_knowledge_used=result.output.general_knowledge_used,
             general_knowledge_section=result.output.general_knowledge_section,
             out_of_scope=result.output.out_of_scope,
+            conflict_detected=result.output.conflict_detected,
+            conflict_statement=result.output.conflict_statement,
             disclaimer=disclaimer_for(language),
             usage_summary=usage_summary,
             debug=debug,

@@ -38,7 +38,7 @@ The assistant **may** use general knowledge when the convictions don't cover a t
 - **Only fall back to general knowledge when no conviction touches the topic at all.**
 - General-knowledge text **must be marked unambiguously** (dedicated section heading like "**Not from Decade convictions — general knowledge:**", or an equivalent visual prefix).
 - **Never interleave** general-knowledge claims with conviction-grounded claims in the same paragraph without a clear delimiter.
-- The structured response carries `general_knowledge_used: true` and a separate `general_knowledge_section` field — see `docs/ASSUMPTIONS.md` for the schema.
+- The structured response carries `general_knowledge_used: true` and a separate `general_knowledge_section` field.
 
 ### 🔴 Rule B — Conflicting convictions MUST be surfaced
 
@@ -128,17 +128,6 @@ alembic/
 4. **No business logic in `app/api/`.** Routers parse request → call service → wrap response.
 5. **Services and repositories NEVER raise `HTTPException`** or reference HTTP status codes. They raise domain exceptions; the API layer maps them.
 
-
-### CRITICAL — Error handling & HTTP rules
-
-- Services and repositories NEVER raise `HTTPException`
-- Services raise domain exceptions defined in `app/errors.py` (subclasses of `DomainError`)
-- The API layer maps domain exceptions to HTTP responses via handlers registered in `app/main.py`
-- Routers are the only layer that knows about HTTP — status codes, headers, response formatting stay in `app/api/`
-- ALWAYS use `async def` for endpoints
-- ALWAYS use `Depends()` for dependency injection (DB sessions, future auth)
-- ALWAYS return Pydantic schemas, never raw ORM objects or dicts
-- NEVER use `@app.on_event()` — use `lifespan` context managers (already in `app/main.py`)
 
 The `LLMProvider` and `EmbeddingProvider` protocols are the *only* contract above provider adapters. `StubProvider` is what every CI test uses — the test suite never burns provider tokens.
 

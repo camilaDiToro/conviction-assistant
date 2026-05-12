@@ -11,11 +11,8 @@ export default function OverviewPage() {
         lead={
           <>
             An agentic assistant grounded on Decade's conviction corpus. A bounded agent uses
-            four read-only tools to explore 30 markdown documents and produce a structured
-            JSON answer, with every citation anchored to a span of its source passage. The
-            agent, tools and resolver are provider-agnostic; SQLite and BM25 sit behind the
-            repository, and the LLM lives behind a single adapter at{' '}
-            <code className="font-mono text-[15px] text-ink-1">app/providers/</code>.
+            read-only tools to explore 30 markdown documents and produce an answer, with every
+            citation anchored to a span of its source passage.
           </>
         }
       />
@@ -40,7 +37,7 @@ export default function OverviewPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
           The corpus is parsed once and the BM25 index is built in memory at app startup, so
           by the time a question arrives the system already has every passage indexed and
-          ready to search. Re-running ingest is a single admin POST.
+          ready to search.
         </p>
         <BootDiagram />
       </Section>
@@ -201,7 +198,7 @@ const TOUR = [
   { to: '/design/pipeline/retrieval', label: 'Retrieval (BM25)', desc: 'BM25Index over normalized tokens. Cross-language is the level-up trigger.' },
   { to: '/design/pipeline/tools', label: 'Tools', desc: 'Four read-only tools, hand-written JSON schemas, ToolContext DI.' },
   { to: '/design/pipeline/agent-loop', label: 'Agent loop', desc: 'Bounded gather → act → answer with strict loop invariants.' },
-  { to: '/design/framing/tiers', label: 'Production-grade vs simplified', desc: 'What is built right vs deliberately simplified, with documented level-ups.' },
+  // { to: '/design/framing/tiers', label: 'Production-grade vs simplified', desc: 'What is built right vs deliberately simplified, with documented level-ups.' },
 ] as const
 
 function BootDiagram() {
