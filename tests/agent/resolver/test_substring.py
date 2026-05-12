@@ -68,13 +68,23 @@ def test_empty_quote_yields_empty_quote_reason() -> None:
     assert e.failure_reason == "empty_quote"
 
 
-def test_smart_quotes_do_not_normalize() -> None:
-    """Design guard: the resolver is literal — cosmetic mismatches lose
-    their highlight rather than being normalized to ASCII."""
-    p = _passage(text='A position called "core" is described.')
-    a = _answer(Citation(passage_id=p.id, quote="“core”"))
+def test_cosmetic_diffs_fold_for_match() -> None:
+    """Smart quotes, en/em dash and NBSP fold to ASCII before substring
+    search. Offsets still index the original passage so the slice is
+    cosmetically the passage's version, not the model's."""
+    p = _passage(text='A position called "core" — described.')
+    a = _answer(Citation(passage_id=p.id, quote="“core” – described"))
     e = resolve_answer(a, {p.id: p}).entries[0]
-    assert e.failure_reason == "offset_not_found"
+    assert e.failure_reason is None
+    assert p.text[e.start : e.end] == '"core" — described'
+
+
+def test_nbsp_in_passage_folds_to_space_in_quote() -> None:
+    p = _passage(text="Tesouro IPCA+ 2027")
+    a = _answer(Citation(passage_id=p.id, quote="Tesouro IPCA+ 2027"))
+    e = resolve_answer(a, {p.id: p}).entries[0]
+    assert e.failure_reason is None
+    assert p.text[e.start : e.end] == "Tesouro IPCA+ 2027"
 
 
 def test_preserves_citation_order_on_partial_failure() -> None:

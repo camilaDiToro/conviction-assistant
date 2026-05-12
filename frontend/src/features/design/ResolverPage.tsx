@@ -15,8 +15,8 @@ const PRESETS = [
     passage: TRIBUTACAO.text,
   },
   {
-    label: 'Smart quotes · NO ANCHOR',
-    quote: '“são isentas de Imposto de Renda para pessoas físicas” — nos rendimentos',
+    label: 'Smart quotes / dashes · ANCHORS (folded)',
+    quote: '“são isentas de Imposto de Renda para pessoas físicas” – nos rendimentos',
     passage: TRIBUTACAO.text,
   },
   {
@@ -46,10 +46,11 @@ export default function ResolverPage() {
           <>
             Every cited quote is resolved to a literal{' '}
             <code className="font-mono text-[15px] text-ink-1">(start, end)</code> region of the
-            cited passage. No normalization, no edit distance, no LLM-as-judge — just{' '}
-            <code className="font-mono text-[15px] text-ink-1">passage_text.find(quote)</code>.
-            Citations that don't anchor still ship; the popup shows the passage with no
-            highlight.
+            cited passage — a deterministic{' '}
+            <code className="font-mono text-[15px] text-ink-1">str.find</code>, plus a
+            length-preserving fold for smart quotes / NBSP / en-em dash so cosmetic diffs don't
+            cost a highlight. No edit distance, no LLM-as-judge. Citations that still don't
+            anchor ship without a highlight.
           </>
         }
       />
@@ -74,7 +75,9 @@ export default function ResolverPage() {
             The passage stored in the DB is what the agent reads via{' '}
             <code className="font-mono text-[13px] text-ink-1">read_passage</code> — verbatim,
             diacritics intact. The model copies its quote from that read, so a literal
-            substring search anchors in practice.
+            substring search anchors in practice. Cosmetic mismatches (smart quotes, NBSP,
+            en-em dash) fold 1:1 before the search so the returned offsets still index the
+            original, unmodified passage.
           </SpecItem>
           <SpecItem term="Non-rejecting">
             A citation that does not anchor is{' '}
@@ -102,13 +105,21 @@ export default function ResolverPage() {
           code={`# app/agent/resolver/substring.py
 
 def resolve_citation(quote: str, passage_text: str) -> tuple[int, int] | None:
-    """Literal substring search. Half-open: passage_text[start:end] == quote."""
+    """First (start, end) of \`quote\` in \`passage_text\` (after a length-
+    preserving fold of smart quotes / NBSP / en-em dash), or None. Offsets
+    index the ORIGINAL passage; the half-open slice passage_text[start:end]
+    may differ from \`quote\` only in cosmetic chars."""
     if not quote:
         return None
     idx = passage_text.find(quote)
+    if idx != -1:
+        return idx, idx + len(quote)
+    norm_quote = _normalize(quote)
+    norm_text = _normalize(passage_text)
+    idx = norm_text.find(norm_quote)
     if idx == -1:
         return None
-    return idx, idx + len(quote)
+    return idx, idx + len(norm_quote)
 
 
 def resolve_answer(answer: AnswerOutput, passages: dict[str, Passage]) -> OffsetResolution:
@@ -117,7 +128,7 @@ def resolve_answer(answer: AnswerOutput, passages: dict[str, Passage]) -> Offset
     failure_reason:
       'empty_quote'       — quote is whitespace-only
       'passage_not_found' — passage_id missing from the map
-      'offset_not_found'  — quote is not a literal substring of the passage
+      'offset_not_found'  — quote is not a substring of the passage (after fold)
     """`}
         />
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-6">
@@ -130,9 +141,10 @@ def resolve_answer(answer: AnswerOutput, passages: dict[str, Passage]) -> Offset
 
       <Section eyebrow="Live example">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          Four presets show why "literal" matters: only an exact substring anchors. Smart
-          quotes, paraphrase, and mangled whitespace all fail to anchor — those citations
-          would still ship, but the popup would render the passage without a highlight.
+          Four presets show what folds and what doesn't: an exact substring anchors;
+          smart-quote / dash variants anchor too (folded to ASCII, but the returned offsets
+          still index the original passage so the highlight is the passage's typography);
+          paraphrase and mangled whitespace stay non-anchoring and ship without a highlight.
         </p>
 
         <div className="flex flex-wrap gap-2 mb-6">
@@ -206,9 +218,11 @@ class OffsetResolution(BaseModel):
             citation surfaces without highlight rather than disappearing.
           </SpecItem>
           <SpecItem term="Smart quotes / NBSP / dash variants">
-            Treated as a non-match — the resolver does no cosmetic normalization. In practice
-            the model copies from <code className="font-mono text-[13px] text-ink-1">read_passage</code>,
-            which returns DB-stored text verbatim, so these cases are vanishingly rare.
+            Folded 1:1 before the search via a fixed table (curly → straight quotes, en/em
+            dash → ASCII hyphen, NBSP / narrow NBSP / thin space → regular space) plus an
+            NFKC pass that's kept only when it stays length-1. Because the fold is
+            length-preserving, the offsets returned still index the original passage and the
+            popup highlights the passage's own typography.
           </SpecItem>
           <SpecItem term="Empty / whitespace quote">
             <code className="font-mono text-[13px] text-ink-1">failure_reason = 'empty_quote'</code>.
@@ -223,12 +237,14 @@ class OffsetResolution(BaseModel):
 
       <Section eyebrow="Trade-offs and alternatives considered">
         <SpecList>
-          <SpecItem term="Normalize cosmetic differences (smart quotes, dashes, NBSP)">
-            Rejected. Would require maintaining an index map from normalized offsets back to
-            the original passage so the popup highlight stays correct, for a class of failures
-            that essentially never appears once the model copies from{' '}
-            <code className="font-mono text-[13px] text-ink-1">read_passage</code>. The added
-            complexity beats the benefit.
+          <SpecItem term="Index-mapping normalization (general NFKC fold)">
+            Rejected. A full NFKC fold can change string length (ligatures, fractions,
+            superscripts decompose to multi-char sequences) and would force an index map from
+            normalized offsets back to the original. The chosen fold is intentionally narrow
+            and length-preserving — one source char to exactly one target char — so the
+            search runs on normalized strings but the offsets stay aligned with the original
+            passage without any mapping table. Multi-char NFKC decompositions are left
+            unfolded; those rare quotes lose the highlight rather than corrupt offsets.
           </SpecItem>
           <SpecItem term="LLM-as-judge entailment">
             Rejected for grounding. Introduces a non-deterministic dependency on the very
