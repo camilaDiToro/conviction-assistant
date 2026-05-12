@@ -27,11 +27,15 @@ def _load(path: Path) -> pd.DataFrame:
 
 def _pass(row: pd.Series) -> bool:
     """A question 'passes' when:
-    - it cited at least one passage AND every citation anchored (anchor_rate=1.0),
+    - it correctly refused (refusal_correctness=='correct') and cited nothing,
       OR
-    - it correctly refused (refusal_correctness=='correct') and cited nothing.
+    - it correctly clarified (clarify_correctness=='correct'),
+      OR
+    - it cited at least one passage AND every citation anchored (anchor_rate=1.0).
     """
     if row.get("refusal_correctness") == "correct":
+        return True
+    if row.get("clarify_correctness") == "correct":
         return True
     citations = int(row.get("citations_count", 0) or 0)
     if citations == 0:
@@ -45,22 +49,51 @@ def _diff_aggregate(a: dict, b: dict) -> str:
     md.append("")
     md.append("| Metric | A | B | Δ |")
     md.append("|---|---|---|---|")
-    fields = ("anchor_rate", "citation_precision", "tokens_total", "tokens_mean")
-    for f in fields:
+    numeric_fields = (
+        "anchor_rate",
+        "citation_precision",
+        "citation_recall",
+        "tokens_total",
+        "tokens_mean",
+    )
+    for f in numeric_fields:
         va = a.get(f)
         vb = b.get(f)
         delta = (vb - va) if isinstance(va, (int, float)) and isinstance(vb, (int, float)) else "—"
         if isinstance(delta, float):
             delta = f"{delta:+.4f}"
         md.append(f"| {f} | {va} | {vb} | {delta} |")
+    discrete_fields = (
+        "refusal_correctness",
+        "general_knowledge_correctness",
+        "clarify_correctness",
+        "meets_min_citations",
+        "conflict_min_citations",
+        "language_match",
+    )
+    for f in discrete_fields:
+        ra = (a.get(f) or {}).get("rate")
+        rb = (b.get(f) or {}).get("rate")
+        delta = (rb - ra) if isinstance(ra, (int, float)) and isinstance(rb, (int, float)) else "—"
+        if isinstance(delta, float):
+            delta = f"{delta:+.4f}"
+        md.append(f"| {f}.rate | {ra} | {rb} | {delta} |")
     md.append("")
     return "\n".join(md)
 
 
 def _diff_questions(a: pd.DataFrame, b: pd.DataFrame) -> tuple[list[str], list[str]]:
+    cols = [
+        "id",
+        "bucket",
+        "anchor_rate",
+        "citations_count",
+        "refusal_correctness",
+        "clarify_correctness",
+    ]
     merged = pd.merge(
-        a[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness"]],
-        b[["id", "bucket", "anchor_rate", "citations_count", "refusal_correctness"]],
+        a[cols],
+        b[cols],
         on="id",
         how="outer",
         suffixes=("_a", "_b"),
@@ -73,11 +106,13 @@ def _diff_questions(a: pd.DataFrame, b: pd.DataFrame) -> tuple[list[str], list[s
             "anchor_rate": row.get("anchor_rate_a"),
             "citations_count": row.get("citations_count_a"),
             "refusal_correctness": row.get("refusal_correctness_a"),
+            "clarify_correctness": row.get("clarify_correctness_a"),
         }
         row_b = {
             "anchor_rate": row.get("anchor_rate_b"),
             "citations_count": row.get("citations_count_b"),
             "refusal_correctness": row.get("refusal_correctness_b"),
+            "clarify_correctness": row.get("clarify_correctness_b"),
         }
         passed_a = _pass(pd.Series(row_a))
         passed_b = _pass(pd.Series(row_b))

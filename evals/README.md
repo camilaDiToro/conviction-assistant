@@ -38,21 +38,52 @@ uv run python -m evals.compare \
 Emits a markdown diff: aggregate deltas, per-bucket comparison, list of
 questions that regressed (passed in A, failing in B) and improvements.
 
-## Metrics
+## Deterministic metrics
 
 | Metric | Type | Source signal |
 |---|---|---|
 | **anchor_rate** | numeric 0-1 | `failure_reason is None` per citation |
 | **citation_precision** | numeric 0-1 | cited passage_id ∈ `expected_passage_ids` |
-| **refusal_correctness** | discrete | did the agent refuse iff golden expected it? |
-| **general_knowledge_correctness** | discrete | Rule A: was general_knowledge_used flagged correctly? |
+| **citation_recall** | numeric 0-1 | expected passage_id is in cited set |
+| **refusal_correctness** | discrete | agent refused iff `expected_out_of_scope` (now two-direction — false refusals on in-scope Qs also penalised) |
+| **general_knowledge_correctness** | discrete | Rule A: was `general_knowledge_used` flagged correctly? |
+| **clarify_correctness** | discrete | agent asked a clarifying question iff `bucket=="clarify"` |
+| **meets_min_citations** | discrete | distinct citations ≥ `must_cite_at_least` |
+| **conflict_min_citations** | discrete | Rule B precondition: ≥ 2 distinct citations when `expected_conflict_mention=true` |
+| **language_match** | discrete | answer (or clarifying question) is in the user's language |
 | **prompt_tokens / completion_tokens / cached_tokens / reasoning_tokens** | numeric | raw provider token counters summed across LLM steps |
 | **tool_calls** | numeric | number of executed tool calls |
 | **duration_ms** | numeric | wall-clock per question |
 
-LLM-as-judge metrics (Faithfulness, AnswerRelevancy, etc.) are
-deliberately out of scope. The `--with-judge` flag is reserved for
-that future addition.
+## LLM-as-judge layer
+
+Six semantic metrics live in `evals/judge/`. The judge runs **manually
+from Claude Code**, not as a subprocess: read `evals/judge/prompt.md`,
+apply it to each record of the `_traces.jsonl` produced by the
+deterministic run, and write a JSONL of `JudgeResult` records
+validated against `evals/judge/schema.py`.
+
+| Judge metric | Type | What it checks |
+|---|---|---|
+| **faithfulness** | numeric 0-1 | fraction of `answer` sentences entailed by the cited passages |
+| **answer_relevancy** | discrete | answer addresses the user's question (relevant / partial / off_topic) |
+| **conflict_disclosure** | discrete | Rule B semantic: answer explicitly states the convictions disagree (rule_b bucket only) |
+| **rule_a_purity** | discrete | `answer` is free of general-knowledge content (clean / leaked) |
+| **citation_attribution** | numeric 0-1 | each `[N]` marker maps to a passage that supports the preceding claim |
+| **completeness** | discrete | answer covers the substantive points in the cited material (complete / partial / shallow) |
+
+Combined report:
+
+```bash
+uv run python -m evals.judge.aggregate \
+    evals/results/<ts>_..._.csv \
+    evals/results/<ts>_..._judge.jsonl \
+    --out evals/results/<ts>_..._combined.md
+```
+
+The aggregator refuses to merge a judge JSONL whose records carry
+inconsistent `(judge_model, judge_prompt_hash)` — two judge runs are
+only comparable when both signatures match.
 
 ## Golden set
 

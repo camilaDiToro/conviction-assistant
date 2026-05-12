@@ -17,7 +17,7 @@
 #
 # Bucket distribution: 12 factual, 4 rule_a, 4 rule_b, 3 cross_lang,
 # 4 out_of_scope, 3 clarify (= 30).
-# Languages distribution: PT 14, EN 10, ES 6.
+# Languages distribution: PT 13, EN 13, ES 4.
 
 # ---- factual (verified passage_ids from the retrieval fixture) ------------
 

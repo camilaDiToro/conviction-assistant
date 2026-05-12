@@ -19,9 +19,11 @@ hand-build them without coupling to ``AgentResult``):
   (None on anchor, str on failure).
 - ``output``: the agent's structured output. For an ``AnswerOutput``,
   carries ``kind="answer"``, ``out_of_scope``, ``general_knowledge_used``,
-  ``general_knowledge_section``. For a clarifying question, ``kind="clarifying_question"``.
+  ``general_knowledge_section``, ``answer``. For a clarifying question,
+  ``kind="clarifying_question"``, ``question``.
 """
 
+import re
 from typing import Any
 
 from ragas.metrics import MetricResult, discrete_metric, numeric_metric
@@ -33,7 +35,8 @@ def anchor_rate(citations: list[dict[str, Any]]) -> MetricResult:
     offset in the cited passage. ``failure_reason is None`` means anchored.
 
     A question with zero citations gets a 0 — refusal/clarify paths
-    bypass this metric in the runner by setting must_cite_at_least=0.
+    bypass this metric in the runner by filtering the aggregate denominator
+    on answer-bucket questions only.
     """
     if not citations:
         return MetricResult(value=0.0, reason="no citations emitted")
@@ -66,21 +69,50 @@ def citation_precision(
     )
 
 
+@numeric_metric(name="citation_recall", allowed_values=(0.0, 1.0))
+def citation_recall(
+    citations: list[dict[str, Any]], expected_passage_ids: list[str]
+) -> MetricResult:
+    """Fraction of ``expected_passage_ids`` that show up in the cited set.
+
+    Pairs with ``citation_precision`` to give the IR view of citation
+    quality. Returns 1.0 when the golden has no expected ids ("not
+    applicable", matching precision's convention)."""
+    if not expected_passage_ids:
+        return MetricResult(value=1.0, reason="expected_passage_ids unset; metric not applicable")
+    cited_ids = {c.get("passage_id") for c in citations}
+    expected = set(expected_passage_ids)
+    found = expected & cited_ids
+    rate = len(found) / len(expected)
+    return MetricResult(
+        value=rate,
+        reason=f"{len(found)}/{len(expected)} expected ids cited",
+    )
+
+
 @discrete_metric(name="refusal_correctness", allowed_values=["correct", "incorrect", "n/a"])
 def refusal_correctness(output: dict[str, Any], expected_out_of_scope: bool) -> MetricResult:
-    """For questions marked ``expected_out_of_scope=true``, the agent's
-    structured output must carry ``out_of_scope=true`` (or be a
-    clarifying-question). Returns ``"n/a"`` when the golden does not
-    expect a refusal."""
-    if not expected_out_of_scope:
-        return MetricResult(value="n/a", reason="expected_out_of_scope is false")
+    """Two-direction refusal check.
+
+    - ``expected_out_of_scope=true``: the agent must set ``out_of_scope=true``
+      (clarifying-question is ``incorrect``).
+    - ``expected_out_of_scope=false``: the agent must NOT refuse. A
+      clarifying-question output is ``n/a`` (handled by
+      ``clarify_correctness``); ``out_of_scope=true`` on an in-scope
+      question is a false refusal → ``incorrect``.
+    """
     kind = output.get("kind")
+    if expected_out_of_scope:
+        if kind == "clarifying_question":
+            return MetricResult(value="incorrect", reason="agent asked a clarifying question")
+        if bool(output.get("out_of_scope")):
+            return MetricResult(value="correct", reason="agent refused as expected")
+        return MetricResult(value="incorrect", reason="agent answered when it should have refused")
     if kind == "clarifying_question":
-        return MetricResult(value="incorrect", reason="agent asked a clarifying question")
-    refused = bool(output.get("out_of_scope"))
-    if refused:
-        return MetricResult(value="correct", reason="agent refused as expected")
-    return MetricResult(value="incorrect", reason="agent answered when it should have refused")
+        return MetricResult(value="n/a", reason="clarifying-question routed to clarify_correctness")
+    if bool(output.get("out_of_scope")):
+        return MetricResult(value="incorrect", reason="false refusal on in-scope question")
+    return MetricResult(value="correct", reason="agent did not falsely refuse")
 
 
 @discrete_metric(
@@ -117,9 +149,224 @@ def general_knowledge_correctness(
     )
 
 
+@discrete_metric(name="clarify_correctness", allowed_values=["correct", "incorrect", "n/a"])
+def clarify_correctness(output: dict[str, Any], bucket: str) -> MetricResult:
+    """Did the agent ask for clarification iff the bucket calls for it?
+
+    - bucket=clarify: output must be ``clarifying_question``.
+    - bucket!=clarify: output must be ``answer``; a clarifying-question
+      here is a wrongful clarification → ``incorrect``.
+    """
+    kind = output.get("kind")
+    if bucket == "clarify":
+        if kind == "clarifying_question":
+            return MetricResult(value="correct", reason="agent clarified as expected")
+        return MetricResult(value="incorrect", reason=f"clarify bucket but kind={kind!r}")
+    if kind == "clarifying_question":
+        return MetricResult(
+            value="incorrect", reason=f"wrongful clarifying question on bucket={bucket!r}"
+        )
+    return MetricResult(value="n/a", reason="non-clarify bucket and agent did not clarify")
+
+
+@discrete_metric(name="meets_min_citations", allowed_values=["correct", "incorrect", "n/a"])
+def meets_min_citations(citations: list[dict[str, Any]], must_cite_at_least: int) -> MetricResult:
+    """Did the agent emit at least ``must_cite_at_least`` distinct citations?
+
+    ``must_cite_at_least == 0`` ⇒ ``n/a`` (refusal/clarify paths).
+    Counts distinct ``passage_id``s, not raw citation entries, so emitting
+    two citations against the same passage does not satisfy a min of 2.
+    """
+    if must_cite_at_least <= 0:
+        return MetricResult(value="n/a", reason="must_cite_at_least=0; metric not applicable")
+    distinct = len({c.get("passage_id") for c in citations})
+    if distinct >= must_cite_at_least:
+        return MetricResult(
+            value="correct", reason=f"{distinct} distinct passage_ids ≥ {must_cite_at_least}"
+        )
+    return MetricResult(
+        value="incorrect", reason=f"{distinct} distinct passage_ids < {must_cite_at_least}"
+    )
+
+
+@discrete_metric(name="conflict_min_citations", allowed_values=["correct", "incorrect", "n/a"])
+def conflict_min_citations(
+    citations: list[dict[str, Any]], expected_conflict_mention: bool
+) -> MetricResult:
+    """Rule B precondition: when convictions disagree, the agent must
+    cite at least two distinct passages (one per side). This metric
+    checks the minimum-citation precondition only — the semantic check
+    (does the answer say they disagree?) is the judge's job.
+    """
+    if not expected_conflict_mention:
+        return MetricResult(value="n/a", reason="expected_conflict_mention=false; not applicable")
+    distinct = len({c.get("passage_id") for c in citations})
+    if distinct >= 2:
+        return MetricResult(
+            value="correct", reason=f"{distinct} distinct passage_ids covers a conflict"
+        )
+    return MetricResult(
+        value="incorrect",
+        reason=f"{distinct} distinct passage_ids — cannot represent a conflict",
+    )
+
+
+@discrete_metric(name="language_match", allowed_values=["correct", "incorrect", "n/a"])
+def language_match(output: dict[str, Any], expected_language: str) -> MetricResult:
+    """Did the agent answer in the user's language?
+
+    Runs over ``output.answer`` for answer turns, ``output.question`` for
+    clarifying turns. Returns ``n/a`` when there is no text to detect.
+    """
+    text = (output.get("answer") or output.get("question") or "").strip()
+    if not text:
+        return MetricResult(value="n/a", reason="no text to detect language on")
+    detected = _detect_language(text)
+    if detected == expected_language:
+        return MetricResult(value="correct", reason=f"detected={detected} matches expected")
+    return MetricResult(
+        value="incorrect", reason=f"detected={detected} but expected={expected_language}"
+    )
+
+
+# --- helpers ----------------------------------------------------------------
+
+
+_WORD_RE = re.compile(r"[a-zà-ÿ]+", re.IGNORECASE)
+
+# Discriminative tokens per language. Picked for low cross-language overlap;
+# combined with diacritic signals below for short-text robustness.
+_PT_TOKENS: frozenset[str] = frozenset(
+    {
+        "não",
+        "é",
+        "também",
+        "pelo",
+        "pela",
+        "isto",
+        "isso",
+        "muito",
+        "está",
+        "são",
+        "uma",
+        "um",
+        "como",
+        "no",
+        "na",
+        "nos",
+        "nas",
+        "do",
+        "da",
+        "dos",
+        "das",
+        "com",
+        "para",
+        "que",
+        "ser",
+        "ter",
+        "fazer",
+        "tributação",
+        "renda",
+        "fundo",
+        "fundos",
+    }
+)
+_ES_TOKENS: frozenset[str] = frozenset(
+    {
+        "el",
+        "la",
+        "los",
+        "las",
+        "del",
+        "una",
+        "uno",
+        "esto",
+        "eso",
+        "muy",
+        "está",
+        "son",
+        "como",
+        "por",
+        "para",
+        "que",
+        "ser",
+        "tener",
+        "hacer",
+        "qué",
+        "cómo",
+        "tributación",
+        "renta",
+        "fondo",
+        "fondos",
+        "según",
+    }
+)
+_EN_TOKENS: frozenset[str] = frozenset(
+    {
+        "the",
+        "of",
+        "and",
+        "is",
+        "in",
+        "to",
+        "for",
+        "with",
+        "on",
+        "at",
+        "as",
+        "by",
+        "from",
+        "that",
+        "this",
+        "which",
+        "are",
+        "was",
+        "were",
+        "have",
+        "has",
+        "be",
+        "an",
+        "or",
+        "but",
+        "not",
+        "it",
+    }
+)
+_PT_DIACRITICS = "ãõçÃÕÇ"
+_ES_DIACRITICS = "ñ¿¡Ñ"
+
+
+def _detect_language(text: str) -> str:
+    """Light-weight PT/ES/EN detector. Diacritic signals are weighted 3×
+    a stop-word hit; in a tie EN wins (the corpus is mostly PT/EN, so a
+    no-signal short string is more likely EN-leaning fragments)."""
+    lower = text.lower()
+    pt_diac = sum(lower.count(c) for c in _PT_DIACRITICS)
+    es_diac = sum(lower.count(c) for c in _ES_DIACRITICS)
+
+    words = _WORD_RE.findall(lower)
+    pt_hits = sum(1 for w in words if w in _PT_TOKENS)
+    es_hits = sum(1 for w in words if w in _ES_TOKENS)
+    en_hits = sum(1 for w in words if w in _EN_TOKENS)
+
+    scores = {
+        "pt": pt_diac * 3 + pt_hits,
+        "es": es_diac * 3 + es_hits,
+        "en": en_hits,
+    }
+    # Tie-break order: pt > es > en. Stable when scores match (e.g. empty text
+    # gives all zeros — the metric guards against that upstream).
+    return max(scores, key=lambda k: (scores[k], -["pt", "es", "en"].index(k)))
+
+
 __all__ = [
     "anchor_rate",
     "citation_precision",
+    "citation_recall",
+    "clarify_correctness",
+    "conflict_min_citations",
     "general_knowledge_correctness",
+    "language_match",
+    "meets_min_citations",
     "refusal_correctness",
 ]

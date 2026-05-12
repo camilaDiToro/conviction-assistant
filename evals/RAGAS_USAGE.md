@@ -1,150 +1,87 @@
-# Ragas usage — what we use, what we skip, and why
+# Ragas usage — what we actually use and why
 
-This document records the deliberate choices behind how this project uses
-[Ragas](https://github.com/explodinggradients/ragas) for the evaluation
-suite. It exists because a reviewer should be able to verify, in two minutes,
-that we (a) understand the framework, (b) chose it over alternatives for stated
-reasons, and (c) consciously skipped features that would have burned extra
-tokens or pulled in transitive dependencies we didn't need.
+This is a short, accurate account of how the suite uses Ragas. The
+previous version of this doc described a `SingleTurnSample` /
+`EvaluationDataset` / `evaluate()` / `to_pandas()` flow that did not
+exist in the code. This rewrite reflects the implementation.
 
-## What this eval suite does
+## What we use
 
-For each hand-authored question in `evals/golden_set.yaml`, we:
+**Only the two metric decorators**: `@discrete_metric` and
+`@numeric_metric` from `ragas.metrics`. They wrap a pure function and
+give us:
 
-1. Run `app.agent.run()` end-to-end against the live retriever (BM25 over the
-   conviction corpus) and the configured LLM provider.
-2. Convert the resulting `AgentResult` into a Ragas `SingleTurnSample` whose
-   metadata carries our test-case attributes (`bucket`, `expected_passage_ids`,
-   `expected_out_of_scope`, etc.) plus a snapshot of the resolver's per-citation
-   outcomes.
-3. Hand those samples to four custom Ragas metrics (`anchor_rate`,
-   `citation_precision`, `refusal_correctness`, `general_knowledge_correctness`)
-   plus pre-computed per-question token / tool-call / duration counters.
-4. Persist three artefacts to `evals/results/`:
-   - `…csv` — the per-question DataFrame from `EvaluationResult.to_pandas()`.
-   - `…json` — run metadata (model, reasoning_effort, git SHA, settings
-     snapshot) plus aggregate metrics.
-   - `…md` — human-readable summary tables, embeddable in the README.
+- A `MetricResult(value, reason)` return shape with type-checked
+  `allowed_values`.
+- A `.score(...)` callable so the runner invokes the metric with the
+  kwargs it already has on hand.
 
-`evals.compare` diffs two CSVs side by side: aggregate deltas, regressions
-(passing in A, failing in B), improvements, and per-bucket breakdown.
+That's it. The full surface lives in `evals/metrics.py`:
 
-## Features we use
+```python
+@numeric_metric(name="anchor_rate", allowed_values=(0.0, 1.0))
+def anchor_rate(citations: list[dict[str, Any]]) -> MetricResult: ...
 
-### `@discrete_metric` and `@numeric_metric` decorators
+@discrete_metric(name="refusal_correctness",
+                 allowed_values=["correct", "incorrect", "n/a"])
+def refusal_correctness(output: dict[str, Any],
+                        expected_out_of_scope: bool) -> MetricResult: ...
+```
 
-Each of our four custom metrics is a short function with one of these
-decorators. The decorator handles the integration with `evaluate()` and the
-result shape; we just write the comparison logic.
+Each metric is a pure function over dicts the runner hand-builds — no
+LLM client, no I/O, no globals.
 
-Why: the API is five-line short, returns a `MetricResult(value, reason)`, and
-needs neither a subclass nor an LLM client. Boilerplate-free.
+## What we deliberately do not use
 
-### `SingleTurnSample`
+| Ragas feature | Status | Why |
+|---|---|---|
+| `SingleTurnSample` | not imported | adds shape ceremony without changing what we compute |
+| `EvaluationDataset` | not imported | same |
+| `ragas.evaluate()` | not called | designed for `Metric` subclasses; overkill for 30 deterministic questions |
+| `EvaluationResult.to_pandas()` | not called | we build the DataFrame from `_QuestionRow.as_dict()` instead |
+| `Faithfulness` / `AnswerRelevancy` / `ContextPrecision` / `FactualCorrectness` | not wired | LLM-judge metrics that double provider cost and drift between runs |
+| `LangchainLLMWrapper` | not imported | only needed for the LLM-judge metrics |
+| `TestsetGenerator` | not imported | 30 hand-authored questions; revisit once the corpus is large |
+| Ragas Cloud | not used | local CSV + git is enough for a single-author repo |
 
-The contract every Ragas metric reads from. We populate:
+## Consequence: faithfulness is not directly measured
 
-- `user_input` — the user question.
-- `response` — the agent's final answer text (or the clarifying question).
-- `retrieved_contexts` — list of the passage texts the agent cited.
-- `reference` — optional gold answer (we don't set it; we rely on
-  `expected_passage_ids` instead).
-- `additional_metadata` — our payload: `bucket`, `language`,
-  `expected_passage_ids`, `expected_out_of_scope`,
-  `expected_general_knowledge`, `expected_conflict_mention`, plus a serialized
-  copy of the resolver entries the custom metrics need to compute scores.
+The brief calls faithfulness "the core challenge". The deterministic
+metrics here cover citation anchoring, citation precision/recall,
+language match, refusal/clarify correctness, and the rule-B
+minimum-citation precondition — but **none of them verifies that the
+answer text is actually supported by the cited passages**.
 
-Why: it's the standard shape that decouples our custom metrics from the
-specifics of `AgentResult`. If we ever swap Ragas for something else, the
-metrics layer ports cleanly; the runner is the only piece that knows about
-`AgentResult`.
+For that signal, the project ships a separate **LLM-as-judge layer**
+under `evals/judge/` (see that module's docstrings). The judge runs
+manually from Claude Code against the trace JSONL the deterministic
+runner already produces, validates against a fixed Pydantic schema,
+and feeds into a combined report alongside the deterministic numbers.
 
-### `EvaluationDataset`
+The split is intentional: the deterministic suite gives a fast,
+reproducible, token-free signal on every CI run; the judge gives a
+deeper, model-comparable faithfulness/relevancy/attribution signal on
+demand.
 
-Wrapper around `list[SingleTurnSample]` that `evaluate()` consumes. Supports
-filtering and slicing, which we use for the `--limit` and `--bucket` CLI flags.
+## How to add a new deterministic metric
 
-### `evaluate()`
+1. Write a function in `evals/metrics.py` decorated with
+   `@numeric_metric` (continuous) or `@discrete_metric` (categorical).
+2. Pull inputs from kwargs the runner already has — never reach for
+   an LLM client.
+3. Wire it into `_QuestionRow` and `_row_from_result` in `evals/run.py`.
+4. Add a unit test to `tests/eval/test_metrics.py` exercising every
+   branch.
+5. Add the column to `_REQUIRED_COLUMNS` in `evals/report.py` so
+   `write_run` enforces its presence.
 
-The orchestrator that runs each metric over each sample. Returns an
-`EvaluationResult` with a `.to_pandas()` method that flattens everything to a
-DataFrame — one row per sample, one column per metric.
+## Could we drop Ragas entirely?
 
-Why: it batches and parallelizes for free; if we wrote our own loop we'd
-duplicate that work for no gain.
-
-### `EvaluationResult.to_pandas()`
-
-Returns the canonical per-question DataFrame. We append our pre-computed
-per-question columns (`prompt_tokens`, `completion_tokens`, `cached_tokens`,
-`reasoning_tokens`, `tool_calls`, `duration_ms`, `language`, `bucket`) onto it
-before writing the CSV.
-
-Why: pandas is already a peer dependency of Ragas, and `pd.merge` makes
-cross-run comparison trivial. No second framework needed for reports.
-
-## Features we deliberately skip
-
-### Built-in LLM-judge metrics (`Faithfulness`, `AnswerRelevancy`, `ContextPrecision`, `FactualCorrectness`)
-
-Why: each one calls the LLM 1–3 times per question. They are subjectively
-scored, vary between runs at the same temperature, and this project pins
-the deterministic anchor rate as the headline metric. Activating them would
-roughly double the provider-token footprint for signal we don't need at this
-stage.
-
-These are available behind the future `--with-judge` flag (not yet wired).
-The runner is structured so that adding them is a one-line change to the
-metric list.
-
-### `LangchainLLMWrapper`
-
-Only needed for the LLM-judge metrics. We don't use those, so we don't pay the
-Langchain transitive-dependency tax.
-
-### Synthetic data generation (`TestsetGenerator`)
-
-The golden set was hand-authored after reading the corpus end-to-end. For 30
-questions in a domain (Brazilian fixed income, mostly) where synthetic
-generators struggle with bilingual specificity (PT/EN/ES), human authorship was
-more direct, more honest, and produced a higher floor of difficulty per question.
-Synthetic generation is an option once the corpus reaches hundreds of
-documents and the manual curation effort no longer scales.
-
-### Ragas Cloud (`app.ragas.io`)
-
-We persist results to `evals/results/` locally. Cloud hosting is convenient
-for teams comparing runs across machines, but we don't need that for a
-single-author interview project. Local CSVs work cleanly with `git` and the
-`evals.compare` script.
-
-### Langchain / LlamaIndex evaluator chains
-
-Our agent is a native Python function (`app.agent.run`). The chain adapters
-exist for users running their pipeline inside one of those frameworks; we
-have no reason to detour through them.
-
-## How to add a new metric
-
-1. Write a function decorated with `@numeric_metric` (continuous score) or
-   `@discrete_metric` (categorical, e.g. correct/incorrect).
-2. The function takes a `SingleTurnSample` and returns a
-   `MetricResult(value=…, reason=…)`.
-3. Add it to the metric list inside `evals/run.py::_metrics()`.
-4. Add a unit test in `tests/eval/test_metrics.py` that synthesises a
-   minimal `SingleTurnSample` and asserts the expected score.
-
-If the metric needs an LLM judge, add it behind the `--with-judge` CLI flag
-so the default run stays deterministic and lightweight.
-
-## How to add an LLM-judge metric later
-
-When the project decides to take the LLM-judge step:
-
-1. `uv add langchain langchain-openai` — required by Ragas's LLM-based metrics.
-2. Construct an `evaluator_llm = LangchainLLMWrapper(ChatOpenAI(model=…))`.
-3. Pass it through `evaluate(…, llm=evaluator_llm)` and add the built-in
-   metrics (e.g. `Faithfulness()`) to the metric list inside the
-   `--with-judge` branch.
-4. The runner already records reasoning_effort and model snapshots per run,
-   so an LLM-judge regression is comparable to a non-judge run.
+Yes — the decorators contribute ~30 lines of value. A plain dataclass
+`MetricResult` and bare functions would be equivalent and remove a
+transitive that pulls in `datasets`, `langchain-core`, etc. It is on
+the backlog. The reason it has not happened: the dependency is already
+in the lockfile, the decorators are pleasant to use, and removing
+Ragas should ideally land at the same time as wiring its
+`Faithfulness` metric (so we make the right keep-or-remove call with
+the judge layer's needs known).

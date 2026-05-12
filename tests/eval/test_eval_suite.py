@@ -74,8 +74,14 @@ def test_row_from_result_with_synthetic_data(tmp_path: Path) -> None:
     assert row.id == "qsmoke"
     assert row.anchor_rate == 1.0
     assert row.citation_precision == 1.0
-    assert row.refusal_correctness == "n/a"
+    assert row.citation_recall == 1.0
+    # refusal_correctness is now widened: in-scope question that did not refuse → correct.
+    assert row.refusal_correctness == "correct"
     assert row.general_knowledge_correctness == "correct"
+    assert row.clarify_correctness == "n/a"
+    assert row.meets_min_citations == "correct"
+    assert row.conflict_min_citations == "n/a"
+    assert row.language_match == "correct"
     assert row.duration_ms == 42
 
     # Make sure write_run can serialize one synthetic row through the

@@ -40,7 +40,12 @@ from evals.dataset import Golden, GoldenSet, load_golden_set
 from evals.metrics import (
     anchor_rate,
     citation_precision,
+    citation_recall,
+    clarify_correctness,
+    conflict_min_citations,
     general_knowledge_correctness,
+    language_match,
+    meets_min_citations,
     refusal_correctness,
 )
 from evals.report import RunMetadata, iter_required_columns, write_run
@@ -79,10 +84,20 @@ class _QuestionRow:
     anchor_rate_reason: str
     citation_precision: float
     citation_precision_reason: str
+    citation_recall: float
+    citation_recall_reason: str
     refusal_correctness: str
     refusal_correctness_reason: str
     general_knowledge_correctness: str
     general_knowledge_correctness_reason: str
+    clarify_correctness: str
+    clarify_correctness_reason: str
+    meets_min_citations: str
+    meets_min_citations_reason: str
+    conflict_min_citations: str
+    conflict_min_citations_reason: str
+    language_match: str
+    language_match_reason: str
     prompt_tokens: int
     completion_tokens: int
     cached_tokens: int
@@ -132,6 +147,7 @@ def _trace_record(
         "expected_out_of_scope": golden.expected_out_of_scope,
         "expected_general_knowledge": golden.expected_general_knowledge,
         "expected_conflict_mention": golden.expected_conflict_mention,
+        "must_cite_at_least": golden.must_cite_at_least,
         "duration_ms": duration_ms,
     }
     if error is not None:
@@ -162,16 +178,24 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
     token_usage = _sum_token_usage(result)
     tool_calls = sum(1 for s in result.steps if s.kind == "tool_call")
 
+    expected_ids = list(golden.expected_passage_ids)
     anchor = anchor_rate.score(citations=citations)
-    precision = citation_precision.score(
-        citations=citations, expected_passage_ids=list(golden.expected_passage_ids)
-    )
+    precision = citation_precision.score(citations=citations, expected_passage_ids=expected_ids)
+    recall = citation_recall.score(citations=citations, expected_passage_ids=expected_ids)
     refusal = refusal_correctness.score(
         output=output_dict, expected_out_of_scope=golden.expected_out_of_scope
     )
     gen_know = general_knowledge_correctness.score(
         output=output_dict, expected_general_knowledge=golden.expected_general_knowledge
     )
+    clarify = clarify_correctness.score(output=output_dict, bucket=golden.bucket)
+    min_cite = meets_min_citations.score(
+        citations=citations, must_cite_at_least=golden.must_cite_at_least
+    )
+    conflict = conflict_min_citations.score(
+        citations=citations, expected_conflict_mention=golden.expected_conflict_mention
+    )
+    lang_match = language_match.score(output=output_dict, expected_language=golden.language)
 
     return _QuestionRow(
         id=golden.id,
@@ -185,10 +209,20 @@ def _row_from_result(golden: Golden, result: AgentResult, *, duration_ms: int) -
         anchor_rate_reason=anchor.reason or "",
         citation_precision=float(precision),
         citation_precision_reason=precision.reason or "",
+        citation_recall=float(recall),
+        citation_recall_reason=recall.reason or "",
         refusal_correctness=str(refusal.value),
         refusal_correctness_reason=refusal.reason or "",
         general_knowledge_correctness=str(gen_know.value),
         general_knowledge_correctness_reason=gen_know.reason or "",
+        clarify_correctness=str(clarify.value),
+        clarify_correctness_reason=clarify.reason or "",
+        meets_min_citations=str(min_cite.value),
+        meets_min_citations_reason=min_cite.reason or "",
+        conflict_min_citations=str(conflict.value),
+        conflict_min_citations_reason=conflict.reason or "",
+        language_match=str(lang_match.value),
+        language_match_reason=lang_match.reason or "",
         prompt_tokens=token_usage["prompt_tokens"],
         completion_tokens=token_usage["completion_tokens"],
         cached_tokens=token_usage["cached_tokens"],
@@ -281,14 +315,6 @@ async def _amain(args: argparse.Namespace) -> int:
             print(f"  {g.id:<6} [{g.bucket:<13}] {g.language}  {g.question[:80]}")
         return 0
 
-    if args.provider != "openai":
-        raise SystemExit(f"provider {args.provider!r} not supported (only 'openai')")
-
-    if args.with_judge:
-        raise SystemExit(
-            "--with-judge is reserved for future work; this suite ships deterministic metrics only"
-        )
-
     # The LLM provider is the only thing the runner reaches for that needs
     # real OpenAI access. Settings.openai_api_key is required.
     if not settings.openai_api_key:
@@ -303,6 +329,8 @@ async def _amain(args: argparse.Namespace) -> int:
         settings.rewrite_reasoning_effort = args.rewrite_reasoning  # type: ignore[assignment]
     if args.timeout is not None:
         settings.openai_timeout_seconds = float(args.timeout)
+    if args.model:
+        settings.openai_model = args.model
 
     llm = get_llm_provider()
     settings_model = settings.openai_model
@@ -392,10 +420,20 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
         anchor_rate_reason=f"error: {msg[:120]}",
         citation_precision=0.0,
         citation_precision_reason="error",
+        citation_recall=0.0,
+        citation_recall_reason="error",
         refusal_correctness="n/a",
         refusal_correctness_reason="error",
         general_knowledge_correctness="n/a",
         general_knowledge_correctness_reason="error",
+        clarify_correctness="n/a",
+        clarify_correctness_reason="error",
+        meets_min_citations="n/a",
+        meets_min_citations_reason="error",
+        conflict_min_citations="n/a",
+        conflict_min_citations_reason="error",
+        language_match="n/a",
+        language_match_reason="error",
         prompt_tokens=0,
         completion_tokens=0,
         cached_tokens=0,
@@ -410,6 +448,15 @@ def _error_row(golden: Golden, msg: str) -> _QuestionRow:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the eval suite (OpenAI only).")
     parser.add_argument("--provider", default="openai", choices=["openai"])
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=(
+            "override OPENAI_MODEL for this run (e.g. gpt-5.5, gpt-5.5-mini, "
+            "gpt-5.4-mini, gpt-5-mini, o4-mini). Allowlist enforced by the "
+            "provider factory; unsupported values raise at startup."
+        ),
+    )
     parser.add_argument(
         "--reasoning",
         default=None,
@@ -437,11 +484,6 @@ def main() -> int:
         default=None,
         help="set openai client timeout in seconds (default 60). "
         "Raise to 180-240 for medium/high reasoning to avoid mid-call timeouts.",
-    )
-    parser.add_argument(
-        "--with-judge",
-        action="store_true",
-        help="(future) enable Ragas LLM-as-judge metrics — not yet wired",
     )
     parser.add_argument("--out", default=str(DEFAULT_OUT_DIR), help="output dir for csv/json/md")
     parser.add_argument("--dry-run", action="store_true", help="print selected golden ids and exit")
