@@ -38,66 +38,37 @@ Principle: review producers before consumers — types/config first, repos next,
 
 ---
 
-## Phase 1 — Foundation (data + config primitives)
-
-- [x] `app/config/settings.py` — narrowed `llm_provider` Literal to `["openai"]`
-- [x] `app/config/db.py`
-- [x] `app/config/__init__.py`
-- [x] `app/models/base.py`
-- [x] `app/models/passage.py`
-- [x] `app/models/audit.py`
-- [x] `app/models/__init__.py`
-- [x] `app/schemas/passage.py`
-- [x] `app/schemas/ingest.py`
-- [x] `app/schemas/__init__.py`
-
-### Follow-ups surfaced during Phase 1 (defer to later phases)
-
-- [x] Audit-payload layer leak. `app/api/chat_history.py:98-128` parsed `response_row["payload"]` directly; extracted into `services/chat_history.steps_response_from_rows`. Done during Phase 3 review pass.
-- [x] Provider factory dead branch. Dropped the unreachable `if name == "anthropic"` arm and trailing `raise` in `app/providers/factory.py`, refreshed the stale docstring, and deleted the orphan `test_factory_anthropic_not_yet_implemented` in `tests/providers/test_factory.py`. Done during Phase 3 review pass.
-- [x] ORM↔migration drift on `audit_log.kind`. `app/models/audit.py` was missing the `CheckConstraint` declared at `alembic/versions/0001_initial_schema.py:42`; mirrored on the ORM so `--autogenerate` stays a true safety net. Surfaced + fixed during Phase 2 review.
-
-## Phase 2 — Alembic re-review (depends on models)
-
-- [x] `alembic/env.py`
-- [x] `alembic/versions/0001_initial_schema.py`
-
-## Phase 3 — Repositories (only SQL layer)
-
-- [x] `app/repositories/passages.py`
-- [x] `app/repositories/audit.py`
-- [x] `app/repositories/__init__.py`
-
 ## Phase 4 — Services (standalone first, chat-flow last)
 
-- [ ] `app/services/disclaimer.py`
-- [ ] `app/services/audit.py`
-- [ ] `app/services/wrap_response.py`
-- [ ] `app/services/ingest.py`
-- [ ] `app/services/chat_history.py`
-- [ ] `app/services/chat.py`
-- [ ] `app/services/__init__.py`
+- [x] `app/services/disclaimer.py`
+- [x] `app/services/audit.py`
+- [x] `app/services/debug_view.py`  *(was missing from the original plan; producer for wrap_response + chat_history)*
+- [x] `app/services/wrap_response.py`
+- [x] `app/services/ingest.py`
+- [x] `app/services/chat_history.py`
+- [x] `app/services/chat.py`
+- [x] `app/services/__init__.py`
 
 ## Phase 5 — Tests for the modules just reviewed
 
-- [ ] `tests/__init__.py`
-- [ ] `tests/conftest.py`
-- [ ] `tests/repositories/__init__.py`
-- [ ] `tests/repositories/test_repo.py`
-- [ ] `tests/repositories/test_audit.py`
-- [ ] `tests/services/test_audit.py`
-- [ ] `tests/services/test_ingest.py`
-- [ ] `tests/services/test_wrap_response.py`
-- [ ] `tests/fixtures/retrieval_golden.yaml`
-- [ ] `tests/fixtures/stub_responses_example.yaml`
-- [ ] `tests/fixtures/agent_scenarios/multi_turn_with_rewrite.yaml`
-- [ ] `tests/fixtures/agent_scenarios/out_of_scope_no_search.yaml`
-- [ ] `tests/fixtures/agent_scenarios/over_budget.yaml`
-- [ ] `tests/fixtures/agent_scenarios/pre_search_answer.yaml`
-- [ ] `tests/fixtures/agent_scenarios/resolver_offset_not_found.yaml`
-- [ ] `tests/fixtures/agent_scenarios/resolver_pass.yaml`
-- [ ] `tests/fixtures/agent_scenarios/rewrite_pt.yaml`
-- [ ] `tests/fixtures/agent_scenarios/tool_error_feedback.yaml`
+- [x] `tests/__init__.py`
+- [x] `tests/conftest.py`
+- [x] `tests/repositories/__init__.py`
+- [x] `tests/repositories/test_repo.py`
+- [x] `tests/repositories/test_audit.py`
+- [x] `tests/services/test_audit.py`
+- [x] `tests/services/test_ingest.py`
+- [x] `tests/services/test_wrap_response.py`
+- [x] `tests/fixtures/retrieval_golden.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/stub_responses_example.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/multi_turn_with_rewrite.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/out_of_scope_no_search.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/over_budget.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/pre_search_answer.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/resolver_offset_not_found.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/resolver_pass.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/rewrite_pt.yaml`  *(data fixture — scope-checked only)*
+- [x] `tests/fixtures/agent_scenarios/tool_error_feedback.yaml`  *(data fixture — scope-checked only)*
 
 ## Phase 6 — Evals (depends on full app surface)
 
@@ -118,10 +89,5 @@ Principle: review producers before consumers — types/config first, repos next,
 ## Phase 7 — Docs last (easiest to spot drift after code review)
 
 - [ ] `docs/ARCHITECTURES.md`
-- [ ] `docs/ASSUMPTIONS.md`
-- [ ] `docs/MODEL_CONFIG.md`
-- [ ] `docs/SCALE_NOTES.md`
-- [ ] `docs/TESTING.md`
-- [ ] `docs/DEPLOY.md`
 - [x] `CLAUDE.md`
 - [ ] `README.md`

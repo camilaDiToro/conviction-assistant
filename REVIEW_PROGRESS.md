@@ -100,14 +100,15 @@ decade-ai-challenge/
 │   │   ├── [x] ingest.py                  — plain Pydantic response model for /admin/ingest
 │   │   └── [x] passage.py                 — Passage / DocSummary / Heading / DocumentOutline / PassageHit; from_attributes=True throughout
 │   │
-│   └── services/
-│       ├── [ ] __init__.py
-│       ├── [ ] audit.py
-│       ├── [ ] chat.py
-│       ├── [ ] chat_history.py             — extracted in api-cleanup PR; reconstructs ConversationMessage / ChatCitation / UsageSummary from audit_log rows
-│       ├── [ ] disclaimer.py
-│       ├── [ ] ingest.py
-│       ├── [ ] wrap_response.py
+│   └── services/                          [x] reviewed
+│       ├── [x] __init__.py                — docstring states services raise DomainError, never HTTPException
+│       ├── [x] audit.py                   — best-effort writer; commits on success, rolls back on failure
+│       ├── [x] chat.py                    — thin orchestrator: IDs → agent → wrap → persist audit
+│       ├── [x] chat_history.py            — reconstructs ConversationMessage / ChatCitation / UsageSummary from audit_log rows
+│       ├── [x] debug_view.py              — off-plan find; shared live + historical debug-step formatter
+│       ├── [x] disclaimer.py              — three frozen strings keyed by Language
+│       ├── [x] ingest.py                  — parser → repo orchestrator inside one session.begin()
+│       ├── [x] wrap_response.py           — pure AgentResult → wire response + audit summary mapping
 │       └── parser/                      [x] reviewed
 │           ├── [x] __init__.py
 │           ├── [x] markdown.py
@@ -117,12 +118,7 @@ decade-ai-challenge/
 ├── convictions/                         (30 markdown corpus files — not code)
 │
 ├── docs/
-│   ├── [ ] ARCHITECTURES.md
-│   ├── [ ] ASSUMPTIONS.md
-│   ├── [ ] DEPLOY.md
-│   ├── [ ] MODEL_CONFIG.md
-│   ├── [ ] SCALE_NOTES.md
-│   └── [ ] TESTING.md
+│   └── [ ] ARCHITECTURES.md
 │
 ├── evals/
 │   ├── [ ] __init__.py
@@ -140,8 +136,8 @@ decade-ai-challenge/
 ├── scripts/
 │
 └── tests/
-    ├── [ ] __init__.py
-    ├── [ ] conftest.py
+    ├── [x] __init__.py                     — empty package marker
+    ├── [x] conftest.py                     — sets startup-token env defaults so lifespan token check survives test imports
     │
     ├── agent/                              [x] reviewed
     │   ├── [x] __init__.py
@@ -194,10 +190,10 @@ decade-ai-challenge/
     │   ├── [x] test_openai_adapter.py      — one round-trip per layer (messages, response, end-to-end), parametrized error cases
     │   └── [x] test_stub.py                 — protocol mirror + YAML loader
     │
-    ├── repositories/
-    │   ├── [ ] __init__.py
-    │   ├── [ ] test_audit.py
-    │   └── [ ] test_repo.py
+    ├── repositories/                       [x] reviewed
+    │   ├── [x] __init__.py                 — empty package marker
+    │   ├── [x] test_audit.py               — insert+fetch round-trip + empty-conversation
+    │   └── [x] test_repo.py                — integration over real per-test SQLite; covers round-trip, outline, idempotent re-ingest, orphan delete, unicode, real corpus
     │
     ├── retrieval/                       [x] reviewed (simplified)
     │   ├── [x] __init__.py
@@ -205,10 +201,10 @@ decade-ai-challenge/
     │   ├── [x] test_protocol_conformance.py — dropped weak no-match test
     │   └── [x] test_snippet.py
     │
-    └── services/
-        ├── [ ] test_audit.py
-        ├── [ ] test_ingest.py
-        ├── [ ] test_wrap_response.py
+    └── services/                           [x] reviewed
+        ├── [x] test_audit.py               — three tests: row count, conversation isolation, failure swallowing via monkeypatched repo
+        ├── [x] test_ingest.py               — missing-dir / empty / happy / re-ingest-with-rename / real-corpus regression canary (423 passages)
+        ├── [x] test_wrap_response.py        — pure-function tests for anchored / clarifying / non-anchoring citation branches
         └── parser/                      [x] reviewed
             ├── [x] __init__.py
             ├── [x] test_corpus_snapshot.py
