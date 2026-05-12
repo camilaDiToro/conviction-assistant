@@ -1,4 +1,4 @@
-"""POST /chat — the user-facing endpoint.
+"""POST /api/chat — the user-facing endpoint.
 
 Thin handler: token-gated, receives FastAPI dependencies, delegates the
 chat turn to :mod:`app.services.chat`, and returns the wire response.

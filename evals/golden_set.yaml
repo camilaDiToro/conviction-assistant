@@ -1,4 +1,4 @@
-# Golden evaluation set — 30 hand-authored questions.
+# Golden evaluation set — 34 hand-authored questions.
 #
 # Schema (one entry per item):
 #   id, question, language (pt|en|es), bucket

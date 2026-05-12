@@ -71,7 +71,7 @@ cd frontend && npm run build        # frontend type-check + bundle
 
 ## Eval suite
 
-Hand-authored 30-question golden set. The code runner is deterministic:
+Hand-authored 34-question golden set. The code runner is deterministic:
 it records citation anchoring, passage precision/recall, refusal and
 clarify correctness, Rule A / Rule B checks, language match, token
 usage, tool calls, and duration. Headline metric: **anchor rate** —
@@ -81,7 +81,7 @@ what fraction of cited quotes resolved to an offset region.
 # Smoke (3 questions, balanced across buckets):
 uv run python -m evals.run --reasoning low --limit 3
 
-# Full 30 questions:
+# Full golden set:
 uv run python -m evals.run --reasoning medium
 
 # Compare two runs (e.g. low vs medium):
@@ -132,7 +132,7 @@ app/
   repositories/    # ALL SQLAlchemy queries; module-level async functions
   models/          # SQLAlchemy ORM
   schemas/         # Pydantic request/response shapes
-  providers/       # LLMProvider + EmbeddingProvider; only place that imports openai
+  providers/       # LLMProvider, OpenAI adapter, StubLLM; only place that imports openai
   retrieval/       # Retriever protocol + BM25 adapter; lifecycle owned by app lifespan
   agent/           # Bounded loop, rewrite stage, structured-output schemas
     tools/         # The four read-only tools the agent can call
@@ -141,7 +141,7 @@ app/
   config/          # Settings + DB engine plumbing — only place that calls os.getenv
 alembic/           # Schema-of-record migrations
 convictions/       # The 30-doc corpus
-docs/              # ARCHITECTURES, ASSUMPTIONS, deploy, testing, scale notes
+docs/              # architecture notes
 evals/             # golden set + runner + metrics + comparator
 frontend/          # Vite + React + Tailwind chat UI + architecture explainer
 tests/             # Mirrors app/ + an `eval/` layer (skipped by default)

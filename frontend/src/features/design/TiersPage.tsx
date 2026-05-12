@@ -3,7 +3,7 @@ import { PageHeader, Section } from '@/components/Section'
 const ROWS = [
   {
     label: 'Citation grounding',
-    built: 'Deterministic substring verifier with pinned normalization. Retry-once-with-feedback.',
+    built: 'Deterministic substring verifier with pinned normalization. Non-anchoring citations surface without a highlight.',
     simplified: '—',
     levelUp: null,
   },
@@ -15,7 +15,7 @@ const ROWS = [
   },
   {
     label: 'Agent loop bounds',
-    built: 'Max 5 tool calls, ≥ 1 search before answer, retry-once-with-feedback, strip-or-refuse.',
+    built: 'Max 5 tool calls, ≥ 1 search before answer, invariant re-prompts for premature or structurally invalid answers.',
     simplified: '—',
     levelUp: null,
   },
@@ -52,13 +52,13 @@ const ROWS = [
   {
     label: 'Auth & rate limiting',
     built: '—',
-    simplified: 'No auth, no rate limit, no per-user quotas. Demo gate on the chat surface only.',
+    simplified: 'Two shared tokens (chat + admin). No JWT/OIDC, no per-user identity, no rate limit.',
     levelUp: { text: 'Real auth (OIDC) and per-user / per-conversation request quotas when productized.' },
   },
   {
     label: 'Streaming',
     built: '—',
-    simplified: 'Single sync POST /chat. Whole response or nothing.',
+    simplified: 'Single sync POST /api/chat. Whole response or nothing.',
     levelUp: { text: 'SSE streaming for the answer body once UX latency outweighs simplicity.' },
   },
   {
@@ -70,7 +70,7 @@ const ROWS = [
   {
     label: 'Evaluation',
     built: '—',
-    simplified: '~30 hand-written Q/A planned. Verifier-pass-rate is the headline metric; LLM-judge entailment is secondary. Today the methodology is described; not measured.',
+    simplified: '34 hand-written eval questions with deterministic metrics. Anchor rate is the headline metric; LLM-judge scoring is a manual secondary layer.',
     levelUp: { text: 'Auto-generated eval bank, LLM-judge dashboard, weekly regressions. Cross-language eval is the trigger that gates the hybrid-retrieval promotion.' },
   },
   {
@@ -138,7 +138,7 @@ export default function TiersPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mt-4">
           Each simplified entry above lands in the same file as its production-grade
           counterpart would: <code className="font-mono text-[13px] text-ink-1">app/repositories/</code>{' '}
-          for storage, <code className="font-mono text-[13px] text-ink-1">app/services/search.py</code>{' '}
+          for storage, <code className="font-mono text-[13px] text-ink-1">app/retrieval/registry.py</code>{' '}
           for retrieval, <code className="font-mono text-[13px] text-ink-1">app/api/chat.py</code>{' '}
           for streaming. Promotion is a content change in a known place, not a re-architecture.
         </p>

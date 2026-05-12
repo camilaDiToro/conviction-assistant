@@ -1,7 +1,7 @@
 """Chat-side conversation history — list + load endpoints.
 
 Both endpoints are gated by ``X-Chat-Token`` (the same token the user
-already pastes for ``POST /chat``). They reconstruct the user-facing
+already pastes for ``POST /api/chat``). They reconstruct the user-facing
 chat thread from the ``kind="response"`` rows in ``audit_log``, which
 carry the verbatim ``user_question`` and the resolved citation entries
 (passage provenance + offsets).
