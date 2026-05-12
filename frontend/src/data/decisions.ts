@@ -28,11 +28,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/design/pipeline/agent-loop', label: 'Agent loop' },
     ],
   },
-  {
-    label: 'Framing',
-    caret: true,
-    items: [
-      { to: '/design/framing/tiers', label: 'Production vs simplified' },
-    ],
-  },
+  // {
+  //   label: 'Framing',
+  //   caret: true,
+  //   items: [
+  //     { to: '/design/framing/tiers', label: 'Production vs simplified' },
+  //   ],
+  // },
 ]
