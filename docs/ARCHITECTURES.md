@@ -93,6 +93,8 @@ The structured response is one of two shapes — a regular **answer** (with cita
   ],
   "general_knowledge_used": false,
   "general_knowledge_section": null,
+  "conflict_detected": false,
+  "conflict_statement": null,
   "out_of_scope": false
 }
 
@@ -104,7 +106,9 @@ The structured response is one of two shapes — a regular **answer** (with cita
 }
 ```
 
-`general_knowledge_used` / `general_knowledge_section` carry the rule from `ASSUMPTIONS.md` § "Out-of-scope handling — IMPORTANT": when the convictions don't cover a topic, general knowledge is allowed but **must be marked very, very clearly** in a separate field, never interleaved with cited claims.
+`general_knowledge_used` / `general_knowledge_section` carry Rule A from `CLAUDE.md`: when the convictions don't cover a topic, general knowledge is allowed but **must be marked very, very clearly** in a separate field, never interleaved with cited claims.
+
+`conflict_detected` / `conflict_statement` carry Rule B: when two cited convictions contradict each other, the model sets `conflict_detected: true` and writes the disagreement explicitly in `conflict_statement` so the analyst sees the tension instead of a silent pick.
 
 **HTTP response wrapper** — adds friendly display fields, the deterministic disclaimer, and the per-step debug + token-usage payload:
 
@@ -246,7 +250,7 @@ This prevents the common failure mode where an earlier hallucination becomes par
 
 ### Deterministic disclaimer
 
-Every response carries a regulatory disclaimer (*"This response is informational and does not constitute investment advice."* and PT/ES equivalents). The orchestrator appends it deterministically — never the model — so it can never be paraphrased or omitted. It lives in a dedicated `disclaimer` field on the HTTP response, separate from `answer`, so the resolver never tries to anchor it against a passage. See `ASSUMPTIONS.md` § "Compliance, security, data" for the exact text per language.
+Every response carries a regulatory disclaimer (*"This response is informational and does not constitute investment advice."* and PT/ES equivalents). The orchestrator appends it deterministically — never the model — so it can never be paraphrased or omitted. It lives in a dedicated `disclaimer` field on the HTTP response, separate from `answer`, so the resolver never tries to anchor it against a passage.
 
 ### Audit log + token usage
 
@@ -262,8 +266,6 @@ Every step of every request is persisted. LLM calls carry raw token usage:
 ```
 
 The log lives in **SQLite** (table `audit_log`) — same database that holds the passages and conversations. Postgres is a documented level-up if/when concurrency or full-text indexing outgrows SQLite. The HTTP `debug` payload exposes per-step usage; `usage_summary` carries per-question token totals. Adapters return token counts only.
-
-See `ASSUMPTIONS.md` § "Token usage — REQUIRED" and § "Audit log".
 
 ### Provider abstraction
 
@@ -397,9 +399,9 @@ Each level-up is described in the step where it would land. Promotion from "simp
 5. **Citation offset resolver.** Pure substring → `(start, end)` mapping; non-anchoring citations survive without a highlight. **Built before the agent loop** so every later step measures anchor rate from day one.
 6. **Agent loop** with the system prompt enforcing all citation rules (Rule A, Rule B, clarifying-question, language mirroring). Multi-turn rewrite (`app/agent/rewrite.py`) is part of this step — prior assistant answers are never injected into the source-of-truth context.
 7. **Disclaimer + audit log + token usage** wired into the orchestrator. SQLite is the storage; token usage is visible per LLM step and summarized per question.
-8. **Eval suite.** See `TESTING.md`. Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
+8. **Eval suite.** Per-bucket floor: ≥ 3 questions, with Rule A and Rule B getting ≥ 4 each.
 9. **Anthropic adapter (documented level-up, not built in v1)** — the protocol shape in `app/providers/base.py` proves portability today; `app/providers/factory.py` raises `ProviderError("anthropic adapter is not yet implemented")` when the provider is selected. The adapter slot is the demonstration; a live second provider is a follow-up. Citations API would slot in here as a per-adapter optimization.
 10. **Optional promotion to hybrid retrieval** if eval shows BM25 misses cross-cutting / cross-language questions. Beyond hybrid: cross-encoder reranker, then Anthropic-style Contextual Retrieval. Each promotion is a conversation, not auto-triggered.
-11. **Bonus (out of scope for v1): upload pipeline** — see `ASSUMPTIONS.md` § "Source formats" for the parser-interface design.
+11. **Bonus (out of scope for v1): upload pipeline** — parser-interface design lives in `app/services/parser/`.
 
 Each step should pass the eval before moving to the next. Promotion beyond step 4 (reranker, Contextual Retrieval, real vector store) is gated on documented eval failures, not speculation.
