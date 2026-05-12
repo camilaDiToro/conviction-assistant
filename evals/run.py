@@ -30,7 +30,12 @@ from typing import Any
 import pandas as pd
 
 from app.agent import run as run_agent
-from app.agent.schemas import AgentResult, AnswerOutput, ClarifyingQuestionOutput
+from app.agent.schemas import (
+    AgentResult,
+    AnswerOutput,
+    ClarifyingQuestionOutput,
+    ConversationTurn,
+)
 from app.agent.tools import ToolContext
 from app.config import db, settings
 from app.providers import get_llm_provider
@@ -117,10 +122,14 @@ class _QuestionRow:
 async def _run_question(
     golden: Golden, *, llm: LLMProvider, factory: Any, retriever: Any
 ) -> tuple[_QuestionRow, AgentResult, int]:
+    history = [
+        ConversationTurn(role=role, content=content)  # type: ignore[arg-type]
+        for role, content in golden.prior_turns
+    ]
     async with factory() as session:
         tool_ctx = ToolContext(session=session, retriever=retriever)
         t0 = perf_counter()
-        result = await run_agent(golden.question, [], tool_ctx=tool_ctx, llm=llm)
+        result = await run_agent(golden.question, history, tool_ctx=tool_ctx, llm=llm)
         duration_ms = int((perf_counter() - t0) * 1000)
     return _row_from_result(golden, result, duration_ms=duration_ms), result, duration_ms
 
@@ -143,6 +152,7 @@ def _trace_record(
         "bucket": golden.bucket,
         "language": golden.language,
         "question": golden.question,
+        "prior_turns": [{"role": r, "content": c} for r, c in golden.prior_turns],
         "expected_passage_ids": list(golden.expected_passage_ids),
         "expected_out_of_scope": golden.expected_out_of_scope,
         "expected_general_knowledge": golden.expected_general_knowledge,

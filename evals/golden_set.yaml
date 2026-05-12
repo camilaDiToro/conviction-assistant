@@ -15,9 +15,16 @@
 # Rule A using general_knowledge flag correctly) is captured by the
 # refusal_correctness / general_knowledge_correctness scores.
 #
-# Bucket distribution: 12 factual, 5 rule_a, 4 rule_b, 3 cross_lang,
-# 3 out_of_scope, 3 clarify (= 30). (0003-v2: q24 moved out_of_scope → rule_a.)
-# Languages distribution: PT 13, EN 13, ES 4.
+# Bucket distribution: 17 factual (incl. 2 multiturn), 6 rule_a, 4 rule_b,
+# 3 cross_lang, 2 out_of_scope, 3 clarify (= 35).
+# (0003-v2: q24 and q26 moved out_of_scope → rule_a; q31-q33 added to
+# fill corpus coverage gaps; q34-q35 are multiturn factual questions
+# requiring history resolution via the rewrite stage.)
+# Languages distribution: PT 16, EN 15, ES 4.
+#
+# Multiturn questions carry an optional `prior_turns` list (see schema
+# below) that the runner feeds to the agent as ConversationTurn history;
+# the rewrite stage is what resolves coreference into a search query.
 
 # ---- factual (verified passage_ids from the retrieval fixture) ------------
 
@@ -28,8 +35,7 @@
   expected_passage_ids:
     - cdbs_quick_guide#tributacao-tabela-regressiva
     - guia_completo_tributacao_investimentos#3-renda-fixa-cdb-lc-lci-lca-debentures-e-outros
-    - guia_completo_tributacao_investimentos#3-1-cdb-e-lc-tributacao-padrao
-  notes: "Multiple passages legitimately cover CDB regressive-table taxation; metric is 'at least one match counts'."
+  notes: "Both passages cover CDB regressive-table taxation; metric is 'at least one match counts'. (The umbrella H2 in the tributação doc contains the 3.1 CDB H3 inline — the parser only emits H2 passages.)"
 
 - id: q02
   question: "Qual o limite de cobertura do FGC para CDBs por CPF?"
@@ -119,6 +125,39 @@
     - guia_completo_tributacao_investimentos#12-tributacao-de-etfs
   notes: "Answer is 'no' — both passages cover this."
 
+- id: q31
+  question: "O que é a estratégia de Escada (Laddering) em Tesouro Direto e em que cenário ela faz sentido?"
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - tesouro_direto_estrategias_avancadas#4-estrategias-de-alocacao-da-preservacao-ao-ganho-de-capital
+  notes: |
+    Coverage gap fill — tesouro_direto_estrategias_avancadas was not
+    touched by any other question. The H2 "4. Estratégias de Alocação..."
+    contains the H3 4.2 Escada (Ladder) inline; parser emits only the
+    H2 passage.
+
+- id: q32
+  question: "What is the monthly exemption threshold for crypto sales in Brazil and the applicable tax-rate structure?"
+  language: en
+  bucket: factual
+  expected_passage_ids:
+    - crypto_taxation_brazil#exemption-thresholds-and-progressive-tax-rates
+  notes: |
+    Coverage gap fill — crypto_taxation_brazil was not previously touched.
+    Strong literal anchor on "exemption threshold" / "progressive tax rates".
+
+- id: q33
+  question: "Como funcionam a taxa de administração e a taxa de performance em fundos multimercado brasileiros?"
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - multimercado_fundos_analise_profunda#3-estrutura-de-taxas-e-incentivos
+  notes: |
+    Coverage gap fill — multimercado_fundos_analise_profunda was not
+    touched. The H2 covers taxa de administração, taxa de performance
+    (hurdle, high-water mark), other fees.
+
 # ---- rule_a (tangential mention → general knowledge OK if marked) ---------
 
 - id: q13
@@ -183,15 +222,19 @@
     surface the disagreement.
 
 - id: q18
-  question: "São os FIIs uma classe de renda passiva estável, ou o risco de vacância em lajes corporativas torna a seleção de segmento crítica?"
+  question: "Os FIIs operam como classe de renda recorrente sob a regra de distribuição compulsória de 95% dos resultados, ou os FIIs de desenvolvimento — pelo perfil lumpy e back-loaded do retorno — são incompatíveis com um mandato de renda?"
   language: pt
   bucket: rule_b
   must_cite_at_least: 2
   expected_conflict_mention: true
   notes: |
-    fundos_imobiliarios_completo warns lajes corporativas vacancy is
-    structurally higher post-COVID; dividend_aristocrats_brazil groups
-    FIIs broadly as income vehicles without that warning. Conflict.
+    fundos_imobiliarios_completo enquadra os FIIs como veículos de renda
+    sob a distribuição compulsória de 95% (Lei 9.779/99), comparando o
+    DY contra NTN-B; real_estate_development_funds afirma explicitamente
+    que FIIs de desenvolvimento "face a mismatch" com o mandato de
+    renda — retorno lumpy, back-loaded, possíveis períodos sem
+    distribuição. Conflito direto sobre adequação a investidor de
+    renda. Cita ambos lados, com docs ainda não usados em outras Rule B.
 
 - id: q19
   question: "For a 30-year-old Brazilian investor with only BRL liabilities, is dollar exposure via IVVB11 a portfolio necessity or an optional diversification?"
@@ -262,24 +305,34 @@
     where the corpus tangentially touches the topic is NOT out_of_scope.
 
 - id: q25
-  question: "How do Japanese REITs (Nippon REITs) compare to Brazilian FIIs in dividend yields and currency risk?"
+  question: "What's the best way to learn Python programming as a beginner?"
   language: en
   bucket: out_of_scope
   must_cite_at_least: 0
   expected_out_of_scope: true
   notes: |
-    Corpus is Brazil-only; Japanese REITs are entirely outside scope.
+    Clean non-investing sanity test — programming-learning advice is
+    fully off-topic, no tangential corpus touch. Should refuse.
+    Replaced earlier "Japanese REITs vs FIIs" question which was
+    actually a Rule A case under the system prompt's out_of_scope
+    definition ("about investing, not about whether the corpus
+    happens to cover it").
 
 - id: q26
   question: "Should I speculate on iron ore futures on B3, or invest directly in mining companies — what position size, what stop-loss?"
   language: en
-  bucket: out_of_scope
-  must_cite_at_least: 0
-  expected_out_of_scope: true
+  bucket: rule_a
+  must_cite_at_least: 1
+  expected_general_knowledge: true
   notes: |
-    Derivatives doc covers mechanics, not speculation strategy /
-    sizing / stops. Mining-equity doc exists but query asks for trading
-    tactics not covered. Agent should refuse trading advice.
+    Re-bucketed from out_of_scope to rule_a: the corpus DOES tangentially
+    touch both sides — complete_guide_brazilian_derivatives covers iron
+    ore futures mechanics, and analise_setorial_acoes_brasileiras covers
+    Brazilian mining equities (Vale et al.). Per the system prompt, an
+    investing question with any tangential corpus touch is NOT
+    out_of_scope. Right behavior: cite the relevant passages on both
+    instruments, then put the actual trading-tactics content (position
+    sizing, stop-loss) in general_knowledge_section.
 
 - id: q27
   question: "Qual o melhor restaurante para almoço de negócios em Faria Lima?"
@@ -316,3 +369,42 @@
   must_cite_at_least: 0
   notes: |
     Hedging vs speculation? Experience level? Portfolio size? Clarify.
+
+# ---- multiturn (resolves a referent from a prior turn) -------------------
+
+- id: q34
+  question: "Para CDB de 25 meses."
+  language: pt
+  bucket: factual
+  expected_passage_ids:
+    - cdbs_quick_guide#tributacao-tabela-regressiva
+  prior_turns:
+    - role: user
+      content: "Como funciona a tabela regressiva de IR?"
+    - role: assistant
+      content: "A tabela regressiva de IR é a tabela padrão de tributação de renda fixa no Brasil, com alíquotas que decrescem com o prazo de aplicação (22,5% até 180 dias, 20% até 360 dias, 17,5% até 720 dias, 15% acima de 720 dias). Para qual instrumento específico você gostaria de saber a aplicação?"
+  notes: |
+    Multiturn factual: the standalone follow-up "Para CDB de 25 meses"
+    is meaningless without the prior turn. The rewrite stage must
+    reconstruct "qual a alíquota de IR para CDB de 25 meses" and the
+    agent must cite cdbs_quick_guide#tributacao-tabela-regressiva
+    (25 months > 720 days → 15%). Tests rewrite + retrieval integration.
+
+- id: q35
+  question: "Does it cover LCAs as well?"
+  language: en
+  bucket: factual
+  expected_passage_ids:
+    - lci_lca_investimentos#garantia-do-fgc
+  prior_turns:
+    - role: user
+      content: "Tell me about FGC coverage limits in Brazil."
+    - role: assistant
+      content: "The Fundo Garantidor de Créditos (FGC) covers up to R$250,000 per CPF per financial conglomerate, with a global cap of R$1,000,000 across all institutions, renewable every 4 years after a credit event. Which instrument did you have in mind?"
+  notes: |
+    Multiturn factual: "Does it cover LCAs as well?" requires resolving
+    "it" → FGC and "as well" → in addition to whatever was implied prior.
+    Rewrite must produce something like "does FGC cover LCAs". Expected
+    citation is lci_lca_investimentos#garantia-do-fgc (yes — covered
+    with same R$250k / R$1M limits). Cross-language case: prior assistant
+    turn is in EN, but the canonical FGC-for-LCA passage is in PT.
