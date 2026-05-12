@@ -183,6 +183,8 @@ def _message_from_payload(row: audit_repo.AuditRow, payload: dict[str, Any]) -> 
         general_knowledge_used=output.get("general_knowledge_used"),
         general_knowledge_section=_repair(output.get("general_knowledge_section")),
         out_of_scope=output.get("out_of_scope"),
+        conflict_detected=output.get("conflict_detected"),
+        conflict_statement=_repair(output.get("conflict_statement")),
     )
 
 
