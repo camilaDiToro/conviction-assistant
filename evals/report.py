@@ -1,9 +1,8 @@
 """Render eval-run artefacts (CSV, JSON, Markdown).
 
-The CSV is the source of truth (per-question rows; ``evals.compare``
-diffs two of these). The JSON carries run metadata + aggregates so a
-report can be reproduced without re-reading the CSV. The Markdown is
-embeddable into the README.
+The CSV is the source of truth (per-question rows). The JSON carries
+run metadata + aggregates so a report can be reproduced without
+re-reading the CSV. The Markdown is embeddable into the README.
 """
 
 import json

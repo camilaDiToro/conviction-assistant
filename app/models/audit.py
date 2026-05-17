@@ -5,8 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
 
-# Mirror of the CHECK in alembic/versions/0001_initial_schema.py — keeps
-# `target_metadata = Base.metadata` autogenerate from diffing it away.
 _AUDIT_KIND_CHECK = "kind IN ('llm_call', 'tool_call', 'resolver', 'response')"
 
 

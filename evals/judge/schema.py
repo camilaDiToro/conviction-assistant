@@ -8,13 +8,6 @@ the JSONL diffable.
 Cross-model comparison contract: two judge runs are only comparable
 when their ``(judge_model, judge_prompt_hash)`` match. The aggregator
 refuses to diff mismatched signatures.
-
-Rule B semantic (was ``conflict_disclosure``) is no longer evaluated
-here — it moved to the deterministic ``conflict_disclosure_det`` metric
-in ``evals/metrics.py``, which reads the structured ``conflict_detected``
-field the agent emits. The judge was scoring 0 even when the model
-correctly concluded no conflict existed, because it only inspected
-``answer`` text.
 """
 
 from datetime import datetime

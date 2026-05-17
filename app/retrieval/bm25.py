@@ -49,8 +49,6 @@ class BM25Retriever:
 
     async def build(self, session: AsyncSession) -> None:
         passages = await passages_repo.iter_all(session)
-        # Close the read transaction SQLAlchemy autobegan on iter_all so the
-        # caller gets the session back clean and free to start its own txn.
         await session.rollback()
         self._reindex(passages)
 
@@ -58,8 +56,6 @@ class BM25Retriever:
         await self.build(session)
 
     def _reindex(self, passages: list[Passage]) -> None:
-        # Build the new retriever in locals first; commit both refs in one
-        # statement so a tokenize/index failure leaves the prior index serving.
         if not passages:
             self._passages, self._retriever = [], None
             return
@@ -71,10 +67,6 @@ class BM25Retriever:
 
     def search(self, query: str, k: int) -> list[tuple[Passage, float]]:
         """Return the top-`k` (passage, score) pairs for `query`.
-
-        Empty / whitespace-only queries are caller-side — the tool wrapper
-        raises `EmptyQueryError` before getting here. Empty-corpus and
-        unbuilt-index both return `[]`.
         """
         if self._retriever is None or not self._passages:
             return []
@@ -83,8 +75,7 @@ class BM25Retriever:
             return []
         query_tokens = bm25s.tokenize([normalized], stopwords=None, show_progress=False)
         k_eff = min(k, len(self._passages))
-        # No `corpus=` argument: bm25s returns the integer doc indices into
-        # the indexed array, which is the same order as `self._passages`.
+
         results, scores = self._retriever.retrieve(query_tokens, k=k_eff, show_progress=False)
         out: list[tuple[Passage, float]] = []
         for i in range(results.shape[1]):

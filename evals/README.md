@@ -4,8 +4,6 @@ Hand-authored golden set + deterministic metrics + runner + comparator.
 The headline metric is **anchor rate** — what fraction of cited quotes
 resolved to an offset region in the cited passage.
 
-See `RAGAS_USAGE.md` for which Ragas features the suite uses and why.
-
 ## Quick start
 
 ```bash
@@ -27,23 +25,11 @@ Each run writes three files into `evals/results/`:
 - `<timestamp>_…json` — run metadata + aggregate metrics
 - `<timestamp>_…md` — human-readable report (embeddable in README)
 
-## Compare two runs
-
-```bash
-uv run python -m evals.compare \
-  evals/results/2026-05-11_10-00-00_openai_gpt-5_low.csv \
-  evals/results/2026-05-11_11-00-00_openai_gpt-5_medium.csv
-```
-
-Emits a markdown diff: aggregate deltas, per-bucket comparison, list of
-questions that regressed (passed in A, failing in B) and improvements.
-
 ## Deterministic metrics
 
 | Metric | Type | Source signal |
 |---|---|---|
 | **anchor_rate** | numeric 0-1 | `failure_reason is None` per citation |
-| **citation_precision** | numeric 0-1 | cited passage_id ∈ `expected_passage_ids` |
 | **citation_recall** | numeric 0-1 | expected passage_id is in cited set |
 | **refusal_correctness** | discrete | agent refused iff `expected_out_of_scope` (now two-direction — false refusals on in-scope Qs also penalised) |
 | **general_knowledge_correctness** | discrete | Rule A: was `general_knowledge_used` flagged correctly? |
@@ -71,12 +57,6 @@ records validated against `evals/judge/schema.py`.
 | **rule_a_purity** | discrete | `answer` is free of general-knowledge content (clean / leaked) |
 | **citation_attribution** | numeric 0-1 | each `[N]` marker maps to a passage that supports the preceding claim |
 | **completeness** | discrete | answer covers the substantive points in the cited material (complete / partial / shallow) |
-
-Rule B semantic (was `conflict_disclosure`) moved to the deterministic
-`conflict_disclosure_det` metric — it reads the agent's structured
-`conflict_detected` / `conflict_statement` fields. The judge was scoring 0 even
-when the model correctly emitted `conflict_detected=false` because it only
-inspected the `answer` text.
 
 Combined report:
 

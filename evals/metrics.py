@@ -6,7 +6,7 @@ return a ``MetricResult(value, reason)``. They are invoked directly
 (``metric.score(...)``) by ``evals.run`` — we deliberately do not pass
 them through ``ragas.evaluate`` because that pathway expects
 ``Metric``-class instances and is overkill for our 34-question deterministic
-suite. See ``evals/RAGAS_USAGE.md`` for the full rationale.
+suite.
 
 Each metric reads its inputs from kwargs, never from an LLM. They are
 side-effect-free, pure functions over the per-question data the runner
@@ -214,12 +214,10 @@ def conflict_disclosure_det(
     the golden, with a ``conflict_statement`` that names the
     disagreement using a canonical marker phrase?
 
-    Replaces the LLM-as-judge ``conflict_disclosure`` rubric. The
-    structured field is the source of truth: ``AnswerOutput`` already
-    validates that ``conflict_detected=true`` requires a non-empty
-    ``conflict_statement``; we additionally check that the statement
-    contains a literal disagreement marker so an analyst scanning the
-    audit log gets an unambiguous cue.
+    ``AnswerOutput`` already validates that ``conflict_detected=true``
+    requires a non-empty ``conflict_statement``; we additionally check
+    that the statement contains a literal disagreement marker so an
+    analyst scanning the audit log gets an unambiguous cue.
 
     Behavior:
     - ``expected_conflict_mention=false`` ⇒ ``n/a`` (not Rule B).
@@ -257,8 +255,7 @@ def conflict_min_citations(
 ) -> MetricResult:
     """Rule B precondition: when convictions disagree, the agent must
     cite at least two distinct passages (one per side). Pairs with
-    :func:`conflict_disclosure_det` (semantic check) to fully replace
-    the previous LLM-judge ``conflict_disclosure`` rubric.
+    :func:`conflict_disclosure_det` for the semantic check.
     """
     if not expected_conflict_mention:
         return MetricResult(value="n/a", reason="expected_conflict_mention=false; not applicable")

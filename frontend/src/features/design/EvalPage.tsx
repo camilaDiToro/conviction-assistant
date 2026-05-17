@@ -135,11 +135,6 @@ export default function EvalPage() {
             the CSV. <code className="font-mono text-[12px] text-ink-1">evals/judge/aggregate.py</code>{' '}
             merges deterministic + judge into a combined markdown report.
           </li>
-          <li>
-            <code className="font-mono text-[12px] text-ink-1">evals/compare.py</code>{' '}
-            diffs two runs: aggregate deltas, per-bucket comparison, list of questions
-            that regressed and list of improvements.
-          </li>
         </ol>
         <div className="max-w-prose mt-8 space-y-3">
           <Link
@@ -219,11 +214,6 @@ const DET_METRICS = [
     desc: 'Headline. Fraction of cited quotes that resolved to an offset region in their cited passage. A failed anchor means the model emitted a quote that did not literally appear in the passage it pointed to.',
   },
   {
-    name: 'citation_precision',
-    type: 'numeric',
-    desc: 'For questions with an expected passage set: fraction of cited passages that are in the expected set.',
-  },
-  {
     name: 'citation_recall',
     type: 'numeric',
     desc: 'For questions with an expected passage set: fraction of expected passages that were cited.',
@@ -251,12 +241,12 @@ const DET_METRICS = [
   {
     name: 'conflict_min_citations',
     type: 'discrete',
-    desc: 'Rule B precondition: ≥ 2 distinct citations when expected_conflict_mention=true. Pairs with conflict_disclosure_det to fully replace the previous LLM-judge rubric.',
+    desc: 'Rule B precondition: ≥ 2 distinct citations when expected_conflict_mention=true. Pairs with conflict_disclosure_det for the semantic check.',
   },
   {
     name: 'conflict_disclosure_det',
     type: 'discrete',
-    desc: "Rule B semantic: did the agent emit conflict_detected=true with a conflict_statement carrying a canonical marker phrase (divergem / disagree / difieren / conflitam)? Replaces the LLM-judge rubric — the structured field is the source of truth.",
+    desc: "Rule B semantic: did the agent emit conflict_detected=true with a conflict_statement carrying a canonical marker phrase (divergem / disagree / difieren / conflitam)?",
   },
   {
     name: 'language_match',

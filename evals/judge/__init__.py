@@ -4,10 +4,8 @@ Runs **manually from Claude Code**, not from the runtime — the judge
 prompt + schema live here so the user can apply them to the trace
 JSONL the deterministic runner already emits. The combined report
 under :mod:`evals.judge.aggregate` merges the judge JSONL with the
-deterministic CSV.
-
-See ``evals/RAGAS_USAGE.md`` for why the judge sits outside the
-Ragas runtime.
+deterministic CSV. The judge sits outside the Ragas runtime — Ragas is
+only used for the deterministic metric decorators in ``evals.metrics``.
 """
 
 from evals.judge.schema import (
