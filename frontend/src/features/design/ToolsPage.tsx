@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { PageHeader, Section } from '@/components/Section'
 import { CodeBlock } from '@/components/CodeBlock'
-import { SpecItem, SpecList } from '@/components/Spec'
 import { TOOLS, type ToolSpec } from '@/data/toolSchemas'
 
 export default function ToolsPage() {
