@@ -1,6 +1,7 @@
 """Golden set loader.
 
-The golden set is a hand-authored YAML list under ``evals/golden_set.yaml``.
+The golden set is a YAML list under ``evals/golden_set.yaml``, drafted with
+Claude Opus assistance and reviewed against the corpus.
 This module turns it into typed ``Golden`` records that the runner consumes.
 
 Schema (one entry per item):
@@ -10,7 +11,7 @@ Schema (one entry per item):
   question: "¿Qué dice Decade sobre CDBs y tributação?"
   language: pt                  # pt | en | es
   bucket: factual               # factual | rule_a | rule_b | cross_lang | out_of_scope | clarify
-  expected_passage_ids: []      # optional; enables citation_precision
+  expected_passage_ids: []      # optional; enables citation_recall
   must_cite_at_least: 1         # default 1; 0 for out_of_scope / clarify
   expected_out_of_scope: false
   expected_general_knowledge: false

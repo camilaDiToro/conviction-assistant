@@ -22,7 +22,7 @@ guarantee.
 
 - Brief: [`AI_CHALLENGE.md`](AI_CHALLENGE.md)
 - Architecture & design: [`docs/ARCHITECTURES.md`](docs/ARCHITECTURES.md), [`CLAUDE.md`](CLAUDE.md)
-- Eval suite: [`evals/README.md`](evals/README.md), [`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md)
+- Eval suite: [`evals/README.md`](evals/README.md)
 
 ## Stack
 
@@ -94,9 +94,6 @@ uv run python -m evals.run --reasoning low --limit 3
 # Full golden set:
 uv run python -m evals.run --reasoning medium
 
-# Compare two runs (e.g. low vs medium):
-uv run python -m evals.compare evals/results/run_a.csv evals/results/run_b.csv
-
 # Merge deterministic results with a manually produced judge JSONL:
 uv run python -m evals.judge.aggregate \
   evals/results/<ts>_..._.csv \
@@ -117,9 +114,7 @@ write a `JudgeResult` JSONL validated by
 command above to merge deterministic + judge results.
 
 See [`evals/README.md`](evals/README.md) for the metric definitions,
-golden set structure, and judge workflow. See
-[`evals/RAGAS_USAGE.md`](evals/RAGAS_USAGE.md) for the exact Ragas
-surface area used by the deterministic runner.
+golden set structure, and judge workflow.
 
 ## Operational endpoints
 

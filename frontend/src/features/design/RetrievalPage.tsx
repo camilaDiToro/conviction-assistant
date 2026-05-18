@@ -209,18 +209,15 @@ export default function RetrievalPage() {
           ordered by what typically breaks first and what's cheapest to add.
         </p>
         <SpecList>
-          <SpecItem term="Right passage ranked too low (top-20 but not top-5)">
+          <SpecItem term="Right passage ranked too low, or false positives in top-5">
             The most common first failure. BM25 found the relevant passage but other passages
-            with similar token frequencies outranked it.{' '}
+            with similar token frequencies outranked it — or passages that incidentally repeat
+            the query's terms in irrelevant context crowded the top-5.{' '}
             <strong className="text-ink-1">Fix: cross-encoder reranker</strong> over BM25's
             top-50. Wraps <code className="font-mono text-[13px] text-ink-1">.search()</code>{' '}
             results; the <code className="font-mono text-[13px] text-ink-1">Retriever</code>{' '}
             Protocol and <code className="font-mono text-[13px] text-ink-1">PassageHit</code>{' '}
-            schema don't change. ~50–200 ms in CPU. Reversible.
-          </SpecItem>
-          <SpecItem term="Score-driven false positives in top-5">
-            Passages that incidentally repeat the query's terms in irrelevant context. Same
-            fix as above — the reranker catches both.
+            schema don't change.
           </SpecItem>
           <SpecItem term="Right passage not in top-50 (recall fail)">
             Query uses different words than the doc.{' '}
@@ -267,6 +264,44 @@ export default function RetrievalPage() {
           grounded citations need to preserve. These thresholds are conservative for this
           domain — BM25 likely stays competitive further than for a generic prose corpus.
         </p>
+
+        <div className="max-w-prose mt-8 space-y-4">
+          <figure className="border-l-2 border-border pl-5">
+            <blockquote className="text-ink-2 text-[15px] leading-relaxed italic">
+              "In over 90% of cases, clients who added rerankers or embeddings without baselining
+              ended up with a worse system once they evaluated properly."
+            </blockquote>
+            <figcaption className="text-ink-3 text-[13px] mt-2">
+              — Skylar Payne, on Jason Liu's blog.{' '}
+              <a
+                href="https://jxnl.co/writing/2025/06/11/rag-anti-patterns-with-skylar-payne/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink-1 underline underline-offset-2 hover:text-ink-1/80 break-all"
+              >
+                jxnl.co/writing/2025/06/11/rag-anti-patterns-with-skylar-payne
+              </a>
+            </figcaption>
+          </figure>
+
+          <figure className="border-l-2 border-border pl-5">
+            <blockquote className="text-ink-2 text-[15px] leading-relaxed italic">
+              "MTEB leaderboard rankings don't transfer to your domain. Build your own benchmark
+              from your own corpus before picking an embedding model."
+            </blockquote>
+            <figcaption className="text-ink-3 text-[13px] mt-2">
+              — Kelly Hong, Chroma Research, "Stop Trusting MTEB Rankings" (2025).{' '}
+              <a
+                href="https://jxnl.co/writing/2025/09/11/stop-trusting-mteb-rankings-kelly-hong-chroma/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink-1 underline underline-offset-2 hover:text-ink-1/80 break-all"
+              >
+                jxnl.co/writing/2025/09/11/stop-trusting-mteb-rankings-kelly-hong-chroma
+              </a>
+            </figcaption>
+          </figure>
+        </div>
       </Section>
 
     </article>

@@ -1,14 +1,6 @@
 """Ingest convictions into the SQLite passage store.
 
-Orchestrates parser → repository. Returns a domain object; HTTP concerns
-live in app/api/admin.py. Renamed-heading caveat: passage IDs are
-slug-based, so renaming a heading produces a new ID and the previous ID
-becomes an orphan. We delete orphans on re-ingest and surface the count
-so the caller can notice.
-
-Parser is sync (pure markdown → list[Passage]); calling it from this
-async function blocks the event loop while parsing. For 30 small files
-this is sub-second and not worth offloading to a thread executor.
+Orchestrates parser → repository.
 """
 
 from dataclasses import dataclass
@@ -42,9 +34,6 @@ async def ingest_corpus(session: AsyncSession, directory: Path) -> IngestReport:
         orphans = sorted(existing - new_ids)
         n_upserted = await passages_repo.upsert_many(session, parsed)
         n_deleted = await passages_repo.delete_ids(session, orphans)
-        # Count distinct documents inside the same transaction — reading
-        # after commit would autobegin a new transaction the caller
-        # couldn't close.
         doc_count = await passages_repo.count_documents(session)
 
     return IngestReport(

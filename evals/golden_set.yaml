@@ -1,9 +1,9 @@
-# Golden evaluation set — 34 hand-authored questions.
+# Golden evaluation set — 34 questions drafted with Claude Opus assistance.
 #
 # Schema (one entry per item):
 #   id, question, language (pt|en|es), bucket
 #     (factual|rule_a|rule_b|cross_lang|out_of_scope|clarify),
-#   expected_passage_ids (optional, enables citation_precision),
+#   expected_passage_ids (optional, enables citation_recall),
 #   must_cite_at_least (default 1; 0 for refuse/clarify paths),
 #   expected_out_of_scope, expected_general_knowledge,
 #   expected_conflict_mention, notes.

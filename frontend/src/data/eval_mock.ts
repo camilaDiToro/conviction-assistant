@@ -1078,11 +1078,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "2/2 expected ids cited (1 extra cite, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "2/2 expected ids cited"
@@ -1224,11 +1219,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "1/1 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "0.5",
-        "reason": "1/2 expected ids cited (0 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -1386,11 +1376,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "2/2 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "2/2 expected ids cited (0 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "2/2 expected ids cited"
@@ -1544,11 +1529,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "2/2 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "2/2 expected ids cited (0 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -1717,11 +1697,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -1886,11 +1861,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "3/3 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -2059,11 +2029,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -2204,11 +2169,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "1/1 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (0 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -2367,11 +2327,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "2/2 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "0.3333333333333333",
-        "reason": "1/3 expected ids cited (1 extra cite, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "0.3333333333333333",
         "reason": "1/3 expected ids cited"
@@ -2513,11 +2468,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "1/1 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "0.5",
-        "reason": "1/2 expected ids cited (0 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -2698,11 +2648,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "4/4 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (3 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -2870,11 +2815,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "2/2 expected ids cited (1 extra cite, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "2/2 expected ids cited"
@@ -3025,11 +2965,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "2/2 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -3208,11 +3143,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "4/4 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -3377,11 +3307,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -3544,11 +3469,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "3/3 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -3727,11 +3647,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "4/4 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -3906,11 +3821,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "4/4 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -4101,11 +4011,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "5/5 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -4270,11 +4175,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "3/3 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -4454,11 +4354,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "4/4 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "2/2 expected ids cited (2 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -4651,11 +4546,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "5/5 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (4 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -4808,11 +4698,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "2/2 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -4938,11 +4823,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "0.0",
         "reason": "no citations emitted"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -5109,11 +4989,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -5239,11 +5114,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "0.0",
         "reason": "no citations emitted"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -5373,11 +5243,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "no citations emitted"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -5505,11 +5370,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "no citations emitted"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "expected_passage_ids unset; metric not applicable"
@@ -5635,11 +5495,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "0.0",
         "reason": "no citations emitted"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "expected_passage_ids unset; metric not applicable"
       },
       {
         "name": "citation_recall",
@@ -5808,11 +5663,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "3/3 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -5954,11 +5804,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "1/1 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "0.5",
-        "reason": "1/2 expected ids cited (0 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -6125,11 +5970,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "3/3 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (2 extra cites, not penalised)"
       },
       {
         "name": "citation_recall",
@@ -6303,11 +6143,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "reason": "2/2 citations anchored"
       },
       {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (1 extra cite, not penalised)"
-      },
-      {
         "name": "citation_recall",
         "label": "1.0",
         "reason": "1/1 expected ids cited"
@@ -6477,11 +6312,6 @@ export const EVAL_MOCK: EvalRecord[] = [
         "name": "anchor_rate",
         "label": "1.0",
         "reason": "2/2 citations anchored"
-      },
-      {
-        "name": "citation_precision",
-        "label": "1.0",
-        "reason": "1/1 expected ids cited (1 extra cite, not penalised)"
       },
       {
         "name": "citation_recall",

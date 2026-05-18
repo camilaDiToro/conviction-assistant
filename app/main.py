@@ -54,8 +54,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.auto_ingest_on_startup:
         async with factory() as session:
             existing = await passages_repo.all_ids(session)
-        # Fresh session for ingest — `all_ids` already auto-began a tx on the
-        # previous one, and `ingest_corpus` opens its own `session.begin()`.
         if not existing:
             async with factory() as session:
                 await ingest_service.ingest_corpus(session, settings.convictions_dir)

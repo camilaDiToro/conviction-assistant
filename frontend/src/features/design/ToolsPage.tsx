@@ -19,17 +19,9 @@ export default function ToolsPage() {
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
           The agent must reach the corpus through a typed interface, not the database, and not
           the BM25 index directly. The interface must be schema-discoverable by the LLM, pure
-          (no global state beyond the injected context), and replaceable in tests.
-        </p>
-      </Section>
-
-      <Section eyebrow="ToolContext">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
-          The single dependency container every tool receives. A frozen dataclass holding the
-          <code className="font-mono text-[13px] text-ink-1"> AsyncSession</code> used by
-          repository calls and the <code className="font-mono text-[13px] text-ink-1">Retriever</code>{' '}
-          used by <code className="font-mono text-[13px] text-ink-1">search_convictions</code>.
-          Nothing else is reachable from inside a tool.
+          (no global state beyond the injected{' '}
+          <code className="font-mono text-[13px] text-ink-1">ToolContext</code>), and
+          replaceable in tests.
         </p>
       </Section>
 
@@ -124,14 +116,6 @@ async def read_document_outline(ctx: ToolContext, *, document_id: str) -> Docume
 async def search_convictions(ctx: ToolContext, *, query: str, k: int = 5) -> list[PassageHit]: ...
 async def read_passage(ctx: ToolContext, *, passage_ids: list[str]) -> list[Passage]: ...`}
         />
-      </Section>
-
-      <Section eyebrow="Trade-offs and alternatives considered">
-        <SpecList>
-          <SpecItem term="Pydantic-derived schemas">Rejected. The LLM sees the description as prose; an auto-derived JSON schema decouples the description from the schema and the two drift. Hand-writing keeps them in one block.</SpecItem>
-          <SpecItem term="Auto-tooling for schemas">Rejected. At four tools with one parameter each, codegen is more code than the schemas themselves.</SpecItem>
-          <SpecItem term="Including a write tool">Rejected. Write paths (ingest, audit) belong to the application boundary, not the agent surface. The agent must not be able to mutate corpus state.</SpecItem>
-        </SpecList>
       </Section>
     </article>
   )
