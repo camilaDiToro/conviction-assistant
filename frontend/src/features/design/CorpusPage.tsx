@@ -46,11 +46,6 @@ export default function CorpusPage() {
             </li>
           </ol>
           <p>
-            <code className="font-mono text-[13px] text-ink-1">app/services/ingest.py</code>{' '}
-            orchestrates the run: parse every file, upsert via the repository, delete passages
-            whose ids no longer appear (orphan detection on re-ingest).
-          </p>
-          <p>
             Dispatch by file extension lives in{' '}
             <code className="font-mono text-[13px] text-ink-1">app/services/parser/registry.py</code>:
             an explicit{' '}
@@ -170,16 +165,6 @@ export default function CorpusPage() {
               ext=".xlsx / .csv"
               lib="openpyxl / pandas"
               note="One sheet per logical document; the heading is the column header or the table caption, the text is a serialized row or row-group. Slug from the column name plus a row index. Useful when the conviction is a structured table of cases rather than prose."
-            />
-            <FormatRow
-              ext=".docx"
-              lib="python-docx"
-              note="Walk paragraphs and pick up Word styles (Heading 1 / Heading 2). Behaves almost like markdown once styles are mapped, with the caveat that authors sometimes fake headings with bold text — needs a fallback."
-            />
-            <FormatRow
-              ext=".html / web pages"
-              lib="readability + beautifulsoup"
-              note="Strip chrome, keep the article body, split on heading tags. Same shape as markdown after extraction; the work is in the pre-parser cleanup."
             />
           </div>
         </div>

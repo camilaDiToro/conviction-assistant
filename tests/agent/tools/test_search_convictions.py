@@ -1,6 +1,6 @@
 """Acceptance test for search_convictions over the real conviction corpus.
 
-Reads `tests/fixtures/retrieval_golden.yaml` (29 hand-authored cases across
+Reads `tests/fixtures/retrieval_golden.yaml` (29 cases drafted with Claude Opus assistance, across
 literal / topic / cross_lang buckets in PT/EN/ES), ingests the real
 `convictions/` directory once, and asserts per-bucket recall@5 floors:
 

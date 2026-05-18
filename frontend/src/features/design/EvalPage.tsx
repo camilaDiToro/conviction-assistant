@@ -10,8 +10,9 @@ export default function EvalPage() {
         title="Evaluation."
         lead={
           <>
-            A hand-authored golden set, deterministic metrics that run on every change, and
-            a separate LLM-as-judge layer for the semantic checks a regex cannot do. The
+            A golden set drafted with Claude Opus assistance, deterministic metrics that run
+            on every change, and a separate LLM-as-judge layer for the semantic checks a regex
+            cannot do. The
             headline number is anchor rate — what fraction of cited quotes resolved cleanly
             to an offset region of the source passage.
           </>

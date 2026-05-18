@@ -45,7 +45,7 @@ export default function EvalDatasetPage() {
         title="The set, and the latest run."
         lead={
           <>
-            The 34 hand-authored questions on the left, and the most recent deterministic
+            The 34 questions (drafted with Claude Opus assistance) on the left, and the most recent deterministic
             run report on the right. Source files:{' '}
             <code className="font-mono text-[14px] text-ink-1">evals/golden_set.yaml</code>{' '}
             and{' '}

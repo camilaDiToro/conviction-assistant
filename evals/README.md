@@ -73,7 +73,7 @@ only comparable when both signatures match.
 
 ## Golden set
 
-`evals/golden_set.yaml` — 34 hand-authored questions, distributed:
+`evals/golden_set.yaml` — 34 questions drafted with Claude Opus assistance, distributed:
 
 - 18 factual (incl. 2 multiturn; verified `expected_passage_ids` from the retrieval fixture)
 - 5 rule_a (tangential mention; general_knowledge_used should fire)

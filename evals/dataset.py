@@ -1,6 +1,7 @@
 """Golden set loader.
 
-The golden set is a hand-authored YAML list under ``evals/golden_set.yaml``.
+The golden set is a YAML list under ``evals/golden_set.yaml``, drafted with
+Claude Opus assistance and reviewed against the corpus.
 This module turns it into typed ``Golden`` records that the runner consumes.
 
 Schema (one entry per item):

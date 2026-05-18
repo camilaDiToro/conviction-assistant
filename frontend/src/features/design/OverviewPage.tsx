@@ -378,7 +378,7 @@ function LifecycleDiagram() {
   ]
   return (
     <div className="my-2 border border-border rounded-md bg-surface p-6 md:p-8 overflow-x-auto">
-      <svg viewBox="0 0 920 500" className="w-full max-w-[920px] mx-auto" role="img" aria-label="Request lifecycle sequence">
+      <svg viewBox="0 0 920 560" className="w-full max-w-[920px] mx-auto" role="img" aria-label="Request lifecycle sequence">
         <defs>
           <marker id="arrow-life" markerWidth="8" markerHeight="8" refX="8" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="#FFFFFF" />
@@ -391,23 +391,25 @@ function LifecycleDiagram() {
             <rect x={l.x - 60} y="0" width="120" height="48" fill="#0A0A0A" stroke="#262626" />
             <text x={l.x} y="22" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="Inter">{l.label}</text>
             <text x={l.x} y="38" textAnchor="middle" fill="#6B6B6B" fontSize="9" fontFamily="JetBrains Mono">{l.file}</text>
-            <line x1={l.x} y1="48" x2={l.x} y2="480" stroke="#262626" strokeDasharray="2 3" />
+            <line x1={l.x} y1="48" x2={l.x} y2="540" stroke="#262626" strokeDasharray="2 3" />
           </g>
         ))}
 
         {/* Steps */}
         {[
           { y: 80, from: 0, to: 1, label: 'invoke loop with question' },
-          { y: 120, from: 1, to: 2, label: 'search_convictions(query, k=5)' },
-          { y: 145, from: 2, to: 1, label: 'list[PassageHit]', back: true },
-          { y: 180, from: 1, to: 2, label: 'read_passage(passage_ids)' },
-          { y: 205, from: 2, to: 1, label: 'list[Passage]', back: true },
-          { y: 245, from: 1, to: 3, label: 'generate(messages, schema=AnswerSchema)' },
-          { y: 270, from: 3, to: 1, label: 'LLMResponse(parsed=Answer, usage)', back: true },
-          { y: 310, from: 1, to: 4, label: 'resolve(citations, passages)' },
-          { y: 335, from: 4, to: 1, label: 'Resolution(passage_id, start, end)', back: true },
-          { y: 375, from: 1, to: 5, label: 'append step rows · llm_call · tool_call · resolver' },
-          { y: 415, from: 1, to: 0, label: 'ChatAnswerResponse (citations + disclaimer + usage)', back: true },
+          { y: 115, from: 1, to: 3, label: 'rewrite(question, history)' },
+          { y: 140, from: 3, to: 1, label: 'standalone question', back: true },
+          { y: 175, from: 1, to: 2, label: 'search_convictions(query, k=5)' },
+          { y: 200, from: 2, to: 1, label: 'list[PassageHit]', back: true },
+          { y: 235, from: 1, to: 2, label: 'read_passage(passage_ids)' },
+          { y: 260, from: 2, to: 1, label: 'list[Passage]', back: true },
+          { y: 300, from: 1, to: 3, label: 'generate(messages, schema=AnswerSchema)' },
+          { y: 325, from: 3, to: 1, label: 'LLMResponse(parsed=Answer, usage)', back: true },
+          { y: 365, from: 1, to: 4, label: 'resolve(citations, passages)' },
+          { y: 390, from: 4, to: 1, label: 'Resolution(passage_id, start, end)', back: true },
+          { y: 430, from: 1, to: 5, label: 'append step rows · llm_call · tool_call · resolver' },
+          { y: 470, from: 1, to: 0, label: 'ChatAnswerResponse (citations + disclaimer + usage)', back: true },
         ].map((s, i) => {
           const fromX = lanes[s.from].x
           const toX = lanes[s.to].x

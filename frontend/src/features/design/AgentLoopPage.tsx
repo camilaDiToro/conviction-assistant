@@ -19,45 +19,14 @@ export default function AgentLoopPage() {
 
       <Section eyebrow="Step 1 · Rewrite">
         <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
-          Before the agent loop runs, a separate LLM call takes <code className="font-mono text-[13px] text-ink-1">(history, new_user_message)</code> and
-          produces <code className="font-mono text-[13px] text-ink-1">(rewritten_self_contained_question, detected_language)</code>. The agent loop
-          then sees ONLY <code className="font-mono text-[13px] text-ink-1">[system_prompt, user: rewritten_question]</code> — no prior assistant text,
-          no prior user turns. This is the <strong className="text-ink-1">conversation-memory quarantine</strong>:
-          grounding stays anchored to the corpus, never to the model's own past answers.
-        </p>
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
-          The rewrite resolves pronouns ("it", "those") and elliptic follow-ups ("and LCAs?") into a
-          question that stands alone. If the new question already stands alone (or there is no prior
-          conversation), it is returned unchanged — the model is instructed not to paraphrase for
-          style. The same call classifies the user's language (<code className="font-mono text-[13px] text-ink-1">pt</code> /
-          <code className="font-mono text-[13px] text-ink-1"> es</code> / <code className="font-mono text-[13px] text-ink-1">en</code>),
-          which drives the answer-language directive downstream.
-        </p>
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
-          This is the industry-standard pattern for multi-turn RAG. LangChain's
-          {' '}<code className="font-mono text-[13px] text-ink-1">create_history_aware_retriever</code> "builds a
-          retriever that uses chat history to rephrase user questions, making them standalone for
-          better retrieval." LlamaIndex's <code className="font-mono text-[13px] text-ink-1">CondenseQuestionChatEngine</code> "first
-          generates a standalone question from conversation context and last message, then queries
-          the query engine for a response." The motivation in both libraries — and in the RAG
-          literature — is the same: passing full history bloats tokens, biases retrieval toward
-          prior topics ("context contamination"), and lets the model self-anchor on its own previous
-          answers instead of re-deriving claims from the corpus.
+          A separate LLM call takes <code className="font-mono text-[13px] text-ink-1">(history, new_user_message)</code>{' '}
+          and returns <code className="font-mono text-[13px] text-ink-1">(standalone_question, language)</code>.
+          The agent loop then sees <em>only</em> the system prompt and the standalone
+          question — no prior turns.
         </p>
         <CodeBlock
           lang="python"
-          code={`# app/agent/rewrite.py
-async def rewrite_question(
-    user_message: str,
-    history: list[ConversationTurn],
-    *,
-    llm: LLMProvider,
-) -> tuple[str, Language, StepRecord]:
-    ...
-    # returns (rewritten_question, detected_language, step)
-
-# app/agent/loop.py — the agent only ever sees the rewritten question
-rewritten, language, rewrite_step = await rewrite_question(
+          code={`rewritten, language, _ = await rewrite_question(
     user_message, history, llm=llm,
 )
 messages = [
@@ -68,105 +37,62 @@ messages = [
         />
       </Section>
 
-      <Section eyebrow="Problem">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
-          Drive a tool-using LLM toward a grounded, structured answer with a finite tool
-          budget. Detect cases where the model has not yet seen enough evidence (force a
-          search), where the question is off-topic (return a safe out-of-scope reply), and
-          turn each cited quote into a verifiable <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region of the source
-          passage before shipping.
-        </p>
-      </Section>
-
-      <Section eyebrow="Constraints">
-        <SpecList>
-          <SpecItem term="≤ 5 tool calls">Counted by the orchestrator. A 6th call triggers a "tool budget exhausted" message inlined into the in-flight tool results, and the next iteration must produce a final structured answer.</SpecItem>
-          <SpecItem term="≥ 1 search before any answer">Forces the agent to look. An <code className="font-mono text-[13px] text-ink-1">AnswerOutput</code> emitted before any <code className="font-mono text-[13px] text-ink-1">search_convictions</code> call has run is rejected (unless <code className="font-mono text-[13px] text-ink-1">out_of_scope=true</code>); the loop appends a reminder and continues.</SpecItem>
-          <SpecItem term="Strict JSON output">The provider adapter sends a strict JSON schema to the model (<code className="font-mono text-[13px] text-ink-1">text.format=json_schema</code> on OpenAI Responses). The orchestrator never parses freeform text.</SpecItem>
-          <SpecItem term="Deterministic resolver">Every <code className="font-mono text-[13px] text-ink-1">AnswerOutput</code> runs through a substring resolver that turns each cited quote into a <code className="font-mono text-[13px] text-ink-1">(start, end)</code> region of the cited passage. The literal quote is dropped before the wire response is built; non-anchoring citations survive with offsets <code className="font-mono text-[13px] text-ink-1">null</code>.</SpecItem>
-          <SpecItem term="Determinism in tests">Against <code className="font-mono text-[13px] text-ink-1">StubLLM</code> the loop is reproducible; the same fixture YAML always produces the same audit trace.</SpecItem>
-        </SpecList>
-      </Section>
-
-      <Section eyebrow="Approach">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          The pipeline is small enough to fit on one diagram. Heavy outline = the orchestrator
-          enforces an invariant at this transition; dashed = the deterministic resolver.
-        </p>
+      <Section eyebrow="The loop">
         <StateMachine />
+        <ol className="max-w-prose text-ink-2 text-[15px] leading-relaxed list-decimal pl-5 space-y-2 mt-6">
+          <li>
+            <strong className="text-ink-1">Rewrite.</strong> Multi-turn history collapses into
+            a standalone question + detected language.
+          </li>
+          <li>
+            <strong className="text-ink-1">Gather.</strong> The agent calls tools (
+            <code className="font-mono text-[13px] text-ink-1">search_convictions</code>,{' '}
+            <code className="font-mono text-[13px] text-ink-1">read_passage</code>, …) and loops
+            on itself until it has enough evidence — bounded at 5 calls.
+          </li>
+          <li>
+            <strong className="text-ink-1">Act.</strong> The LLM emits a strict-JSON answer or a
+            clarifying question. The shape is enforced at the provider boundary.
+          </li>
+          <li>
+            <strong className="text-ink-1">Resolve.</strong> Each cited quote runs through{' '}
+            <code className="font-mono text-[13px] text-ink-1">str.find</code> against its
+            passage and becomes <code className="font-mono text-[13px] text-ink-1">(start, end)</code>.
+            Deterministic — no LLM in this step.
+          </li>
+        </ol>
       </Section>
 
-      <Section eyebrow="The bounds, named">
+      <Section eyebrow="Bounds, enforced by the orchestrator">
         <SpecList>
-          <SpecItem term="agent_max_tool_calls = 5">A single conversation step may chain at most five tool calls. The 6th refuses all calls in that batch with "tool budget exhausted" and forces a final answer next iteration.</SpecItem>
-          <SpecItem term="agent_max_iterations = 12">Hard cap on loop turns (one LLM call per iteration). Hitting it raises <code className="font-mono text-[13px] text-ink-1">AgentError</code> — a safety net against runaway loops, not an expected exit.</SpecItem>
-          <SpecItem term="≥ 1 search before answer (hard-coded invariant)">Tracked by counting <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls. An <code className="font-mono text-[13px] text-ink-1">AnswerOutput</code> emitted while the counter is zero is rejected and the agent is re-prompted with a directive to search (unless <code className="font-mono text-[13px] text-ink-1">out_of_scope=true</code>). Not a setting — the check lives in <code className="font-mono text-[13px] text-ink-1">_needs_search_first()</code>.</SpecItem>
-          <SpecItem term='agent_reasoning_effort = "low"'>Default for the deployed model (<code className="font-mono text-[13px] text-ink-1">gpt-5.5</code>). The deterministic resolver catches misquotes and paraphrase post-hoc, so higher effort is reserved for controlled eval runs.</SpecItem>
+          <SpecItem term="≤ 5 tool calls per turn">
+            The 6th is refused with "tool budget exhausted" and the next iteration must answer.
+          </SpecItem>
+          <SpecItem term="≥ 1 search before any answer">
+            An <code className="font-mono text-[13px] text-ink-1">AnswerOutput</code> with zero{' '}
+            <code className="font-mono text-[13px] text-ink-1">search_convictions</code> calls
+            behind it is rejected (unless{' '}
+            <code className="font-mono text-[13px] text-ink-1">out_of_scope=true</code>). Hard-coded,
+            not a setting.
+          </SpecItem>
+          <SpecItem term="≤ 12 iterations">
+            Safety net against runaway loops. Hitting it raises{' '}
+            <code className="font-mono text-[13px] text-ink-1">AgentError</code> — not an
+            expected exit.
+          </SpecItem>
+          <SpecItem term="Strict JSON output">
+            The provider adapter passes a JSON schema; the orchestrator never parses freeform text.
+          </SpecItem>
         </SpecList>
-      </Section>
-
-      <Section eyebrow="Contract">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-4">
-          The agent's structured output is one of two variants. Strict JSON schema enforces shape.
-          Citations enter the resolver with verbatim <code className="font-mono text-[13px] text-ink-1">quote</code> strings; after the resolver runs,
-          the wire response carries <code className="font-mono text-[13px] text-ink-1">(start, end)</code> offsets into the passage and the literal quote is dropped.
-        </p>
-        <CodeBlock
-          lang="json"
-          code={`// Agent output (internal — consumed by the resolver)
-{
-  "kind": "answer",
-  "answer": "string",
-  "citations": [
-    {
-      "passage_id": "string",
-      "quote": "string"          // verbatim substring of the cited passage
-    }
-  ],
-  "general_knowledge_used": false,
-  "general_knowledge_section": null,
-  "conflict_detected": false,
-  "conflict_statement": null,
-  "out_of_scope": false
-}
-
-// Wire citation (post-resolver — the quote is gone)
-{
-  "passage_id": "string",
-  "document": "string.md",
-  "heading": "string",
-  "heading_path": ["string"],
-  "passage_text": "string",
-  "start": 42,                   // null when the quote did not anchor
-  "end": 87                      // null when the quote did not anchor
-}
-
-// ClarifyingResponse (internal == wire)
-{
-  "kind": "clarifying_question",
-  "question": "string",
-  "options": ["string"]
-}`}
-        />
       </Section>
 
       <Section eyebrow="System prompt">
-        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed mb-6">
-          The full agent system prompt — every directive the LLM sees on each call.
-          Versioned: each eval report is stamped with{' '}
-          <code className="font-mono text-[13px] text-ink-1">prompt_version</code> —
-          an 8-char SHA-256 prefix of{' '}
-          <code className="font-mono text-[13px] text-ink-1">app/agent/prompts/system.md</code> —
-          so a run can be traced back to the exact prompt revision that produced its numbers.
+        <p className="max-w-prose text-ink-2 text-[15px] leading-relaxed">
+          Lives in{' '}
+          <code className="font-mono text-[13px] text-ink-1">app/agent/prompts/system.md</code>.
+          Every eval report is stamped with an 8-char SHA-256 prefix of it, so any run can be
+          traced back to the exact prompt revision that produced its numbers.
         </p>
-        <div className="border border-border rounded-md bg-surface relative">
-          <div className="absolute top-2.5 left-3 text-[10px] uppercase tracking-tight text-ink-3 font-mono">
-            system prompt · system.md
-          </div>
-          <pre className="font-mono text-[12px] leading-relaxed text-ink-1 p-4 pt-9 whitespace-pre-wrap">
-{SYSTEM_PROMPT}
-          </pre>
-        </div>
       </Section>
 
     </article>
